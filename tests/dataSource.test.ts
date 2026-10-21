@@ -3815,6 +3815,31 @@ describe('DataSource', () => {
 		});
 	});
 
+	describe('getCommitMessage', () => {
+		it('Should return the full message of a commit', async () => {
+			// Setup
+			mockGitSuccessOnce('Subject\n\nBody line 1\r\nBody line 2\n\n');
+
+			// Run
+			const result = await dataSource.getCommitMessage('/path/to/repo', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b');
+
+			// Assert
+			expect(result).toStrictEqual({ message: 'Subject\n\nBody line 1\nBody line 2', error: null });
+			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['-c', 'log.showSignature=false', 'show', '--quiet', '--format=%B', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', '--'], expect.objectContaining({ cwd: '/path/to/repo' }));
+		});
+
+		it('Should return an error message thrown by git', async () => {
+			// Setup
+			mockGitThrowingErrorOnce();
+
+			// Run
+			const result = await dataSource.getCommitMessage('/path/to/repo', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b');
+
+			// Assert
+			expect(result).toStrictEqual({ message: null, error: 'error message' });
+		});
+	});
+
 	describe('getRemoteUrl', () => {
 		it('Should return the url of the remote', async () => {
 			// Setup
@@ -6165,6 +6190,191 @@ describe('DataSource', () => {
 
 			// Assert
 			expect(result).toBe('error message');
+		});
+	});
+
+	describe('editCommit', () => {
+		let spyOnExistsSync: jest.SpyInstance, spyOnUnlinkSync: jest.SpyInstance;
+		beforeAll(() => {
+			spyOnExistsSync = jest.spyOn(fs, 'existsSync');
+			spyOnUnlinkSync = jest.spyOn(fs, 'unlinkSync');
+		});
+		afterAll(() => {
+			spyOnExistsSync.mockRestore();
+			spyOnUnlinkSync.mockRestore();
+		});
+
+		it('Should edit a commit', async () => {
+			// Setup
+			mockGitSuccessOnce();
+			mockGitSuccessOnce('.git/rebase-merge/amend\n');
+			spyOnExistsSync.mockReturnValueOnce(true);
+			mockGitSuccessOnce();
+			spyOnUnlinkSync.mockImplementationOnce(() => { });
+			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
+
+			// Run
+			const result = await dataSource.editCommit('/path/to/repo', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', null);
+
+			// Assert
+			expect(result).toBe(null);
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(1, '/path/to/git', ['-c', 'sequence.editor=sed -i.bak -e "1s/^[a-z]* /edit /"', 'rebase', '--interactive', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b^'], expect.objectContaining({ cwd: '/path/to/repo' }));
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(2, '/path/to/git', ['rev-parse', '--git-path', 'rebase-merge/amend'], expect.objectContaining({ cwd: '/path/to/repo' }));
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(3, '/path/to/git', ['reset', '--soft', 'HEAD~1'], expect.objectContaining({ cwd: '/path/to/repo' }));
+			expect(utils.getPathFromStr(spyOnExistsSync.mock.calls[0][0])).toBe('/path/to/repo/.git/rebase-merge/amend');
+			expect(utils.getPathFromStr(spyOnUnlinkSync.mock.calls[0][0])).toBe('/path/to/repo/.git/rebase-merge/amend');
+		});
+
+		it('Should edit a commit (signing any new commits)', async () => {
+			// Setup
+			mockGitSuccessOnce();
+			mockGitSuccessOnce('.git/rebase-merge/amend\n');
+			spyOnExistsSync.mockReturnValueOnce(true);
+			mockGitSuccessOnce();
+			spyOnUnlinkSync.mockImplementationOnce(() => { });
+			vscode.mockExtensionSettingReturnValue('repository.sign.commits', true);
+
+			// Run
+			const result = await dataSource.editCommit('/path/to/repo', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', null);
+
+			// Assert
+			expect(result).toBe(null);
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(1, '/path/to/git', ['-c', 'sequence.editor=sed -i.bak -e "1s/^[a-z]* /edit /"', 'rebase', '--interactive', '-S', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b^'], expect.objectContaining({ cwd: '/path/to/repo' }));
+		});
+
+		it('Should return an error message thrown by git when starting the rebase', async () => {
+			// Setup
+			mockGitThrowingErrorOnce();
+			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
+
+			// Run
+			const result = await dataSource.editCommit('/path/to/repo', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', null);
+
+			// Assert
+			expect(result).toBe('error message');
+			expect(spyOnSpawn).toHaveBeenCalledTimes(1);
+		});
+
+		it('Should return an error message thrown by git when resolving the path of the amend file', async () => {
+			// Setup
+			mockGitSuccessOnce();
+			mockGitThrowingErrorOnce();
+			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
+
+			// Run
+			const result = await dataSource.editCommit('/path/to/repo', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', null);
+
+			// Assert
+			expect(result).toBe('error message');
+			expect(spyOnSpawn).toHaveBeenCalledTimes(2);
+		});
+
+		it('Should return an error message when the rebase didn\'t stop at the commit', async () => {
+			// Setup
+			mockGitSuccessOnce();
+			mockGitSuccessOnce('.git/rebase-merge/amend\n');
+			spyOnExistsSync.mockReturnValueOnce(false);
+			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
+
+			// Run
+			const result = await dataSource.editCommit('/path/to/repo', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', null);
+
+			// Assert
+			expect(result).toBe('Git didn\'t stop the rebase at commit 1a2b3c4d.');
+			expect(spyOnSpawn).toHaveBeenCalledTimes(2);
+		});
+
+		it('Should return an error message thrown by git when undoing the commit', async () => {
+			// Setup
+			mockGitSuccessOnce();
+			mockGitSuccessOnce('.git/rebase-merge/amend\n');
+			spyOnExistsSync.mockReturnValueOnce(true);
+			mockGitThrowingErrorOnce();
+			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
+
+			// Run
+			const result = await dataSource.editCommit('/path/to/repo', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', null);
+
+			// Assert
+			expect(result).toBe('error message');
+			expect(spyOnUnlinkSync).toHaveBeenCalledTimes(0);
+		});
+
+		it('Should return an error message when the amend file can\'t be removed', async () => {
+			// Setup
+			mockGitSuccessOnce();
+			mockGitSuccessOnce('.git/rebase-merge/amend\n');
+			spyOnExistsSync.mockReturnValueOnce(true);
+			mockGitSuccessOnce();
+			spyOnUnlinkSync.mockImplementationOnce(() => {
+				throw new Error();
+			});
+			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
+
+			// Run
+			const result = await dataSource.editCommit('/path/to/repo', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', null);
+
+			// Assert
+			expect(result).toMatch(/^Unable to remove ".*amend", so "git rebase --continue" won't commit the staged changes\.$/);
+		});
+
+		describe('Changing the message', () => {
+			let spyOnWriteFileSync: jest.SpyInstance;
+			beforeAll(() => {
+				spyOnWriteFileSync = jest.spyOn(fs, 'writeFileSync');
+			});
+			afterAll(() => {
+				spyOnWriteFileSync.mockRestore();
+			});
+
+			const mockEditCommitSuccess = () => {
+				mockGitSuccessOnce();
+				mockGitSuccessOnce('.git/rebase-merge/amend\n');
+				spyOnExistsSync.mockReturnValueOnce(true);
+				mockGitSuccessOnce();
+				spyOnUnlinkSync.mockImplementationOnce(() => { });
+				vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
+			};
+
+			it('Should write the new message to the message file used by the rebase', async () => {
+				// Setup
+				mockEditCommitSuccess();
+				spyOnWriteFileSync.mockImplementationOnce(() => { });
+
+				// Run
+				const result = await dataSource.editCommit('/path/to/repo', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', 'New subject\n\nNew body');
+
+				// Assert
+				expect(result).toBe(null);
+				expect(utils.getPathFromStr(spyOnWriteFileSync.mock.calls[0][0])).toBe('/path/to/repo/.git/rebase-merge/message');
+				expect(spyOnWriteFileSync.mock.calls[0][1]).toBe('New subject\n\nNew body\n');
+			});
+
+			it('Should not write the message file when the message is unchanged', async () => {
+				// Setup
+				mockEditCommitSuccess();
+
+				// Run
+				const result = await dataSource.editCommit('/path/to/repo', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', null);
+
+				// Assert
+				expect(result).toBe(null);
+				expect(spyOnWriteFileSync).toHaveBeenCalledTimes(0);
+			});
+
+			it('Should return an error message when the message file can\'t be updated', async () => {
+				// Setup
+				mockEditCommitSuccess();
+				spyOnWriteFileSync.mockImplementationOnce(() => {
+					throw new Error();
+				});
+
+				// Run
+				const result = await dataSource.editCommit('/path/to/repo', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', 'New subject');
+
+				// Assert
+				expect(result).toMatch(/^Unable to update ".*message", so the commit will keep its original message\.$/);
+			});
 		});
 	});
 

@@ -941,6 +941,16 @@ class GitGraphView {
 		alterClass(this.refreshBtnElem, CLASS_REFRESHING, !enabled);
 	}
 
+	public showEditCommitDialog(hash: string, originalMessage: string) {
+		const elem = findCommitElemWithId(getCommitElems(), this.getCommitId(hash));
+		dialog.showForm('Are you sure you want to edit commit <b><i>' + abbrevCommit(hash) + '</i></b>? A rebase will be started, and the changes of this commit will be staged so you can modify them. Committing will replace this commit (using the message below), and then reapply the commits on top of it.' + (this.onlyFollowFirstParent ? '<br/><i>Note: By enabling "Only follow the first parent of commits", some commits may have been hidden from the Git Graph View that could affect the outcome of performing this action.</i>' : ''), [
+			{ type: DialogInputType.TextArea, name: 'Message', default: originalMessage, info: 'The message of the new commit. The message box in Visual Studio Code\'s Source Control View will still show the original message, but it isn\'t used when committing during a rebase.' }
+		], 'Yes, edit', (values) => {
+			const message = (<string>values[0]).trim();
+			runAction({ command: 'editCommit', repo: this.currentRepo, commitHash: hash, message: message !== '' && message !== originalMessage ? message : null }, 'Editing Commit');
+		}, elem !== null ? { type: TargetType.Commit, hash: hash, elem: elem } : null);
+	}
+
 	public renderTagDetails(tagName: string, commitHash: string, details: GG.GitTagDetails) {
 		const textFormatter = new TextFormatter(this.commits, this.gitRepos[this.currentRepo].issueLinkingConfig, {
 			commits: true,
@@ -1194,6 +1204,12 @@ class GitGraphView {
 					dialog.showConfirmation('Are you sure you want to permanently drop commit <b><i>' + abbrevCommit(hash) + '</i></b>?' + (this.onlyFollowFirstParent ? '<br/><i>Note: By enabling "Only follow the first parent of commits", some commits may have been hidden from the Git Graph View that could affect the outcome of performing this action.</i>' : ''), 'Yes, drop', () => {
 						runAction({ command: 'dropCommit', repo: this.currentRepo, commitHash: hash }, 'Dropping Commit');
 					}, target);
+				}
+			}, {
+				title: 'Edit' + ELLIPSIS,
+				visible: visibility.edit && this.graph.dropCommitPossible(this.commitLookup[hash]),
+				onClick: () => {
+					runAction({ command: 'commitMessage', repo: this.currentRepo, commitHash: hash }, 'Retrieving Commit Message');
 				}
 			}
 		], [
@@ -2033,8 +2049,9 @@ class GitGraphView {
 				if (e.key === 'Escape') {
 					dialog.close();
 					handledEvent(e);
-				} else if (e.keyCode ? e.keyCode === 13 : e.key === 'Enter') {
+				} else if ((e.keyCode ? e.keyCode === 13 : e.key === 'Enter') && !(e.target instanceof HTMLTextAreaElement)) {
 					// Use keyCode === 13 to detect 'Enter' events if available (for compatibility with IME Keyboards used by Chinese / Japanese / Korean users)
+					// Enter in a TextArea adds a new line, instead of submitting the dialog
 					dialog.submit();
 					handledEvent(e);
 				}
@@ -3229,6 +3246,13 @@ window.addEventListener('load', () => {
 					dialog.showError('Unable to load Commit Details', msg.error, null, null);
 				}
 				break;
+			case 'commitMessage':
+				if (msg.message !== null) {
+					gitGraph.showEditCommitDialog(msg.commitHash, msg.message);
+				} else {
+					dialog.showError('Unable to retrieve Commit Message', msg.error, null, null);
+				}
+				break;
 			case 'compareCommits':
 				if (msg.error === null) {
 					gitGraph.showCommitComparison(msg.commitHash, msg.compareWithHash, msg.fileChanges, gitGraph.createFileTree(msg.fileChanges, msg.codeReview), msg.codeReview, msg.codeReview !== null ? msg.codeReview.lastViewedFile : null, msg.refresh);
@@ -3276,6 +3300,9 @@ window.addEventListener('load', () => {
 				break;
 			case 'dropStash':
 				refreshOrDisplayError(msg.error, 'Unable to Drop Stash');
+				break;
+			case 'editCommit':
+				refreshOrDisplayError(msg.error, 'Unable to Edit Commit');
 				break;
 			case 'editRemote':
 				refreshOrDisplayError(msg.error, 'Unable to Save Changes to Remote', true);

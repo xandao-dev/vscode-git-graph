@@ -13,7 +13,8 @@ const enum DialogInputType {
 	TextRef,
 	Select,
 	Radio,
-	Checkbox
+	Checkbox,
+	TextArea
 }
 
 interface DialogTextInput {
@@ -21,6 +22,13 @@ interface DialogTextInput {
 	readonly name: string;
 	readonly default: string;
 	readonly placeholder: string | null;
+	readonly info?: string;
+}
+
+interface DialogTextAreaInput {
+	readonly type: DialogInputType.TextArea;
+	readonly name: string;
+	readonly default: string;
 	readonly info?: string;
 }
 
@@ -71,7 +79,7 @@ interface DialogRadioInputOption {
 	readonly value: string;
 }
 
-type DialogInput = DialogTextInput | DialogTextRefInput | DialogSelectInput | DialogRadioInput | DialogCheckboxInput;
+type DialogInput = DialogTextInput | DialogTextAreaInput | DialogTextRefInput | DialogSelectInput | DialogRadioInput | DialogCheckboxInput;
 type DialogInputValue = string | string[] | boolean;
 
 type DialogTarget = {
@@ -210,6 +218,8 @@ class Dialog {
 				const infoHtml = input.info ? '<span class="dialogInfo" title="' + escapeHtml(input.info) + '">' + SVG_ICONS.info + '</span>' : '';
 				if (input.type === DialogInputType.Select) {
 					inputHtml = '<td class="inputCol"><div id="dialogFormSelect' + id + '"></div></td>' + (infoColRequired ? '<td>' + infoHtml + '</td>' : '');
+				} else if (input.type === DialogInputType.TextArea) {
+					inputHtml = '<td class="inputCol"><textarea id="dialogInput' + id + '" rows="8" tabindex="' + (id + 1) + '">' + escapeHtml(input.default) + '</textarea></td>' + (infoColRequired ? '<td>' + infoHtml + '</td>' : '');
 				} else if (input.type === DialogInputType.Checkbox) {
 					inputHtml = '<td class="inputCol"' + (infoColRequired ? ' colspan="2"' : '') + '><span class="dialogFormCheckbox"><label><input id="dialogInput' + id + '" type="checkbox"' + (input.value ? ' checked' : '') + ' tabindex="' + (id + 1) + '"/><span class="customCheckbox"></span>' + (multiElement && !multiCheckbox ? '' : input.name) + infoHtml + '</label></span></td>';
 				} else {
@@ -285,7 +295,7 @@ class Dialog {
 			});
 		}
 
-		if (inputs.length > 0 && (inputs[0].type === DialogInputType.Text || inputs[0].type === DialogInputType.TextRef)) {
+		if (inputs.length > 0 && (inputs[0].type === DialogInputType.Text || inputs[0].type === DialogInputType.TextArea || inputs[0].type === DialogInputType.TextRef)) {
 			// If the first input is a text field, set focus to it.
 			(<HTMLInputElement>document.getElementById('dialogInput0')).focus();
 		}

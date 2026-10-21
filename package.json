@@ -222,6 +222,10 @@
 									"type": "boolean",
 									"title": "Drop..."
 								},
+								"edit": {
+									"type": "boolean",
+									"title": "Edit..."
+								},
 								"merge": {
 									"type": "boolean",
 									"title": "Merge into current branch..."

@@ -363,6 +363,7 @@ export interface ContextMenuActionsVisibility {
 		readonly cherrypick: boolean;
 		readonly revert: boolean;
 		readonly drop: boolean;
+		readonly edit: boolean;
 		readonly merge: boolean;
 		readonly rebase: boolean;
 		readonly reset: boolean;
@@ -694,6 +695,16 @@ export interface ResponseCommitDetails extends ResponseWithErrorInfo {
 	readonly refresh: boolean;
 }
 
+export interface RequestCommitMessage extends RepoRequest {
+	readonly command: 'commitMessage';
+	readonly commitHash: string;
+}
+export interface ResponseCommitMessage extends ResponseWithErrorInfo {
+	readonly command: 'commitMessage';
+	readonly commitHash: string;
+	readonly message: string | null;
+}
+
 export interface RequestCompareCommits extends RepoRequest {
 	readonly command: 'compareCommits';
 	readonly commitHash: string;
@@ -826,6 +837,15 @@ export interface RequestDropStash extends RepoRequest {
 }
 export interface ResponseDropStash extends ResponseWithErrorInfo {
 	readonly command: 'dropStash';
+}
+
+export interface RequestEditCommit extends RepoRequest {
+	readonly command: 'editCommit';
+	readonly commitHash: string;
+	readonly message: string | null;
+}
+export interface ResponseEditCommit extends ResponseWithErrorInfo {
+	readonly command: 'editCommit';
 }
 
 export interface RequestEditRemote extends RepoRequest {
@@ -1257,6 +1277,7 @@ export type RequestMessage =
 	| RequestCherrypickCommit
 	| RequestCleanUntrackedFiles
 	| RequestCommitDetails
+	| RequestCommitMessage
 	| RequestCompareCommits
 	| RequestCopyFilePath
 	| RequestCopyToClipboard
@@ -1270,6 +1291,7 @@ export type RequestMessage =
 	| RequestDeleteUserDetails
 	| RequestDropCommit
 	| RequestDropStash
+	| RequestEditCommit
 	| RequestEditRemote
 	| RequestEditUserDetails
 	| RequestEndCodeReview
@@ -1320,6 +1342,7 @@ export type ResponseMessage =
 	| ResponseCheckoutCommit
 	| ResponseCherrypickCommit
 	| ResponseCleanUntrackedFiles
+	| ResponseCommitMessage
 	| ResponseCompareCommits
 	| ResponseCommitDetails
 	| ResponseCopyFilePath
@@ -1334,6 +1357,7 @@ export type ResponseMessage =
 	| ResponseDeleteUserDetails
 	| ResponseDropCommit
 	| ResponseDropStash
+	| ResponseEditCommit
 	| ResponseEditRemote
 	| ResponseEditUserDetails
 	| ResponseExportRepoConfig

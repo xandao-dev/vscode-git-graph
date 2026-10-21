@@ -1080,6 +1080,35 @@ describe('GitGraphView', () => {
 			});
 		});
 
+		describe('commitMessage', () => {
+			it('Should get a commit\'s message', async () => {
+				// Setup
+				const getCommitMessageResolvedValue = { message: 'Subject\n\nBody', error: null };
+				const spyOnGetCommitMessage = jest.spyOn(dataSource, 'getCommitMessage');
+				spyOnGetCommitMessage.mockResolvedValueOnce(getCommitMessageResolvedValue);
+
+				// Run
+				onDidReceiveMessage({
+					command: 'commitMessage',
+					repo: '/path/to/repo',
+					commitHash: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b'
+				});
+
+				// Assert
+				await waitForExpect(() => {
+					expect(spyOnGetCommitMessage).toHaveBeenCalledWith('/path/to/repo', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b');
+					expect(messages).toStrictEqual([
+						{
+							command: 'commitMessage',
+							commitHash: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
+							message: 'Subject\n\nBody',
+							error: null
+						}
+					]);
+				});
+			});
+		});
+
 		describe('compareCommits', () => {
 			it('Should get the data for the Commit Details View (Comparison)', async () => {
 				// Setup
@@ -1713,6 +1742,34 @@ describe('GitGraphView', () => {
 						{
 							command: 'dropCommit',
 							error: dropCommitResolvedValue
+						}
+					]);
+				});
+			});
+		});
+
+		describe('editCommit', () => {
+			it('Should edit a commit', async () => {
+				// Setup
+				const editCommitResolvedValue = null;
+				const spyOnEditCommit = jest.spyOn(dataSource, 'editCommit');
+				spyOnEditCommit.mockResolvedValueOnce(editCommitResolvedValue);
+
+				// Run
+				onDidReceiveMessage({
+					command: 'editCommit',
+					repo: '/path/to/repo',
+					commitHash: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
+					message: 'New subject'
+				});
+
+				// Assert
+				await waitForExpect(() => {
+					expect(spyOnEditCommit).toHaveBeenCalledWith('/path/to/repo', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', 'New subject');
+					expect(messages).toStrictEqual([
+						{
+							command: 'editCommit',
+							error: editCommitResolvedValue
 						}
 					]);
 				});

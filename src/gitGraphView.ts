@@ -251,6 +251,13 @@ export class GitGraphView extends Disposable {
 					refresh: msg.refresh
 				});
 				break;
+			case 'commitMessage':
+				this.sendMessage({
+					command: 'commitMessage',
+					commitHash: msg.commitHash,
+					...await this.dataSource.getCommitMessage(msg.repo, msg.commitHash)
+				});
+				break;
 			case 'compareCommits':
 				this.sendMessage({
 					command: 'compareCommits',
@@ -353,6 +360,12 @@ export class GitGraphView extends Disposable {
 				this.sendMessage({
 					command: 'dropStash',
 					error: await this.dataSource.dropStash(msg.repo, msg.selector)
+				});
+				break;
+			case 'editCommit':
+				this.sendMessage({
+					command: 'editCommit',
+					error: await this.dataSource.editCommit(msg.repo, msg.commitHash, msg.message)
 				});
 				break;
 			case 'editRemote':

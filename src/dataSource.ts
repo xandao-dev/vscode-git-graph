@@ -465,6 +465,18 @@ export class DataSource extends Disposable {
 	}
 
 	/**
+	 * Get the full message (subject & body) of a commit.
+	 * @param repo The path of the repository.
+	 * @param commitHash The commit hash.
+	 * @returns The commit message.
+	 */
+	public getCommitMessage(repo: string, commitHash: string): Promise<GitCommitMessageData> {
+		return this.spawnGit(['-c', 'log.showSignature=false', 'show', '--quiet', '--format=%B', commitHash, '--'], repo, (stdout) => {
+			return removeTrailingBlankLines(stdout.split(EOL_REGEX)).join('\n');
+		}).then((message) => ({ message: message, error: null }), (errorMessage) => ({ message: null, error: errorMessage }));
+	}
+
+	/**
 	 * Get the URL of a repositories remote.
 	 * @param repo The path of the repository.
 	 * @param remote The name of the remote.
@@ -1090,6 +1102,59 @@ export class DataSource extends Disposable {
 		}
 		args.push('--onto', commitHash + '^', commitHash);
 		return this.runGitCommand(args, repo);
+	}
+
+	/**
+	 * Start editing a commit in a repository. An interactive rebase is started that stops at the commit, and the commit is
+	 * undone so that its changes are staged. Committing (or running `git rebase --continue`) then replaces the commit, reusing
+	 * its message & author, and replays the commits on top of it.
+	 * @param repo The path of the repository.
+	 * @param commitHash The hash of the commit to edit.
+	 * @param message The new commit message, or NULL to keep the original message.
+	 * @returns The ErrorInfo from the executed command.
+	 */
+	public async editCommit(repo: string, commitHash: string, message: string | null) {
+		// Mark the first entry of the todo list (the commit being edited) as "edit"
+		const args = ['-c', 'sequence.editor=sed -i.bak -e "1s/^[a-z]* /edit /"', 'rebase', '--interactive'];
+		if (getConfig().signCommits) {
+			args.push('-S');
+		}
+		args.push(commitHash + '^');
+
+		const rebaseStatus = await this.runGitCommand(args, repo);
+		if (rebaseStatus !== null) return rebaseStatus;
+
+		// Git creates this file when it stops at an "edit" entry, it records the commit that "git rebase --continue" expects HEAD to be
+		let amendFilePath: string;
+		try {
+			amendFilePath = path.resolve(repo, (await this.spawnGit(['rev-parse', '--git-path', 'rebase-merge/amend'], repo, (stdout) => stdout.trim())));
+		} catch (errorMessage) {
+			return <ErrorInfo>errorMessage;
+		}
+		if (!fs.existsSync(amendFilePath)) {
+			return 'Git didn\'t stop the rebase at commit ' + abbrevCommit(commitHash) + '.';
+		}
+
+		const resetStatus = await this.runGitCommand(['reset', '--soft', 'HEAD~1'], repo);
+		if (resetStatus !== null) return resetStatus;
+
+		// Without this file, "git rebase --continue" commits the staged changes using the original commit's message & author
+		try {
+			fs.unlinkSync(amendFilePath);
+		} catch (_) {
+			return 'Unable to remove "' + amendFilePath + '", so "git rebase --continue" won\'t commit the staged changes.';
+		}
+
+		if (message !== null) {
+			// "git rebase --continue" commits using the message in this file
+			const messageFilePath = path.join(path.dirname(amendFilePath), 'message');
+			try {
+				fs.writeFileSync(messageFilePath, message + '\n');
+			} catch (_) {
+				return 'Unable to update "' + messageFilePath + '", so the commit will keep its original message.';
+			}
+		}
+		return null;
 	}
 
 	/**
@@ -2012,6 +2077,11 @@ interface GitRepoConfigData {
 interface GitStatusFiles {
 	deleted: string[];
 	untracked: string[];
+}
+
+interface GitCommitMessageData {
+	message: string | null;
+	error: ErrorInfo;
 }
 
 interface GitTagDetailsData {
