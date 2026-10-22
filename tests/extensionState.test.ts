@@ -401,7 +401,7 @@ describe('ExtensionState', () => {
 			});
 		});
 
-		it('Shouldn\'t update the last active repo or code reviews when no match is found with the transfer repository', () => {
+		it("Shouldn't update the last active repo or code reviews when no match is found with the transfer repository", () => {
 			// Setup
 			extensionContext.workspaceState.get.mockReturnValueOnce('/path/to/repo');
 			extensionContext.workspaceState.get.mockReturnValueOnce({
@@ -910,7 +910,7 @@ describe('ExtensionState', () => {
 			expect(spyOnUnlink).toHaveBeenCalledTimes(0);
 		});
 
-		it('Shouldn\'t delete avatars on the file system if globalState.update rejects, and return the error message', async () => {
+		it("Shouldn't delete avatars on the file system if globalState.update rejects, and return the error message", async () => {
 			// Setup
 			extensionContext.globalState.update.mockRejectedValueOnce(null);
 
@@ -1297,7 +1297,7 @@ describe('ExtensionState', () => {
 			expect(extensionContext.workspaceState.update).toHaveBeenCalledWith('codeReviews', {});
 		});
 
-		it('Shouldn\'t change the state if no code review could be found in the specified repository', async () => {
+		it("Shouldn't change the state if no code review could be found in the specified repository", async () => {
 			// Run
 			const result = await extensionState.updateCodeReview(repo + '1', id, ['file3.txt'], null);
 
@@ -1306,7 +1306,7 @@ describe('ExtensionState', () => {
 			expect(extensionContext.workspaceState.update).toHaveBeenCalledTimes(0);
 		});
 
-		it('Shouldn\'t change the state if no code review could be found with the specified id', async () => {
+		it("Shouldn't change the state if no code review could be found with the specified id", async () => {
 			// Run
 			const result = await extensionState.updateCodeReview(repo, id + '1', ['file3.txt'], null);
 
@@ -1370,7 +1370,7 @@ describe('ExtensionState', () => {
 			});
 		});
 
-		it('Shouldn\'t make any changes when no repositories have expired', () => {
+		it("Shouldn't make any changes when no repositories have expired", () => {
 			// Setup
 			const codeReviews = {
 				'/path/to/repo1': {

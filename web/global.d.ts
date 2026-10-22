@@ -5,15 +5,13 @@ import type { TargetType } from './utils';
 import type * as GG from '../src/types';
 
 declare global {
-
 	/* Visual Studio Code API Types */
 
 	function acquireVsCodeApi(): {
-		getState: () => WebViewState | null,
-		postMessage: (message: GG.RequestMessage) => void,
-		setState: (state: WebViewState) => void
+		getState: () => WebViewState | null;
+		postMessage: (message: GG.RequestMessage) => void;
+		setState: (state: WebViewState) => void;
 	};
-
 
 	/* State Types */
 
@@ -39,12 +37,12 @@ declare global {
 		lastViewedFile: string | null;
 		loading: boolean;
 		scrollTop: {
-			summary: number,
-			fileView: number
+			summary: number;
+			fileView: number;
 		};
 		contextMenuOpen: {
-			summary: boolean,
-			fileView: number
+			summary: boolean;
+			fileView: number;
 		};
 	}
 
@@ -70,7 +68,6 @@ declare global {
 		readonly findWidget: FindWidgetState;
 		readonly settingsWidget: SettingsWidgetState;
 	}
-
 
 	/* Commit Details / Comparison View File Tree Types */
 
@@ -99,7 +96,6 @@ declare global {
 	type FileTreeLeaf = FileTreeFile | FileTreeRepo;
 	type FileTreeNode = FileTreeFolder | FileTreeLeaf;
 	type FileTreeFolderContents = { [name: string]: FileTreeNode };
-
 
 	/* Dialog & ContextMenu shared base Target interfaces */
 

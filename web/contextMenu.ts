@@ -13,13 +13,15 @@ export interface ContextMenuAction {
 
 export type ContextMenuActions = ReadonlyArray<ReadonlyArray<ContextMenuAction>>;
 
-export type ContextMenuTarget = {
-	type: TargetType.Commit | TargetType.Ref | TargetType.CommitDetailsView;
-	elem: HTMLElement;
-	hash: string;
-	index: number;
-	ref?: string;
-} | RepoTarget;
+export type ContextMenuTarget =
+	| {
+			type: TargetType.Commit | TargetType.Ref | TargetType.CommitDetailsView;
+			elem: HTMLElement;
+			hash: string;
+			index: number;
+			ref?: string;
+	  }
+	| RepoTarget;
 
 /**
  * Implements the Git Graph View's context menus.
@@ -49,15 +51,31 @@ export class ContextMenu {
 	 * @param onClose An optional callback to be invoked when the context menu is closed.
 	 * @param className An optional class name to add to the context menu.
 	 */
-	public show(actions: ContextMenuActions, checked: boolean, target: ContextMenuTarget | null, event: MouseEvent, frameElem: HTMLElement, onClose: (() => void) | null = null, className: string | null = null) {
-		let html = '', handlers: (() => void)[] = [], handlerId = 0;
+	public show(
+		actions: ContextMenuActions,
+		checked: boolean,
+		target: ContextMenuTarget | null,
+		event: MouseEvent,
+		frameElem: HTMLElement,
+		onClose: (() => void) | null = null,
+		className: string | null = null
+	) {
+		let html = '',
+			handlers: (() => void)[] = [],
+			handlerId = 0;
 		this.close();
 
 		for (let i = 0; i < actions.length; i++) {
 			let groupHtml = '';
 			for (let j = 0; j < actions[i].length; j++) {
 				if (actions[i][j].visible) {
-					groupHtml += '<li class="contextMenuItem" data-index="' + handlerId++ + '">' + (checked ? '<span class="contextMenuItemCheck">' + (actions[i][j].checked ? SVG_ICONS.check : '') + '</span>' : '') + actions[i][j].title + '</li>';
+					groupHtml +=
+						'<li class="contextMenuItem" data-index="' +
+						handlerId++ +
+						'">' +
+						(checked ? '<span class="contextMenuItemCheck">' + (actions[i][j].checked ? SVG_ICONS.check : '') + '</span>' : '') +
+						actions[i][j].title +
+						'</li>';
 					handlers.push(actions[i][j].onClick);
 				}
 			}
@@ -75,19 +93,22 @@ export class ContextMenu {
 		menu.style.opacity = '0';
 		menu.innerHTML = html;
 		frameElem.appendChild(menu);
-		const menuBounds = menu.getBoundingClientRect(), frameBounds = frameElem.getBoundingClientRect();
-		const relativeX = event.pageX + menuBounds.width < frameBounds.right
-			? -2 // context menu fits to the right
-			: event.pageX - menuBounds.width > frameBounds.left
-				? 2 - menuBounds.width // context menu fits to the left
-				: -2 - (menuBounds.width - (frameBounds.width - (event.pageX - frameBounds.left))); // Overlap the context menu horizontally with the cursor
-		const relativeY = event.pageY + menuBounds.height < frameBounds.bottom
-			? -2 // context menu fits below
-			: event.pageY - menuBounds.height > frameBounds.top
-				? 2 - menuBounds.height // context menu fits above
-				: -2 - (menuBounds.height - (frameBounds.height - (event.pageY - frameBounds.top))); // Overlap the context menu vertically with the cursor
-		menu.style.left = (frameElem.scrollLeft + Math.max(event.pageX - frameBounds.left + relativeX, 2)) + 'px';
-		menu.style.top = (frameElem.scrollTop + Math.max(event.pageY - frameBounds.top + relativeY, 2)) + 'px';
+		const menuBounds = menu.getBoundingClientRect(),
+			frameBounds = frameElem.getBoundingClientRect();
+		const relativeX =
+			event.pageX + menuBounds.width < frameBounds.right
+				? -2 // context menu fits to the right
+				: event.pageX - menuBounds.width > frameBounds.left
+					? 2 - menuBounds.width // context menu fits to the left
+					: -2 - (menuBounds.width - (frameBounds.width - (event.pageX - frameBounds.left))); // Overlap the context menu horizontally with the cursor
+		const relativeY =
+			event.pageY + menuBounds.height < frameBounds.bottom
+				? -2 // context menu fits below
+				: event.pageY - menuBounds.height > frameBounds.top
+					? 2 - menuBounds.height // context menu fits above
+					: -2 - (menuBounds.height - (frameBounds.height - (event.pageY - frameBounds.top))); // Overlap the context menu vertically with the cursor
+		menu.style.left = frameElem.scrollLeft + Math.max(event.pageX - frameBounds.left + relativeX, 2) + 'px';
+		menu.style.top = frameElem.scrollTop + Math.max(event.pageY - frameBounds.top + relativeY, 2) + 'px';
 		menu.style.opacity = '1';
 		this.elem = menu;
 		this.onClose = onClose;

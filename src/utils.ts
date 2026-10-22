@@ -9,8 +9,8 @@ import { ExtensionState } from './extensionState';
 import { ErrorInfo, GitFileStatus, GitRepoSet, PullRequestConfig, PullRequestProvider, RepoDropdownOrder } from './types';
 
 export const UNCOMMITTED = '*';
-export const UNABLE_TO_FIND_GIT_MSG = 'Unable to find a Git executable. Either: Set the Visual Studio Code Setting "git.path" to the path and filename of an existing Git executable, or install Git and restart Visual Studio Code.';
-
+export const UNABLE_TO_FIND_GIT_MSG =
+	'Unable to find a Git executable. Either: Set the Visual Studio Code Setting "git.path" to the path and filename of an existing Git executable, or install Git and restart Visual Studio Code.';
 
 /* Path Manipulation */
 
@@ -49,7 +49,9 @@ export function pathWithTrailingSlash(path: string) {
  * @returns TRUE => Path is in workspace, FALSE => Path isn't in workspace.
  */
 export function isPathInWorkspace(path: string) {
-	let rootsExact = [], rootsFolder = [], workspaceFolders = vscode.workspace.workspaceFolders;
+	let rootsExact = [],
+		rootsFolder = [],
+		workspaceFolders = vscode.workspace.workspaceFolders;
 	if (typeof workspaceFolders !== 'undefined') {
 		for (let i = 0; i < workspaceFolders.length; i++) {
 			let tmpPath = getPathFromUri(workspaceFolders[i].uri);
@@ -57,7 +59,7 @@ export function isPathInWorkspace(path: string) {
 			rootsFolder.push(pathWithTrailingSlash(tmpPath));
 		}
 	}
-	return rootsExact.indexOf(path) > -1 || rootsFolder.findIndex(x => path.startsWith(x)) > -1;
+	return rootsExact.indexOf(path) > -1 || rootsFolder.findIndex((x) => path.startsWith(x)) > -1;
 }
 
 /**
@@ -91,7 +93,7 @@ export async function resolveToSymbolicPath(path: string) {
 				let symPath = rootSymPath;
 				let first = symPath.indexOf('/');
 				while (true) {
-					if (path === symPath || path === await realpath(symPath)) return symPath;
+					if (path === symPath || path === (await realpath(symPath))) return symPath;
 					let next = symPath.lastIndexOf('/');
 					if (first !== next && next > -1) {
 						symPath = symPath.substring(0, next);
@@ -115,7 +117,6 @@ export function doesFileExist(path: string) {
 		fs.access(path, fs.constants.R_OK, (err) => resolve(err === null));
 	});
 }
-
 
 /* General Methods */
 
@@ -144,7 +145,8 @@ export function abbrevText(text: string, toChars: number) {
  * @returns The relative time difference (e.g. 12 minutes ago).
  */
 export function getRelativeTimeDiff(unixTimestamp: number) {
-	let diff = Math.round((new Date()).getTime() / 1000) - unixTimestamp, unit;
+	let diff = Math.round(new Date().getTime() / 1000) - unixTimestamp,
+		unit;
 	if (diff < 60) {
 		unit = 'second';
 	} else if (diff < 3600) {
@@ -228,23 +230,24 @@ export function getRepoName(path: string) {
 export function getSortedRepositoryPaths(repos: GitRepoSet, order: RepoDropdownOrder): ReadonlyArray<string> {
 	const repoPaths = Object.keys(repos);
 	if (order === RepoDropdownOrder.WorkspaceFullPath) {
-		return repoPaths.sort((a, b) => repos[a].workspaceFolderIndex === repos[b].workspaceFolderIndex
-			? a.localeCompare(b)
-			: repos[a].workspaceFolderIndex === null
-				? 1
-				: repos[b].workspaceFolderIndex === null
-					? -1
-					: repos[a].workspaceFolderIndex! - repos[b].workspaceFolderIndex!
+		return repoPaths.sort((a, b) =>
+			repos[a].workspaceFolderIndex === repos[b].workspaceFolderIndex
+				? a.localeCompare(b)
+				: repos[a].workspaceFolderIndex === null
+					? 1
+					: repos[b].workspaceFolderIndex === null
+						? -1
+						: repos[a].workspaceFolderIndex! - repos[b].workspaceFolderIndex!
 		);
 	} else if (order === RepoDropdownOrder.FullPath) {
 		return repoPaths.sort((a, b) => a.localeCompare(b));
 	} else {
-		return repoPaths.map((path) => ({ name: repos[path].name || getRepoName(path), path: path }))
-			.sort((a, b) => a.name !== b.name ? a.name.localeCompare(b.name) : a.path.localeCompare(b.path))
+		return repoPaths
+			.map((path) => ({ name: repos[path].name || getRepoName(path), path: path }))
+			.sort((a, b) => (a.name !== b.name ? a.name.localeCompare(b.name) : a.path.localeCompare(b.path)))
 			.map((x) => x.path);
 	}
 }
-
 
 /* Visual Studio Code Command Wrappers */
 
@@ -256,27 +259,28 @@ export function getSortedRepositoryPaths(repos: GitRepoSet, order: RepoDropdownO
  * @returns A promise resolving to the ErrorInfo of the executed command.
  */
 export function archive(repo: string, ref: string, dataSource: DataSource): Thenable<ErrorInfo> {
-	return vscode.window.showSaveDialog({
-		defaultUri: vscode.Uri.file(repo),
-		saveLabel: 'Create Archive',
-		filters: { 'TAR Archive': ['tar'], 'ZIP Archive': ['zip'] }
-	}).then(
-		(uri) => {
-			if (uri) {
-				const extension = uri.fsPath.substring(uri.fsPath.lastIndexOf('.') + 1).toLowerCase();
-				if (extension === 'tar' || extension === 'zip') {
-					return dataSource.archive(repo, ref, uri.fsPath, extension);
+	return vscode.window
+		.showSaveDialog({
+			defaultUri: vscode.Uri.file(repo),
+			saveLabel: 'Create Archive',
+			filters: { 'TAR Archive': ['tar'], 'ZIP Archive': ['zip'] }
+		})
+		.then(
+			(uri) => {
+				if (uri) {
+					const extension = uri.fsPath.substring(uri.fsPath.lastIndexOf('.') + 1).toLowerCase();
+					if (extension === 'tar' || extension === 'zip') {
+						return dataSource.archive(repo, ref, uri.fsPath, extension);
+					} else {
+						return 'Invalid file extension "*.' + extension + '". The archive file must have a *.tar or *.zip extension.';
+					}
 				} else {
-					return 'Invalid file extension "*.' + extension + '". The archive file must have a *.tar or *.zip extension.';
+					return 'No file name was provided for the archive.';
 				}
-			} else {
-				return 'No file name was provided for the archive.';
-			}
-		},
-		() => 'Visual Studio Code was unable to display the save dialog.'
-	);
+			},
+			() => 'Visual Studio Code was unable to display the save dialog.'
+		);
 }
-
 
 /**
  * Copy the path of a file in a repository to the clipboard.
@@ -322,16 +326,11 @@ export function createPullRequest(config: PullRequestConfig, sourceOwner: string
 			templateUrl = '$1/$5/$6/compare/$8...$2:$4';
 			break;
 		case PullRequestProvider.GitLab:
-			templateUrl = '$1/$2/$3/-/merge_requests/new?merge_request[source_branch]=$4&merge_request[target_branch]=$8' +
-				(config.destProjectId !== '' ? '&merge_request[target_project_id]=$7' : '');
+			templateUrl = '$1/$2/$3/-/merge_requests/new?merge_request[source_branch]=$4&merge_request[target_branch]=$8' + (config.destProjectId !== '' ? '&merge_request[target_project_id]=$7' : '');
 			break;
 	}
 
-	const urlFieldValues = [
-		config.hostRootUrl,
-		sourceOwner, sourceRepo, sourceBranch,
-		config.destOwner, config.destRepo, config.destProjectId, config.destBranch
-	];
+	const urlFieldValues = [config.hostRootUrl, sourceOwner, sourceRepo, sourceBranch, config.destOwner, config.destRepo, config.destProjectId, config.destBranch];
 
 	const url = templateUrl.replace(/\$([1-8])/g, (_, index) => urlFieldValues[parseInt(index) - 1]);
 
@@ -358,10 +357,7 @@ export function openExtensionSettings(): Thenable<ErrorInfo> {
 export function openExternalUrl(url: string, type: string = 'External URL'): Thenable<ErrorInfo> {
 	const getErrorMessage = () => 'Visual Studio Code was unable to open the ' + type + ': ' + url;
 	try {
-		return vscode.env.openExternal(vscode.Uri.parse(url)).then(
-			(success) => success ? null : getErrorMessage(),
-			getErrorMessage
-		);
+		return vscode.env.openExternal(vscode.Uri.parse(url)).then((success) => (success ? null : getErrorMessage()), getErrorMessage);
 	} catch (_) {
 		return Promise.resolve(getErrorMessage());
 	}
@@ -393,15 +389,17 @@ export async function openFile(repo: string, filePath: string, hash: string | nu
 	}
 
 	if (fileExists) {
-		return vscode.commands.executeCommand('vscode.open', vscode.Uri.file(newAbsoluteFilePath), {
-			preview: true,
-			viewColumn: viewColumn === null ? getConfig().openNewTabEditorGroup : viewColumn
-		}).then(
-			() => null,
-			() => 'Visual Studio Code was unable to open ' + newFilePath + '.'
-		);
+		return vscode.commands
+			.executeCommand('vscode.open', vscode.Uri.file(newAbsoluteFilePath), {
+				preview: true,
+				viewColumn: viewColumn === null ? getConfig().openNewTabEditorGroup : viewColumn
+			})
+			.then(
+				() => null,
+				() => 'Visual Studio Code was unable to open ' + newFilePath + '.'
+			);
 	} else {
-		return 'The file ' + newFilePath + ' doesn\'t currently exist in this repository.';
+		return 'The file ' + newFilePath + " doesn't currently exist in this repository.";
 	}
 }
 
@@ -417,22 +415,41 @@ export async function openFile(repo: string, filePath: string, hash: string | nu
  */
 export function viewDiff(repo: string, fromHash: string, toHash: string, oldFilePath: string, newFilePath: string, type: GitFileStatus) {
 	if (type !== GitFileStatus.Untracked) {
-		let abbrevFromHash = abbrevCommit(fromHash), abbrevToHash = toHash !== UNCOMMITTED ? abbrevCommit(toHash) : 'Present', pathComponents = newFilePath.split('/');
-		let desc = fromHash === toHash
-			? fromHash === UNCOMMITTED
-				? 'Uncommitted'
-				: (type === GitFileStatus.Added ? 'Added in ' + abbrevToHash : type === GitFileStatus.Deleted ? 'Deleted in ' + abbrevToHash : abbrevFromHash + '^ ↔ ' + abbrevToHash)
-			: (type === GitFileStatus.Added ? 'Added between ' + abbrevFromHash + ' & ' + abbrevToHash : type === GitFileStatus.Deleted ? 'Deleted between ' + abbrevFromHash + ' & ' + abbrevToHash : abbrevFromHash + ' ↔ ' + abbrevToHash);
+		let abbrevFromHash = abbrevCommit(fromHash),
+			abbrevToHash = toHash !== UNCOMMITTED ? abbrevCommit(toHash) : 'Present',
+			pathComponents = newFilePath.split('/');
+		let desc =
+			fromHash === toHash
+				? fromHash === UNCOMMITTED
+					? 'Uncommitted'
+					: type === GitFileStatus.Added
+						? 'Added in ' + abbrevToHash
+						: type === GitFileStatus.Deleted
+							? 'Deleted in ' + abbrevToHash
+							: abbrevFromHash + '^ ↔ ' + abbrevToHash
+				: type === GitFileStatus.Added
+					? 'Added between ' + abbrevFromHash + ' & ' + abbrevToHash
+					: type === GitFileStatus.Deleted
+						? 'Deleted between ' + abbrevFromHash + ' & ' + abbrevToHash
+						: abbrevFromHash + ' ↔ ' + abbrevToHash;
 		let title = pathComponents[pathComponents.length - 1] + ' (' + desc + ')';
 		if (fromHash === UNCOMMITTED) fromHash = 'HEAD';
 
-		return vscode.commands.executeCommand('vscode.diff', encodeDiffDocUri(repo, oldFilePath, fromHash === toHash ? fromHash + '^' : fromHash, type, DiffSide.Old), encodeDiffDocUri(repo, newFilePath, toHash, type, DiffSide.New), title, {
-			preview: true,
-			viewColumn: getConfig().openNewTabEditorGroup
-		}).then(
-			() => null,
-			() => 'Visual Studio Code was unable to load the diff editor for ' + newFilePath + '.'
-		);
+		return vscode.commands
+			.executeCommand(
+				'vscode.diff',
+				encodeDiffDocUri(repo, oldFilePath, fromHash === toHash ? fromHash + '^' : fromHash, type, DiffSide.Old),
+				encodeDiffDocUri(repo, newFilePath, toHash, type, DiffSide.New),
+				title,
+				{
+					preview: true,
+					viewColumn: getConfig().openNewTabEditorGroup
+				}
+			)
+			.then(
+				() => null,
+				() => 'Visual Studio Code was unable to load the diff editor for ' + newFilePath + '.'
+			);
 	} else {
 		return openFile(repo, newFilePath);
 	}
@@ -451,17 +468,13 @@ export async function viewDiffWithWorkingFile(repo: string, hash: string, filePa
 	let fileExists = await doesFileExist(path.join(repo, newFilePath));
 	if (!fileExists) {
 		const renamedFilePath = await dataSource.getNewPathOfRenamedFile(repo, hash, filePath);
-		if (renamedFilePath !== null && await doesFileExist(path.join(repo, renamedFilePath))) {
+		if (renamedFilePath !== null && (await doesFileExist(path.join(repo, renamedFilePath)))) {
 			newFilePath = renamedFilePath;
 			fileExists = true;
 		}
 	}
 
-	const type = fileExists
-		? filePath === newFilePath
-			? GitFileStatus.Modified
-			: GitFileStatus.Renamed
-		: GitFileStatus.Deleted;
+	const type = fileExists ? (filePath === newFilePath ? GitFileStatus.Modified : GitFileStatus.Renamed) : GitFileStatus.Deleted;
 
 	return viewDiff(repo, hash, UNCOMMITTED, filePath, newFilePath, type);
 }
@@ -477,13 +490,15 @@ export function viewFileAtRevision(repo: string, hash: string, filePath: string)
 	const pathComponents = filePath.split('/');
 	const title = abbrevCommit(hash) + ': ' + pathComponents[pathComponents.length - 1];
 
-	return vscode.commands.executeCommand('vscode.open', encodeDiffDocUri(repo, filePath, hash, GitFileStatus.Modified, DiffSide.New).with({ path: title }), {
-		preview: true,
-		viewColumn: getConfig().openNewTabEditorGroup
-	}).then(
-		() => null,
-		() => 'Visual Studio Code was unable to open ' + filePath + ' at commit ' + abbrevCommit(hash) + '.'
-	);
+	return vscode.commands
+		.executeCommand('vscode.open', encodeDiffDocUri(repo, filePath, hash, GitFileStatus.Modified, DiffSide.New).with({ path: title }), {
+			preview: true,
+			viewColumn: getConfig().openNewTabEditorGroup
+		})
+		.then(
+			() => null,
+			() => 'Visual Studio Code was unable to open ' + filePath + ' at commit ' + abbrevCommit(hash) + '.'
+		);
 }
 
 /**
@@ -505,7 +520,8 @@ export function viewScm(): Thenable<ErrorInfo> {
  * @param name The name for the terminal.
  */
 export function openGitTerminal(cwd: string, gitPath: string, command: string | null, name: string) {
-	let p = process.env['PATH'] || '', sep = isWindows() ? ';' : ':';
+	let p = process.env['PATH'] || '',
+		sep = isWindows() ? ';' : ':';
 	if (p !== '' && !p.endsWith(sep)) p += sep;
 	p += path.dirname(gitPath);
 
@@ -532,7 +548,6 @@ function isWindows() {
 	return process.platform === 'win32' || process.env.OSTYPE === 'cygwin' || process.env.OSTYPE === 'msys';
 }
 
-
 /* Visual Studio Code API Wrappers */
 
 /**
@@ -540,7 +555,10 @@ function isWindows() {
  * @param message The message to show.
  */
 export function showInformationMessage(message: string) {
-	return vscode.window.showInformationMessage(message).then(() => { }, () => { });
+	return vscode.window.showInformationMessage(message).then(
+		() => {},
+		() => {}
+	);
 }
 
 /**
@@ -548,9 +566,11 @@ export function showInformationMessage(message: string) {
  * @param message The message to show.
  */
 export function showErrorMessage(message: string) {
-	return vscode.window.showErrorMessage(message).then(() => { }, () => { });
+	return vscode.window.showErrorMessage(message).then(
+		() => {},
+		() => {}
+	);
 }
-
 
 /* Promise Methods */
 
@@ -564,25 +584,32 @@ export function showErrorMessage(message: string) {
 export function evalPromises<X, Y>(data: X[], maxParallel: number, createPromise: (val: X) => Promise<Y>) {
 	return new Promise<Y[]>((resolve, reject) => {
 		if (data.length === 1) {
-			createPromise(data[0]).then(v => resolve([v])).catch(() => reject());
+			createPromise(data[0])
+				.then((v) => resolve([v]))
+				.catch(() => reject());
 		} else if (data.length === 0) {
 			resolve([]);
 		} else {
-			let results: Y[] = new Array(data.length), nextPromise = 0, rejected = false, completed = 0;
+			let results: Y[] = new Array(data.length),
+				nextPromise = 0,
+				rejected = false,
+				completed = 0;
 			function startNext() {
 				let cur = nextPromise;
 				nextPromise++;
-				createPromise(data[cur]).then(result => {
-					if (!rejected) {
-						results[cur] = result;
-						completed++;
-						if (nextPromise < data.length) startNext();
-						else if (completed === data.length) resolve(results);
-					}
-				}).catch(() => {
-					reject();
-					rejected = true;
-				});
+				createPromise(data[cur])
+					.then((result) => {
+						if (!rejected) {
+							results[cur] = result;
+							completed++;
+							if (nextPromise < data.length) startNext();
+							else if (completed === data.length) resolve(results);
+						}
+					})
+					.catch(() => {
+						reject();
+						rejected = true;
+					});
 			}
 			for (let i = 0; i < maxParallel && i < data.length; i++) startNext();
 		}
@@ -596,7 +623,7 @@ export function evalPromises<X, Y>(data: X[], maxParallel: number, createPromise
  */
 export function resolveSpawnOutput(cmd: cp.ChildProcessWithoutNullStreams) {
 	return Promise.all([
-		new Promise<{ code: number | null, error: Error | null }>((resolve) => {
+		new Promise<{ code: number | null; error: Error | null }>((resolve) => {
 			// status promise
 			let resolved = false;
 			cmd.on('error', (error) => {
@@ -613,18 +640,21 @@ export function resolveSpawnOutput(cmd: cp.ChildProcessWithoutNullStreams) {
 		new Promise<Buffer>((resolve) => {
 			// stdout promise
 			let buffers: Buffer[] = [];
-			cmd.stdout.on('data', (b: Buffer) => { buffers.push(b); });
+			cmd.stdout.on('data', (b: Buffer) => {
+				buffers.push(b);
+			});
 			cmd.stdout.on('close', () => resolve(Buffer.concat(buffers)));
 		}),
 		new Promise<string>((resolve) => {
 			// stderr promise
 			let stderr = '';
-			cmd.stderr.on('data', (d) => { stderr += d; });
+			cmd.stderr.on('data', (d) => {
+				stderr += d;
+			});
 			cmd.stderr.on('close', () => resolve(stderr));
 		})
 	]);
 }
-
 
 /* Find Git Executable */
 
@@ -649,14 +679,14 @@ export async function findGit(extensionState: ExtensionState) {
 	if (lastKnownPath !== null) {
 		try {
 			return await getGitExecutable(lastKnownPath);
-		} catch (_) { }
+		} catch (_) {}
 	}
 
 	const configGitPaths = getConfig().gitPaths;
 	if (configGitPaths.length > 0) {
 		try {
 			return await getGitExecutableFromPaths(configGitPaths);
-		} catch (_) { }
+		} catch (_) {}
 	}
 
 	switch (process.platform) {
@@ -680,7 +710,10 @@ function findGitOnDarwin() {
 
 			const path = stdout.trim();
 			if (path !== '/usr/bin/git') {
-				getGitExecutable(path).then((exec) => resolve(exec), () => reject());
+				getGitExecutable(path).then(
+					(exec) => resolve(exec),
+					() => reject()
+				);
 			} else {
 				// must check if XCode is installed
 				cp.exec('xcode-select -p', (err: any) => {
@@ -688,7 +721,10 @@ function findGitOnDarwin() {
 						// git is not installed, and launching /usr/bin/git will prompt the user to install it
 						reject();
 					} else {
-						getGitExecutable(path).then((exec) => resolve(exec), () => reject());
+						getGitExecutable(path).then(
+							(exec) => resolve(exec),
+							() => reject()
+						);
 					}
 				});
 			}
@@ -708,9 +744,7 @@ function findGitOnWin32() {
 		.then(undefined, () => findGitWin32InPath());
 }
 function findSystemGitWin32(pathBase?: string) {
-	return pathBase
-		? getGitExecutable(path.join(pathBase, 'Git', 'cmd', 'git.exe'))
-		: Promise.reject<GitExecutable>();
+	return pathBase ? getGitExecutable(path.join(pathBase, 'Git', 'cmd', 'git.exe')) : Promise.reject<GitExecutable>();
 }
 async function findGitWin32InPath() {
 	let dirs = (process.env['PATH'] || '').split(';');
@@ -721,7 +755,7 @@ async function findGitWin32InPath() {
 		if (await isExecutable(file)) {
 			try {
 				return await getGitExecutable(file);
-			} catch (_) { }
+			} catch (_) {}
 		}
 	}
 	return Promise.reject<GitExecutable>();
@@ -733,7 +767,7 @@ async function findGitWin32InPath() {
  * @returns TRUE => Executable, FALSE => Not an Executable.
  */
 function isExecutable(path: string) {
-	return new Promise<boolean>(resolve => {
+	return new Promise<boolean>((resolve) => {
 		fs.stat(path, (err, stat) => {
 			resolve(!err && (stat.isFile() || stat.isSymbolicLink()));
 		});
@@ -749,7 +783,13 @@ export function getGitExecutable(path: string) {
 	return new Promise<GitExecutable>((resolve, reject) => {
 		resolveSpawnOutput(cp.spawn(path, ['--version'])).then((values) => {
 			if (values[0].code === 0) {
-				resolve({ path: path, version: values[1].toString().trim().replace(/^git version /, '') });
+				resolve({
+					path: path,
+					version: values[1]
+						.toString()
+						.trim()
+						.replace(/^git version /, '')
+				});
 			} else {
 				reject();
 			}
@@ -766,11 +806,10 @@ export async function getGitExecutableFromPaths(paths: string[]): Promise<GitExe
 	for (let i = 0; i < paths.length; i++) {
 		try {
 			return await getGitExecutable(paths[i]);
-		} catch (_) { }
+		} catch (_) {}
 	}
 	throw new Error('None of the provided paths are a Git executable');
 }
-
 
 /* Version Handling / Requirements */
 
@@ -836,5 +875,13 @@ function parseVersion(version: string) {
  * @returns The message for the user.
  */
 export function constructIncompatibleGitVersionMessage(executable: GitExecutable, version: GitVersionRequirement, feature?: string) {
-	return 'A newer version of Git (>= ' + version + ') is required for ' + (feature ? feature : 'this feature') + '. Git ' + executable.version + ' is currently installed. Please install a newer version of Git to use this feature.';
+	return (
+		'A newer version of Git (>= ' +
+		version +
+		') is required for ' +
+		(feature ? feature : 'this feature') +
+		'. Git ' +
+		executable.version +
+		' is currently installed. Please install a newer version of Git to use this feature.'
+	);
 }

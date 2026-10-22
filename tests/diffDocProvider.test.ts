@@ -192,10 +192,12 @@ describe('encodeDiffDocUri', () => {
 describe('decodeDiffDocUri', () => {
 	it('Should return the parsed DiffDocUriData from the URI', () => {
 		// Run
-		const value = decodeDiffDocUri(vscode.Uri.file('file.txt').with({
-			scheme: 'git-graph',
-			query: 'eyJmaWxlUGF0aCI6InBhdGgvdG8vZmlsZS50eHQiLCJjb21taXQiOiIxYTJiM2M0ZDVlNmYxYTJiM2M0ZDVlNmYxYTJiM2M0ZDVlNmYxYTJiIiwicmVwbyI6Ii9yZXBvIiwiZXhpc3RzIjp0cnVlfQ=='
-		}));
+		const value = decodeDiffDocUri(
+			vscode.Uri.file('file.txt').with({
+				scheme: 'git-graph',
+				query: 'eyJmaWxlUGF0aCI6InBhdGgvdG8vZmlsZS50eHQiLCJjb21taXQiOiIxYTJiM2M0ZDVlNmYxYTJiM2M0ZDVlNmYxYTJiM2M0ZDVlNmYxYTJiIiwicmVwbyI6Ii9yZXBvIiwiZXhpc3RzIjp0cnVlfQ=='
+			})
+		);
 
 		// Assert
 		expect(value).toStrictEqual({

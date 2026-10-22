@@ -33,7 +33,14 @@ let dataSource: DataSource;
 let extensionState: ExtensionState;
 let avatarManager: AvatarManager;
 let repoManager: RepoManager;
-let spyOnGitGraphViewCreateOrShow: MockInstance, spyOnGetRepos: MockInstance, spyOnGetKnownRepo: MockInstance, spyOnRegisterRepo: MockInstance, spyOnGetCodeReviews: MockInstance, spyOnEndCodeReview: MockInstance, spyOnGetCommitSubject: MockInstance, spyOnLog: MockInstance;
+let spyOnGitGraphViewCreateOrShow: MockInstance,
+	spyOnGetRepos: MockInstance,
+	spyOnGetKnownRepo: MockInstance,
+	spyOnRegisterRepo: MockInstance,
+	spyOnGetCodeReviews: MockInstance,
+	spyOnEndCodeReview: MockInstance,
+	spyOnGetCommitSubject: MockInstance,
+	spyOnLog: MockInstance;
 beforeAll(() => {
 	onDidChangeConfiguration = new EventEmitter<ConfigurationChangeEvent>();
 	onDidChangeGitExecutable = new EventEmitter<utils.GitExecutable>();
@@ -65,7 +72,16 @@ afterAll(() => {
 describe('CommandManager', () => {
 	let commandManager: CommandManager;
 	beforeEach(() => {
-		commandManager = new CommandManager(vscode.mocks.extensionContext, avatarManager, dataSource, extensionState, repoManager, { path: '/path/to/git', version: '2.25.0' }, onDidChangeGitExecutable.subscribe, logger);
+		commandManager = new CommandManager(
+			vscode.mocks.extensionContext,
+			avatarManager,
+			dataSource,
+			extensionState,
+			repoManager,
+			{ path: '/path/to/git', version: '2.25.0' },
+			onDidChangeGitExecutable.subscribe,
+			logger
+		);
 	});
 	afterEach(() => {
 		commandManager.dispose();
@@ -223,7 +239,9 @@ describe('CommandManager', () => {
 				expect(spyOnLog).toHaveBeenCalledWith('Command Invoked: git-graph.addGitRepository');
 				expect(vscode.window.showOpenDialog).toHaveBeenCalledWith({ canSelectFiles: false, canSelectFolders: true, canSelectMany: false });
 				expect(spyOnIsPathInWorkspace).toHaveBeenCalledWith('/path/to/non-workspace-folder/repo');
-				expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('The folder "/path/to/non-workspace-folder/repo" is not within the opened Visual Studio Code workspace, and therefore could not be added to Git Graph.');
+				expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+					'The folder "/path/to/non-workspace-folder/repo" is not within the opened Visual Studio Code workspace, and therefore could not be added to Git Graph.'
+				);
 				expect(spyOnRegisterRepo).not.toHaveBeenCalled();
 			});
 		});
@@ -361,7 +379,7 @@ describe('CommandManager', () => {
 			});
 		});
 
-		it('Shouldn\'t attempt to ignore a repository if none was selected', async () => {
+		it("Shouldn't attempt to ignore a repository if none was selected", async () => {
 			// Setup
 			spyOnGetRepos.mockReturnValueOnce({
 				'/path/to/repo1': mockRepoState({ name: null, workspaceFolderIndex: 0 }),
@@ -548,7 +566,10 @@ describe('CommandManager', () => {
 						canPickMany: false
 					}
 				);
-				expect(spyOnGitGraphViewCreateOrShow).toHaveBeenCalledWith('/path/to/extension', dataSource, extensionState, avatarManager, repoManager, logger, { repo: '/path/to/repo1', runCommandOnLoad: 'fetch' });
+				expect(spyOnGitGraphViewCreateOrShow).toHaveBeenCalledWith('/path/to/extension', dataSource, extensionState, avatarManager, repoManager, logger, {
+					repo: '/path/to/repo1',
+					runCommandOnLoad: 'fetch'
+				});
 			});
 		});
 
@@ -586,7 +607,10 @@ describe('CommandManager', () => {
 						canPickMany: false
 					}
 				);
-				expect(spyOnGitGraphViewCreateOrShow).toHaveBeenCalledWith('/path/to/extension', dataSource, extensionState, avatarManager, repoManager, logger, { repo: '/path/to/repo1', runCommandOnLoad: 'fetch' });
+				expect(spyOnGitGraphViewCreateOrShow).toHaveBeenCalledWith('/path/to/extension', dataSource, extensionState, avatarManager, repoManager, logger, {
+					repo: '/path/to/repo1',
+					runCommandOnLoad: 'fetch'
+				});
 			});
 		});
 
@@ -624,11 +648,14 @@ describe('CommandManager', () => {
 						canPickMany: false
 					}
 				);
-				expect(spyOnGitGraphViewCreateOrShow).toHaveBeenCalledWith('/path/to/extension', dataSource, extensionState, avatarManager, repoManager, logger, { repo: '/path/to/repo1', runCommandOnLoad: 'fetch' });
+				expect(spyOnGitGraphViewCreateOrShow).toHaveBeenCalledWith('/path/to/extension', dataSource, extensionState, avatarManager, repoManager, logger, {
+					repo: '/path/to/repo1',
+					runCommandOnLoad: 'fetch'
+				});
 			});
 		});
 
-		it('Shouldn\'t open the Git Graph View when no item is selected in the quick pick', async () => {
+		it("Shouldn't open the Git Graph View when no item is selected in the quick pick", async () => {
 			// Setup
 			spyOnGetRepos.mockReturnValueOnce({
 				'/path/to/repo1': mockRepoState({ name: null, workspaceFolderIndex: 0 }),
@@ -712,7 +739,10 @@ describe('CommandManager', () => {
 			// Assert
 			await waitForExpect(() => {
 				expect(spyOnLog).toHaveBeenCalledWith('Command Invoked: git-graph.fetch');
-				expect(spyOnGitGraphViewCreateOrShow).toHaveBeenCalledWith('/path/to/extension', dataSource, extensionState, avatarManager, repoManager, logger, { repo: '/path/to/repo1', runCommandOnLoad: 'fetch' });
+				expect(spyOnGitGraphViewCreateOrShow).toHaveBeenCalledWith('/path/to/extension', dataSource, extensionState, avatarManager, repoManager, logger, {
+					repo: '/path/to/repo1',
+					runCommandOnLoad: 'fetch'
+				});
 			});
 		});
 
@@ -806,7 +836,7 @@ describe('CommandManager', () => {
 			expect(vscode.window.showQuickPick).not.toHaveBeenCalled();
 		});
 
-		it('Shouldn\'t end a code review if no code review was selected', async () => {
+		it("Shouldn't end a code review if no code review was selected", async () => {
 			// Setup
 			spyOnGetCodeReviews.mockReturnValueOnce({
 				'/path/to/repo': {
@@ -864,7 +894,7 @@ describe('CommandManager', () => {
 			});
 		});
 
-		it('Should display an error message when the code review couldn\'t be ended', async () => {
+		it("Should display an error message when the code review couldn't be ended", async () => {
 			// Setup
 			spyOnGetCodeReviews.mockReturnValueOnce({
 				'/path/to/repo': {
@@ -949,8 +979,8 @@ describe('CommandManager', () => {
 			spyOnGetRepos.mockReturnValueOnce({
 				'/path/to/repo': mockRepoState({ name: null, workspaceFolderIndex: 0 })
 			});
-			spyOnGetCommitSubject.mockImplementationOnce((_: string, hash: string) => hash === '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b' ? 'subject-' + hash : null);
-			spyOnGetCommitSubject.mockImplementationOnce((_: string, hash: string) => hash === '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b' ? 'subject-' + hash : null);
+			spyOnGetCommitSubject.mockImplementationOnce((_: string, hash: string) => (hash === '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b' ? 'subject-' + hash : null));
+			spyOnGetCommitSubject.mockImplementationOnce((_: string, hash: string) => (hash === '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b' ? 'subject-' + hash : null));
 			vscode.window.showQuickPick.mockImplementationOnce((items: Promise<any[]>, _: any) => items.then((items) => items[0]));
 
 			// Run
@@ -1039,7 +1069,7 @@ describe('CommandManager', () => {
 			});
 		});
 
-		it('Shouldn\'t load the the Git Graph View if no code review was selected', async () => {
+		it("Shouldn't load the the Git Graph View if no code review was selected", async () => {
 			// Setup
 			spyOnGetCodeReviews.mockReturnValueOnce({
 				'/path/to/repo': {
@@ -1140,7 +1170,7 @@ describe('CommandManager', () => {
 			});
 		});
 
-		it('Shouldn\'t copy the version information to the clipboard if the user closes the information message modal', async () => {
+		it("Shouldn't copy the version information to the clipboard if the user closes the information message modal", async () => {
 			// Setup
 			commandManager['gitExecutable'] = null;
 			spyOnGetExtensionVersion.mockResolvedValueOnce('1.27.0');
@@ -1160,7 +1190,7 @@ describe('CommandManager', () => {
 			});
 		});
 
-		it('Should display an error message when the extension version couldn\'t be retrieved', async () => {
+		it("Should display an error message when the extension version couldn't be retrieved", async () => {
 			// Setup
 			spyOnGetExtensionVersion.mockRejectedValueOnce(null);
 			vscode.window.showErrorMessage.mockResolvedValueOnce(null);
@@ -1175,7 +1205,7 @@ describe('CommandManager', () => {
 			});
 		});
 
-		it('Should display an error message when the version information couldn\'t be copied to the clipboard', async () => {
+		it("Should display an error message when the version information couldn't be copied to the clipboard", async () => {
 			// Setup
 			spyOnGetExtensionVersion.mockResolvedValueOnce('1.27.0');
 			vscode.window.showInformationMessage.mockResolvedValueOnce('Copy');
@@ -1227,7 +1257,10 @@ describe('CommandManager', () => {
 			spyOnOpenFile.mockResolvedValueOnce(null);
 
 			// Run
-			await vscode.commands.executeCommand('git-graph.openFile', encodeDiffDocUri('/path/to/repo', 'subfolder/modified.txt', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', GitFileStatus.Modified, DiffSide.New));
+			await vscode.commands.executeCommand(
+				'git-graph.openFile',
+				encodeDiffDocUri('/path/to/repo', 'subfolder/modified.txt', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', GitFileStatus.Modified, DiffSide.New)
+			);
 
 			// Assert
 			expect(spyOnLog).toHaveBeenCalledWith('Command Invoked: git-graph.openFile');
@@ -1235,7 +1268,9 @@ describe('CommandManager', () => {
 		});
 
 		it('Should open the file of the active text editor', async () => {
-			vscode.window.activeTextEditor = { document: { uri: encodeDiffDocUri('/path/to/repo', 'subfolder/modified.txt', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', GitFileStatus.Modified, DiffSide.New) } };
+			vscode.window.activeTextEditor = {
+				document: { uri: encodeDiffDocUri('/path/to/repo', 'subfolder/modified.txt', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', GitFileStatus.Modified, DiffSide.New) }
+			};
 			spyOnOpenFile.mockResolvedValueOnce(null);
 
 			// Run
@@ -1272,8 +1307,10 @@ describe('CommandManager', () => {
 			expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('Unable to Open File: The command was not called with the required arguments.');
 		});
 
-		it('Should display an error message when the file can\'t be opened', async () => {
-			vscode.window.activeTextEditor = { document: { uri: encodeDiffDocUri('/path/to/repo', 'subfolder/modified.txt', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', GitFileStatus.Modified, DiffSide.New) } };
+		it("Should display an error message when the file can't be opened", async () => {
+			vscode.window.activeTextEditor = {
+				document: { uri: encodeDiffDocUri('/path/to/repo', 'subfolder/modified.txt', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', GitFileStatus.Modified, DiffSide.New) }
+			};
 			spyOnOpenFile.mockResolvedValueOnce('Error Message');
 			vscode.window.showErrorMessage.mockResolvedValueOnce(null);
 

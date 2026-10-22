@@ -5,7 +5,6 @@ import { ELLIPSIS, SVG_NAMESPACE, UNCOMMITTED, escapeHtml, getCommitElems } from
 const CLASS_GRAPH_VERTEX_ACTIVE = 'graphVertexActive';
 const NULL_VERTEX_ID = -1;
 
-
 /* Types */
 
 interface Point {
@@ -36,7 +35,6 @@ interface UnavailablePoint {
 
 type VertexOrNull = Vertex | null;
 
-
 /* Branch Class */
 
 class Branch {
@@ -58,7 +56,6 @@ class Branch {
 		}
 	}
 
-
 	/* Get / Set */
 
 	public getColour() {
@@ -73,33 +70,50 @@ class Branch {
 		this.end = end;
 	}
 
-
 	/* Rendering */
 
 	public draw(svg: SVGElement, config: GG.GraphConfig, expandAt: number) {
-		let colour = config.colours[this.colour % config.colours.length], i, x1, y1, x2, y2, lines: PlacedLine[] = [], curPath = '', d = config.grid.y * (config.style === GG.GraphStyle.Angular ? 0.38 : 0.8), line, nextLine;
+		let colour = config.colours[this.colour % config.colours.length],
+			i,
+			x1,
+			y1,
+			x2,
+			y2,
+			lines: PlacedLine[] = [],
+			curPath = '',
+			d = config.grid.y * (config.style === GG.GraphStyle.Angular ? 0.38 : 0.8),
+			line,
+			nextLine;
 
 		// Convert branch lines into pixel coordinates, respecting expanded commit extensions
 		for (i = 0; i < this.lines.length; i++) {
 			line = this.lines[i];
-			x1 = line.p1.x * config.grid.x + config.grid.offsetX; y1 = line.p1.y * config.grid.y + config.grid.offsetY;
-			x2 = line.p2.x * config.grid.x + config.grid.offsetX; y2 = line.p2.y * config.grid.y + config.grid.offsetY;
+			x1 = line.p1.x * config.grid.x + config.grid.offsetX;
+			y1 = line.p1.y * config.grid.y + config.grid.offsetY;
+			x2 = line.p2.x * config.grid.x + config.grid.offsetX;
+			y2 = line.p2.y * config.grid.y + config.grid.offsetY;
 
 			// If a commit is expanded, we need to stretch the graph for the height of the commit details view
 			if (expandAt > -1) {
-				if (line.p1.y > expandAt) { // If the line starts after the expansion, move the whole line lower
+				if (line.p1.y > expandAt) {
+					// If the line starts after the expansion, move the whole line lower
 					y1 += config.grid.expandY;
 					y2 += config.grid.expandY;
-				} else if (line.p2.y > expandAt) { // If the line crosses the expansion
-					if (x1 === x2) { // The line is vertical, extend the endpoint past the expansion
+				} else if (line.p2.y > expandAt) {
+					// If the line crosses the expansion
+					if (x1 === x2) {
+						// The line is vertical, extend the endpoint past the expansion
 						y2 += config.grid.expandY;
-					} else if (line.lockedFirst) { // If the line is locked to the first point, the transition stays in its normal position
+					} else if (line.lockedFirst) {
+						// If the line is locked to the first point, the transition stays in its normal position
 						lines.push({ p1: { x: x1, y: y1 }, p2: { x: x2, y: y2 }, isCommitted: i >= this.numUncommitted, lockedFirst: line.lockedFirst }); // Display the normal transition
 						lines.push({ p1: { x: x2, y: y1 + config.grid.y }, p2: { x: x2, y: y2 + config.grid.expandY }, isCommitted: i >= this.numUncommitted, lockedFirst: line.lockedFirst }); // Extend the line over the expansion from the transition end point
 						continue;
-					} else { // If the line is locked to the second point, the transition moves to after the expansion
+					} else {
+						// If the line is locked to the second point, the transition moves to after the expansion
 						lines.push({ p1: { x: x1, y: y1 }, p2: { x: x1, y: y2 - config.grid.y + config.grid.expandY }, isCommitted: i >= this.numUncommitted, lockedFirst: line.lockedFirst }); // Extend the line over the expansion to the new transition start point
-						y1 += config.grid.expandY; y2 += config.grid.expandY;
+						y1 += config.grid.expandY;
+						y2 += config.grid.expandY;
 					}
 				}
 			}
@@ -122,8 +136,10 @@ class Branch {
 		// Iterate through all lines, producing and adding the svg paths to the DOM
 		for (i = 0; i < lines.length; i++) {
 			line = lines[i];
-			x1 = line.p1.x; y1 = line.p1.y;
-			x2 = line.p2.x; y2 = line.p2.y;
+			x1 = line.p1.x;
+			y1 = line.p1.y;
+			x2 = line.p2.x;
+			y2 = line.p2.y;
 
 			// If the new point belongs to a different path, render the current path and reset it for the new path
 			if (curPath !== '' && i > 0 && line.isCommitted !== lines[i - 1].isCommitted) {
@@ -134,11 +150,13 @@ class Branch {
 			// If the path hasn't been started or the new point belongs to a different path, move to p1
 			if (curPath === '' || (i > 0 && (x1 !== lines[i - 1].p2.x || y1 !== lines[i - 1].p2.y))) curPath += 'M' + x1.toFixed(0) + ',' + y1.toFixed(1);
 
-			if (x1 === x2) { // If the path is vertical, draw a straight line
+			if (x1 === x2) {
+				// If the path is vertical, draw a straight line
 				curPath += 'L' + x2.toFixed(0) + ',' + y2.toFixed(1);
-			} else { // If the path moves horizontal, draw the appropriate transition
+			} else {
+				// If the path moves horizontal, draw the appropriate transition
 				if (config.style === GG.GraphStyle.Angular) {
-					curPath += 'L' + (line.lockedFirst ? (x2.toFixed(0) + ',' + (y2 - d).toFixed(1)) : (x1.toFixed(0) + ',' + (y1 + d).toFixed(1))) + 'L' + x2.toFixed(0) + ',' + y2.toFixed(1);
+					curPath += 'L' + (line.lockedFirst ? x2.toFixed(0) + ',' + (y2 - d).toFixed(1) : x1.toFixed(0) + ',' + (y1 + d).toFixed(1)) + 'L' + x2.toFixed(0) + ',' + y2.toFixed(1);
 				} else {
 					curPath += 'C' + x1.toFixed(0) + ',' + (y1 + d).toFixed(1) + ' ' + x2.toFixed(0) + ',' + (y2 - d).toFixed(1) + ' ' + x2.toFixed(0) + ',' + y2.toFixed(1);
 				}
@@ -151,7 +169,8 @@ class Branch {
 	}
 
 	private static drawPath(svg: SVGElement, path: string, isCommitted: boolean, colour: string, uncommittedChanges: GG.GraphUncommittedChangesStyle) {
-		const shadow = svg.appendChild(document.createElementNS(SVG_NAMESPACE, 'path')), line = svg.appendChild(document.createElementNS(SVG_NAMESPACE, 'path'));
+		const shadow = svg.appendChild(document.createElementNS(SVG_NAMESPACE, 'path')),
+			line = svg.appendChild(document.createElementNS(SVG_NAMESPACE, 'path'));
 		shadow.setAttribute('class', 'shadow');
 		shadow.setAttribute('d', path);
 		line.setAttribute('class', 'line');
@@ -162,7 +181,6 @@ class Branch {
 		}
 	}
 }
-
 
 /* Vertex Class */
 
@@ -185,7 +203,6 @@ class Vertex {
 		this.isStash = isStash;
 	}
 
-
 	/* Children */
 
 	public addChild(vertex: Vertex) {
@@ -195,7 +212,6 @@ class Vertex {
 	public getChildren(): ReadonlyArray<Vertex> {
 		return this.children;
 	}
-
 
 	/* Parents */
 
@@ -229,7 +245,6 @@ class Vertex {
 		return this.parents.length > 1;
 	}
 
-
 	/* Branch */
 
 	public addToBranch(branch: Branch, x: number) {
@@ -250,7 +265,6 @@ class Vertex {
 	public getBranch() {
 		return this.onBranch;
 	}
-
 
 	/* Point */
 
@@ -277,7 +291,6 @@ class Vertex {
 		}
 	}
 
-
 	/* Get / Set State */
 
 	public getColour() {
@@ -295,7 +308,6 @@ class Vertex {
 	public setCurrent() {
 		this.isCurrent = true;
 	}
-
 
 	/* Rendering */
 
@@ -334,7 +346,6 @@ class Vertex {
 		circle.addEventListener('mouseout', outListener);
 	}
 }
-
 
 /* Graph Class */
 
@@ -391,7 +402,6 @@ export class Graph {
 		elem.appendChild(this.svg);
 	}
 
-
 	/* Graph Operations */
 
 	public loadCommits(commits: ReadonlyArray<GG.GitCommit>, commitHead: string | null, commitLookup: { [hash: string]: number }, onlyFollowFirstParent: boolean) {
@@ -445,14 +455,17 @@ export class Graph {
 
 	public render(expandedCommit: ExpandedCommit | null) {
 		this.expandedCommitIndex = expandedCommit !== null ? expandedCommit.index : -1;
-		let group = document.createElementNS(SVG_NAMESPACE, 'g'), i, contentWidth = this.getContentWidth();
+		let group = document.createElementNS(SVG_NAMESPACE, 'g'),
+			i,
+			contentWidth = this.getContentWidth();
 		group.setAttribute('mask', 'url(#GraphMask)');
 
 		for (i = 0; i < this.branches.length; i++) {
 			this.branches[i].draw(group, this.config, this.expandedCommitIndex);
 		}
 
-		const overListener = (e: MouseEvent) => this.vertexOver(e), outListener = (e: MouseEvent) => this.vertexOut(e);
+		const overListener = (e: MouseEvent) => this.vertexOver(e),
+			outListener = (e: MouseEvent) => this.vertexOut(e);
 		for (i = 0; i < this.vertices.length; i++) {
 			this.vertices[i].draw(group, this.config, expandedCommit !== null && i > expandedCommit.index, overListener, outListener);
 		}
@@ -465,11 +478,12 @@ export class Graph {
 		this.closeTooltip();
 	}
 
-
 	/* Get */
 
 	public getContentWidth() {
-		let x = 0, i, p;
+		let x = 0,
+			i,
+			p;
 		for (i = 0; i < this.vertices.length; i++) {
 			p = this.vertices[i].getNextPoint();
 			if (p.x > x) x = p.x;
@@ -482,7 +496,8 @@ export class Graph {
 	}
 
 	public getVertexColours() {
-		let colours = [], i;
+		let colours = [],
+			i;
 		for (i = 0; i < this.vertices.length; i++) {
 			colours[i] = this.vertices[i].getColour() % this.config.colours.length;
 		}
@@ -490,13 +505,13 @@ export class Graph {
 	}
 
 	public getWidthsAtVertices() {
-		let widths = [], i;
+		let widths = [],
+			i;
 		for (i = 0; i < this.vertices.length; i++) {
 			widths[i] = this.config.grid.offsetX + this.vertices[i].getNextPoint().x * this.config.grid.x - 2;
 		}
 		return widths;
 	}
-
 
 	/* Graph Queries */
 
@@ -546,7 +561,9 @@ export class Graph {
 			for (let i = 0; i < children.length; i++) rec(children[i]);
 		};
 		rec(this.vertices[i]);
-		return Object.keys(visited).map((key) => visited[key]).sort((a, b) => a - b);
+		return Object.keys(visited)
+			.map((key) => visited[key])
+			.sort((a, b) => a - b);
 	}
 
 	public getMutedCommits(currentHash: string | null) {
@@ -583,7 +600,10 @@ export class Graph {
 			rec(this.vertices[this.commitLookup[currentHash]]);
 
 			for (let i = 0; i < this.commits.length; i++) {
-				if (!ancestor[i] && (this.commits[i].stash === null || typeof this.commitLookup[this.commits[i].stash!.baseHash] !== 'number' || !ancestor[this.commitLookup[this.commits[i].stash!.baseHash]])) {
+				if (
+					!ancestor[i] &&
+					(this.commits[i].stash === null || typeof this.commitLookup[this.commits[i].stash!.baseHash] !== 'number' || !ancestor[this.commitLookup[this.commits[i].stash!.baseHash]])
+				) {
 					// Commit i is not an ancestor of currentHash, or a stash based on an ancestor of currentHash
 					muted[i] = true;
 				}
@@ -593,7 +613,6 @@ export class Graph {
 		return muted;
 	}
 
-
 	/**
 	 * Get the index of the first parent of the commit at the specified index.
 	 * @param i The index of the commit.
@@ -601,9 +620,7 @@ export class Graph {
 	 */
 	public getFirstParentIndex(i: number) {
 		const parents = this.vertices[i].getParents();
-		return parents.length > 0
-			? parents[0].id
-			: -1;
+		return parents.length > 0 ? parents[0].id : -1;
 	}
 
 	/**
@@ -613,11 +630,7 @@ export class Graph {
 	 */
 	public getAlternativeParentIndex(i: number) {
 		const parents = this.vertices[i].getParents();
-		return parents.length > 1
-			? parents[1].id
-			: parents.length === 1
-				? parents[0].id
-				: -1;
+		return parents.length > 1 ? parents[1].id : parents.length === 1 ? parents[0].id : -1;
 	}
 
 	/**
@@ -660,7 +673,7 @@ export class Graph {
 			let childOnSameBranch: Vertex | undefined;
 			if (branch !== null && (childOnSameBranch = children.find((child) => child.isOnThisBranch(branch)))) {
 				// If a child could be found on the same branch as the vertex
-				return Math.max(...children.filter(child => child !== childOnSameBranch).map((child) => child.id));
+				return Math.max(...children.filter((child) => child !== childOnSameBranch).map((child) => child.id));
 			} else {
 				// No child could be found on the same branch as the vertex
 				const childIndexes = children.map((child) => child.id).sort();
@@ -674,7 +687,6 @@ export class Graph {
 			return -1;
 		}
 	}
-
 
 	/* Width Adjustment Methods */
 
@@ -703,17 +715,20 @@ export class Graph {
 		this.svg.setAttribute('width', width.toString());
 	}
 
-
 	/* Graph Layout Methods */
 
 	private determinePath(startAt: number) {
 		let i = startAt;
-		let vertex = this.vertices[i], parentVertex = this.vertices[i].getNextParent(), curVertex;
-		let lastPoint = vertex.isNotOnBranch() ? vertex.getNextPoint() : vertex.getPoint(), curPoint;
+		let vertex = this.vertices[i],
+			parentVertex = this.vertices[i].getNextParent(),
+			curVertex;
+		let lastPoint = vertex.isNotOnBranch() ? vertex.getNextPoint() : vertex.getPoint(),
+			curPoint;
 
 		if (parentVertex !== null && parentVertex.id !== NULL_VERTEX_ID && vertex.isMerge() && !vertex.isNotOnBranch() && !parentVertex.isNotOnBranch()) {
 			// Branch is a merge between two vertices already on branches
-			let foundPointToParent = false, parentBranch = parentVertex.getBranch()!;
+			let foundPointToParent = false,
+				parentBranch = parentVertex.getBranch()!;
 			for (i = startAt + 1; i < this.vertices.length; i++) {
 				curVertex = this.vertices[i];
 				curPoint = curVertex.getPointConnectingTo(parentVertex, parentBranch); // Check if there is already a point connecting the ith vertex to the required parent
@@ -776,7 +791,6 @@ export class Graph {
 		return this.availableColours.length - 1;
 	}
 
-
 	/* Vertex Info */
 
 	private vertexOver(event: MouseEvent) {
@@ -789,7 +803,8 @@ export class Graph {
 		const commitElem = findCommitElemWithId(getCommitElems(), id);
 		if (commitElem !== null) commitElem.classList.add(CLASS_GRAPH_VERTEX_ACTIVE);
 
-		if (id < this.commits.length && this.commits[id].hash !== UNCOMMITTED) { // Only show tooltip for commits (not the uncommitted changes)
+		if (id < this.commits.length && this.commits[id].hash !== UNCOMMITTED) {
+			// Only show tooltip for commits (not the uncommitted changes)
 			this.tooltipTimeout = setTimeout(() => {
 				this.tooltipTimeout = null;
 				let vertexScreenY = vertexElem.getBoundingClientRect().top + 4; // Get center of the circle
@@ -814,7 +829,11 @@ export class Graph {
 		}
 
 		const children = this.getAllChildren(id);
-		let heads: string[] = [], remotes: GG.GitCommitRemote[] = [], stashes: string[] = [], tags: string[] = [], childrenIncludesHead = false;
+		let heads: string[] = [],
+			remotes: GG.GitCommitRemote[] = [],
+			stashes: string[] = [],
+			tags: string[] = [],
+			childrenIncludesHead = false;
 		for (let i = 0; i < children.length; i++) {
 			let commit = this.commits[children[i]];
 			for (let j = 0; j < commit.heads.length; j++) heads.push(commit.heads[j]);
@@ -834,7 +853,8 @@ export class Graph {
 			html += '<div class="graphTooltipSection">This commit is ' + (childrenIncludesHead ? '' : '<b><i>not</i></b> ') + 'included in <span class="graphTooltipRef">HEAD</span></div>';
 		}
 		if (heads.length > 0 || remotes.length > 0) {
-			let branchLabels = getBranchLabels(heads, remotes), htmlRefs: string[] = [];
+			let branchLabels = getBranchLabels(heads, remotes),
+				htmlRefs: string[] = [];
 			branchLabels.heads.forEach((head) => {
 				let html = head.remotes.reduce((prev, remote) => prev + '<span class="graphTooltipCombinedRef">' + escapeHtml(remote) + '</span>', '');
 				htmlRefs.push('<span class="graphTooltipRef">' + escapeHtml(head.name) + html + '</span>');
@@ -851,8 +871,12 @@ export class Graph {
 			html += '<div class="graphTooltipSection">Stashes: ' + getLimitedRefs(htmlRefs) + '</div>';
 		}
 
-		const point = this.vertices[id].getPoint(), color = 'var(--git-graph-color' + (this.vertices[id].getColour() % this.config.colours.length) + ')';
-		const anchor = document.createElement('div'), pointer = document.createElement('div'), content = document.createElement('div'), shadow = document.createElement('div');
+		const point = this.vertices[id].getPoint(),
+			color = 'var(--git-graph-color' + (this.vertices[id].getColour() % this.config.colours.length) + ')';
+		const anchor = document.createElement('div'),
+			pointer = document.createElement('div'),
+			content = document.createElement('div'),
+			shadow = document.createElement('div');
 		const pixel: Pixel = {
 			x: point.x * this.config.grid.x + this.config.grid.offsetX,
 			y: point.y * this.config.grid.y + this.config.grid.offsetY + (this.expandedCommitIndex > -1 && id > this.expandedCommitIndex ? this.config.grid.expandY : 0)
@@ -879,14 +903,14 @@ export class Graph {
 		let relativeOffset = -tooltipRect.height / 2; // Center the tooltip vertically on the vertex
 		if (vertexScreenY + relativeOffset + tooltipRect.height > this.viewElem.clientHeight - 4) {
 			// Not enough height below the vertex to fit the vertex, shift it up.
-			relativeOffset = (this.viewElem.clientHeight - vertexScreenY - 4) - tooltipRect.height;
+			relativeOffset = this.viewElem.clientHeight - vertexScreenY - 4 - tooltipRect.height;
 		}
 		if (vertexScreenY + relativeOffset < 4) {
 			// Not enough height above the vertex to fit the tooltip, shift it down.
 			relativeOffset = -vertexScreenY + 4;
 		}
-		pointer.style.top = (-relativeOffset) + 'px';
-		anchor.style.top = (pixel.y + relativeOffset) + 'px';
+		pointer.style.top = -relativeOffset + 'px';
+		anchor.style.top = pixel.y + relativeOffset + 'px';
 		shadow.style.width = tooltipRect.width + 'px';
 		shadow.style.height = tooltipRect.height + 'px';
 		anchor.style.opacity = '1';

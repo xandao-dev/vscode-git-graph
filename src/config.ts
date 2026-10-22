@@ -66,12 +66,11 @@ class Config {
 		return {
 			autoCenter: !!this.getRenamedExtensionSetting('commitDetailsView.autoCenter', 'autoCenterCommitDetailsView', true),
 			fileTreeCompactFolders: !!this.getRenamedExtensionSetting('commitDetailsView.fileView.fileTree.compactFolders', 'commitDetailsViewFileTreeCompactFolders', true),
-			fileViewType: this.getRenamedExtensionSetting<string>('commitDetailsView.fileView.type', 'defaultFileViewType', 'File Tree') === 'File List'
-				? FileViewType.List
-				: FileViewType.Tree,
-			location: this.getRenamedExtensionSetting<string>('commitDetailsView.location', 'commitDetailsViewLocation', 'Inline') === 'Docked to Bottom'
-				? CommitDetailsViewLocation.DockedToBottom
-				: CommitDetailsViewLocation.Inline
+			fileViewType: this.getRenamedExtensionSetting<string>('commitDetailsView.fileView.type', 'defaultFileViewType', 'File Tree') === 'File List' ? FileViewType.List : FileViewType.Tree,
+			location:
+				this.getRenamedExtensionSetting<string>('commitDetailsView.location', 'commitDetailsViewLocation', 'Inline') === 'Docked to Bottom'
+					? CommitDetailsViewLocation.DockedToBottom
+					: CommitDetailsViewLocation.Inline
 		};
 	}
 
@@ -81,10 +80,45 @@ class Config {
 	get contextMenuActionsVisibility(): ContextMenuActionsVisibility {
 		const userConfig = this.config.get('contextMenuActionsVisibility', {});
 		const config: ContextMenuActionsVisibility = {
-			branch: { checkout: true, rename: true, delete: true, merge: true, rebase: true, push: true, viewIssue: true, createPullRequest: true, createArchive: true, selectInBranchesDropdown: true, unselectInBranchesDropdown: true, copyName: true },
+			branch: {
+				checkout: true,
+				rename: true,
+				delete: true,
+				merge: true,
+				rebase: true,
+				push: true,
+				viewIssue: true,
+				createPullRequest: true,
+				createArchive: true,
+				selectInBranchesDropdown: true,
+				unselectInBranchesDropdown: true,
+				copyName: true
+			},
 			commit: { addTag: true, createBranch: true, checkout: true, cherrypick: true, revert: true, drop: true, edit: true, merge: true, rebase: true, reset: true, copyHash: true, copySubject: true },
-			commitDetailsViewFile: { viewDiff: true, viewFileAtThisRevision: true, viewDiffWithWorkingFile: true, openFile: true, markAsReviewed: true, markAsNotReviewed: true, resetFileToThisRevision: true, copyAbsoluteFilePath: true, copyRelativeFilePath: true },
-			remoteBranch: { checkout: true, delete: true, fetch: true, merge: true, pull: true, viewIssue: true, createPullRequest: true, createArchive: true, selectInBranchesDropdown: true, unselectInBranchesDropdown: true, copyName: true },
+			commitDetailsViewFile: {
+				viewDiff: true,
+				viewFileAtThisRevision: true,
+				viewDiffWithWorkingFile: true,
+				openFile: true,
+				markAsReviewed: true,
+				markAsNotReviewed: true,
+				resetFileToThisRevision: true,
+				copyAbsoluteFilePath: true,
+				copyRelativeFilePath: true
+			},
+			remoteBranch: {
+				checkout: true,
+				delete: true,
+				fetch: true,
+				merge: true,
+				pull: true,
+				viewIssue: true,
+				createPullRequest: true,
+				createArchive: true,
+				selectInBranchesDropdown: true,
+				unselectInBranchesDropdown: true,
+				copyName: true
+			},
 			stash: { apply: true, createBranch: true, pop: true, drop: true, copyName: true, copyHash: true },
 			tag: { viewDetails: true, delete: true, push: true, createArchive: true, copyName: true },
 			uncommittedChanges: { stash: true, reset: true, clean: true, openSourceControlView: true }
@@ -127,9 +161,7 @@ class Config {
 	get customPullRequestProviders(): CustomPullRequestProvider[] {
 		let providers = this.config.get('customPullRequestProviders', <any[]>[]);
 		return Array.isArray(providers)
-			? providers
-				.filter((provider) => typeof provider.name === 'string' && typeof provider.templateUrl === 'string')
-				.map((provider) => ({ name: provider.name, templateUrl: provider.templateUrl }))
+			? providers.filter((provider) => typeof provider.name === 'string' && typeof provider.templateUrl === 'string').map((provider) => ({ name: provider.name, templateUrl: provider.templateUrl }))
 			: [];
 	}
 
@@ -137,7 +169,9 @@ class Config {
 	 * Get the value of the `git-graph.date.format` Extension Setting.
 	 */
 	get dateFormat(): DateFormat {
-		let configValue = this.getRenamedExtensionSetting<string>('date.format', 'dateFormat', 'Date & Time'), type = DateFormatType.DateAndTime, iso = false;
+		let configValue = this.getRenamedExtensionSetting<string>('date.format', 'dateFormat', 'Date & Time'),
+			type = DateFormatType.DateAndTime,
+			iso = false;
 		if (configValue === 'Relative') {
 			type = DateFormatType.Relative;
 		} else {
@@ -151,9 +185,7 @@ class Config {
 	 * Get the value of the `git-graph.date.type` Extension Setting.
 	 */
 	get dateType() {
-		return this.getRenamedExtensionSetting<string>('date.type', 'dateType', 'Author Date') === 'Commit Date'
-			? DateType.Commit
-			: DateType.Author;
+		return this.getRenamedExtensionSetting<string>('date.type', 'dateType', 'Author Date') === 'Commit Date' ? DateType.Commit : DateType.Author;
 	}
 
 	/**
@@ -221,7 +253,7 @@ class Config {
 				interactive: !!this.config.get('dialog.rebase.launchInteractiveRebase', false)
 			},
 			resetCommit: {
-				mode: resetCommitMode === 'Soft' ? GitResetMode.Soft : (resetCommitMode === 'Hard' ? GitResetMode.Hard : GitResetMode.Mixed)
+				mode: resetCommitMode === 'Soft' ? GitResetMode.Soft : resetCommitMode === 'Hard' ? GitResetMode.Hard : GitResetMode.Mixed
 			},
 			resetUncommitted: {
 				mode: resetUncommittedMode === 'Hard' ? GitResetMode.Hard : GitResetMode.Mixed
@@ -236,18 +268,14 @@ class Config {
 	 * Get the value of the `git-graph.dialog.merge.squashMessageFormat` Extension Setting.
 	 */
 	get squashMergeMessageFormat() {
-		return this.config.get<string>('dialog.merge.squashMessageFormat', 'Default') === 'Git SQUASH_MSG'
-			? SquashMessageFormat.GitSquashMsg
-			: SquashMessageFormat.Default;
+		return this.config.get<string>('dialog.merge.squashMessageFormat', 'Default') === 'Git SQUASH_MSG' ? SquashMessageFormat.GitSquashMsg : SquashMessageFormat.Default;
 	}
 
 	/**
 	 * Get the value of the `git-graph.dialog.pullBranch.squashMessageFormat` Extension Setting.
 	 */
 	get squashPullMessageFormat() {
-		return this.config.get<string>('dialog.pullBranch.squashMessageFormat', 'Default') === 'Git SQUASH_MSG'
-			? SquashMessageFormat.GitSquashMsg
-			: SquashMessageFormat.Default;
+		return this.config.get<string>('dialog.pullBranch.squashMessageFormat', 'Default') === 'Git SQUASH_MSG' ? SquashMessageFormat.GitSquashMsg : SquashMessageFormat.Default;
 	}
 
 	/**
@@ -270,16 +298,16 @@ class Config {
 	get graph(): GraphConfig {
 		const colours = this.getRenamedExtensionSetting<string[]>('graph.colours', 'graphColours', []);
 		return {
-			colours: Array.isArray(colours) && colours.length > 0
-				? colours.filter((v) => v.match(/^\s*(#[0-9a-fA-F]{6}|#[0-9a-fA-F]{8}|rgb[a]?\s*\(\d{1,3},\s*\d{1,3},\s*\d{1,3}\))\s*$/) !== null)
-				: ['#0085d9', '#d9008f', '#00d90a', '#d98500', '#a300d9', '#ff0000', '#00d9cc', '#e138e8', '#85d900', '#dc5b23', '#6f24d6', '#ffcc00'],
-			style: this.getRenamedExtensionSetting<string>('graph.style', 'graphStyle', 'rounded') === 'angular'
-				? GraphStyle.Angular
-				: GraphStyle.Rounded,
+			colours:
+				Array.isArray(colours) && colours.length > 0
+					? colours.filter((v) => v.match(/^\s*(#[0-9a-fA-F]{6}|#[0-9a-fA-F]{8}|rgb[a]?\s*\(\d{1,3},\s*\d{1,3},\s*\d{1,3}\))\s*$/) !== null)
+					: ['#0085d9', '#d9008f', '#00d90a', '#d98500', '#a300d9', '#ff0000', '#00d9cc', '#e138e8', '#85d900', '#dc5b23', '#6f24d6', '#ffcc00'],
+			style: this.getRenamedExtensionSetting<string>('graph.style', 'graphStyle', 'rounded') === 'angular' ? GraphStyle.Angular : GraphStyle.Rounded,
 			grid: { x: 16, y: 24, offsetX: 16, offsetY: 12, expandY: 250 },
-			uncommittedChanges: this.config.get<string>('graph.uncommittedChanges', 'Open Circle at the Uncommitted Changes') === 'Open Circle at the Checked Out Commit'
-				? GraphUncommittedChangesStyle.OpenCircleAtTheCheckedOutCommit
-				: GraphUncommittedChangesStyle.OpenCircleAtTheUncommittedChanges
+			uncommittedChanges:
+				this.config.get<string>('graph.uncommittedChanges', 'Open Circle at the Uncommitted Changes') === 'Open Circle at the Checked Out Commit'
+					? GraphUncommittedChangesStyle.OpenCircleAtTheCheckedOutCommit
+					: GraphUncommittedChangesStyle.OpenCircleAtTheUncommittedChanges
 		};
 	}
 
@@ -321,9 +349,7 @@ class Config {
 	 */
 	get openNewTabEditorGroup(): vscode.ViewColumn {
 		const location = this.getRenamedExtensionSetting<string>('openNewTabEditorGroup', 'openDiffTabLocation', 'Active');
-		return typeof location === 'string' && typeof VIEW_COLUMN_MAPPING[location] !== 'undefined'
-			? VIEW_COLUMN_MAPPING[location]
-			: vscode.ViewColumn.Active;
+		return typeof location === 'string' && typeof VIEW_COLUMN_MAPPING[location] !== 'undefined' ? VIEW_COLUMN_MAPPING[location] : vscode.ViewColumn.Active;
 	}
 
 	/**
@@ -338,11 +364,12 @@ class Config {
 	 */
 	get referenceLabels(): ReferenceLabelsConfig {
 		const alignmentConfigValue = this.getRenamedExtensionSetting<string>('referenceLabels.alignment', 'referenceLabelAlignment', 'Normal');
-		const alignment = alignmentConfigValue === 'Branches (on the left) & Tags (on the right)'
-			? RefLabelAlignment.BranchesOnLeftAndTagsOnRight
-			: alignmentConfigValue === 'Branches (aligned to the graph) & Tags (on the right)'
-				? RefLabelAlignment.BranchesAlignedToGraphAndTagsOnRight
-				: RefLabelAlignment.Normal;
+		const alignment =
+			alignmentConfigValue === 'Branches (on the left) & Tags (on the right)'
+				? RefLabelAlignment.BranchesOnLeftAndTagsOnRight
+				: alignmentConfigValue === 'Branches (aligned to the graph) & Tags (on the right)'
+					? RefLabelAlignment.BranchesAlignedToGraphAndTagsOnRight
+					: RefLabelAlignment.Normal;
 		return {
 			branchLabelsAlignedToGraph: alignment === RefLabelAlignment.BranchesAlignedToGraphAndTagsOnRight,
 			combineLocalAndRemoteBranchLabels: !!this.getRenamedExtensionSetting('referenceLabels.combineLocalAndRemoteBranchLabels', 'combineLocalAndRemoteBranchLabels', true),
@@ -363,7 +390,6 @@ class Config {
 	get initialLoadCommits() {
 		return this.getRenamedExtensionSetting('repository.commits.initialLoad', 'initialLoadCommits', 300);
 	}
-
 
 	/**
 	 * Get the value of the `git-graph.repository.commits.loadMore` Extension Setting.
@@ -394,11 +420,7 @@ class Config {
 	 */
 	get commitOrder() {
 		const ordering = this.getRenamedExtensionSetting<string>('repository.commits.order', 'commitOrdering', 'date');
-		return ordering === 'author-date'
-			? CommitOrdering.AuthorDate
-			: ordering === 'topo'
-				? CommitOrdering.Topological
-				: CommitOrdering.Date;
+		return ordering === 'author-date' ? CommitOrdering.AuthorDate : ordering === 'topo' ? CommitOrdering.Topological : CommitOrdering.Date;
 	}
 
 	/**
@@ -437,9 +459,7 @@ class Config {
 		return {
 			scrollToHead: !!this.getRenamedExtensionSetting('repository.onLoad.scrollToHead', 'openRepoToHead', false),
 			showCheckedOutBranch: !!this.getRenamedExtensionSetting('repository.onLoad.showCheckedOutBranch', 'showCurrentBranchByDefault', false),
-			showSpecificBranches: Array.isArray(branches)
-				? branches.filter((branch) => typeof branch === 'string')
-				: []
+			showSpecificBranches: Array.isArray(branches) ? branches.filter((branch) => typeof branch === 'string') : []
 		};
 	}
 
@@ -525,11 +545,7 @@ class Config {
 	 */
 	get repoDropdownOrder(): RepoDropdownOrder {
 		const order = this.config.get<string>('repositoryDropdownOrder', 'Workspace Full Path');
-		return order === 'Full Path'
-			? RepoDropdownOrder.FullPath
-			: order === 'Name'
-				? RepoDropdownOrder.Name
-				: RepoDropdownOrder.WorkspaceFullPath;
+		return order === 'Full Path' ? RepoDropdownOrder.FullPath : order === 'Name' ? RepoDropdownOrder.Name : RepoDropdownOrder.WorkspaceFullPath;
 	}
 
 	/**
@@ -550,9 +566,7 @@ class Config {
 	 * Get the value of the `git-graph.tabIconColourTheme` Extension Setting.
 	 */
 	get tabIconColourTheme() {
-		return this.config.get<string>('tabIconColourTheme', 'colour') === 'grey'
-			? TabIconColourTheme.Grey
-			: TabIconColourTheme.Colour;
+		return this.config.get<string>('tabIconColourTheme', 'colour') === 'grey' ? TabIconColourTheme.Grey : TabIconColourTheme.Colour;
 	}
 
 	/**
@@ -597,7 +611,8 @@ class Config {
 	 * @returns The value of the extension setting.
 	 */
 	private getRenamedExtensionSetting<T>(newSection: string, oldSection: string, defaultValue: T) {
-		const newValues = this.config.inspect<T>(newSection), oldValues = this.config.inspect<T>(oldSection);
+		const newValues = this.config.inspect<T>(newSection),
+			oldValues = this.config.inspect<T>(oldSection);
 		if (typeof newValues !== 'undefined' && typeof newValues.workspaceValue !== 'undefined') return newValues.workspaceValue;
 		if (typeof oldValues !== 'undefined' && typeof oldValues.workspaceValue !== 'undefined') return oldValues.workspaceValue;
 		if (typeof newValues !== 'undefined' && typeof newValues.globalValue !== 'undefined') return newValues.globalValue;

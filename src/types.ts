@@ -95,13 +95,13 @@ export interface GitRepoConfig {
 	readonly remotes: ReadonlyArray<GitRepoSettingsRemote>;
 	readonly user: {
 		readonly name: {
-			readonly local: string | null,
-			readonly global: string | null
-		},
+			readonly local: string | null;
+			readonly global: string | null;
+		};
 		readonly email: {
-			readonly local: string | null,
-			readonly global: string | null
-		}
+			readonly local: string | null;
+			readonly global: string | null;
+		};
 	};
 }
 
@@ -143,7 +143,6 @@ export interface GitTagDetails {
 	readonly message: string;
 	readonly signature: GitSignature | null;
 }
-
 
 /* Git Repo State */
 
@@ -190,8 +189,8 @@ interface PullRequestConfigBuiltIn extends PullRequestConfigBase {
 interface PullRequestConfigCustom extends PullRequestConfigBase {
 	readonly provider: PullRequestProvider.Custom;
 	readonly custom: {
-		readonly name: string,
-		readonly templateUrl: string
+		readonly name: string;
+		readonly templateUrl: string;
 	};
 }
 
@@ -218,7 +217,6 @@ export interface GitRepoState {
 	showTags: BooleanOverride;
 	workspaceFolderIndex: number | null;
 }
-
 
 /* Git Graph View Types */
 
@@ -248,7 +246,7 @@ export interface GitGraphViewConfig {
 	readonly graph: GraphConfig;
 	readonly includeCommitsMentionedByReflogs: boolean;
 	readonly initialLoadCommits: number;
-	readonly keybindings: KeybindingConfig
+	readonly keybindings: KeybindingConfig;
 	readonly loadMoreCommits: number;
 	readonly loadMoreCommitsAutomatically: boolean;
 	readonly markdown: boolean;
@@ -284,7 +282,7 @@ export interface CommitDetailsViewConfig {
 export interface GraphConfig {
 	readonly colours: ReadonlyArray<string>;
 	readonly style: GraphStyle;
-	readonly grid: { x: number, y: number, offsetX: number, offsetY: number, expandY: number };
+	readonly grid: { x: number; y: number; offsetX: number; offsetY: number; expandY: number };
 	readonly uncommittedChanges: GraphUncommittedChangesStyle;
 }
 
@@ -296,12 +294,12 @@ export interface KeybindingConfig {
 }
 
 export type LoadGitGraphViewTo = {
-	readonly repo: string,
+	readonly repo: string;
 	readonly commitDetails?: {
-		readonly commitHash: string,
-		readonly compareWithHash: string | null
-	},
-	readonly runCommandOnLoad?: 'fetch'
+		readonly commitHash: string;
+		readonly compareWithHash: string | null;
+	};
+	readonly runCommandOnLoad?: 'fetch';
 } | null;
 
 export interface MuteCommitsConfig {
@@ -320,7 +318,6 @@ export interface ReferenceLabelsConfig {
 	readonly combineLocalAndRemoteBranchLabels: boolean;
 	readonly tagLabelsOnRight: boolean;
 }
-
 
 /* Extension Settings Types */
 
@@ -456,56 +453,56 @@ export interface DefaultColumnVisibility {
 
 export interface DialogDefaults {
 	readonly addTag: {
-		readonly pushToRemote: boolean,
-		readonly type: TagType
+		readonly pushToRemote: boolean;
+		readonly type: TagType;
 	};
 	readonly applyStash: {
-		readonly reinstateIndex: boolean
+		readonly reinstateIndex: boolean;
 	};
 	readonly cherryPick: {
-		readonly noCommit: boolean,
-		readonly recordOrigin: boolean
+		readonly noCommit: boolean;
+		readonly recordOrigin: boolean;
 	};
 	readonly createBranch: {
-		readonly checkout: boolean
+		readonly checkout: boolean;
 	};
 	readonly deleteBranch: {
-		readonly forceDelete: boolean
+		readonly forceDelete: boolean;
 	};
 	readonly fetchIntoLocalBranch: {
-		readonly forceFetch: boolean
+		readonly forceFetch: boolean;
 	};
 	readonly fetchRemote: {
-		readonly prune: boolean,
-		readonly pruneTags: boolean
+		readonly prune: boolean;
+		readonly pruneTags: boolean;
 	};
 	readonly general: {
-		readonly referenceInputSpaceSubstitution: string | null
+		readonly referenceInputSpaceSubstitution: string | null;
 	};
 	readonly merge: {
-		readonly noCommit: boolean,
-		readonly noFastForward: boolean,
-		readonly squash: boolean
+		readonly noCommit: boolean;
+		readonly noFastForward: boolean;
+		readonly squash: boolean;
 	};
 	readonly popStash: {
-		readonly reinstateIndex: boolean
+		readonly reinstateIndex: boolean;
 	};
 	readonly pullBranch: {
-		readonly noFastForward: boolean,
-		readonly squash: boolean
+		readonly noFastForward: boolean;
+		readonly squash: boolean;
 	};
 	readonly rebase: {
-		readonly ignoreDate: boolean,
-		readonly interactive: boolean
+		readonly ignoreDate: boolean;
+		readonly interactive: boolean;
 	};
 	readonly resetCommit: {
-		readonly mode: GitResetMode
+		readonly mode: GitResetMode;
 	};
 	readonly resetUncommitted: {
-		readonly mode: Exclude<GitResetMode, GitResetMode.Soft>
+		readonly mode: Exclude<GitResetMode, GitResetMode.Soft>;
 	};
 	readonly stashUncommittedChanges: {
-		readonly includeUntracked: boolean
+		readonly includeUntracked: boolean;
 	};
 }
 
@@ -558,7 +555,6 @@ export const enum TagType {
 	Annotated,
 	Lightweight
 }
-
 
 /* Base Interfaces for Request / Response Messages */
 
@@ -1268,7 +1264,7 @@ export interface ResponseViewScm extends ResponseWithErrorInfo {
 }
 
 export type RequestMessage =
-	RequestAddRemote
+	| RequestAddRemote
 	| RequestAddTag
 	| RequestApplyStash
 	| RequestBranchFromStash
@@ -1334,7 +1330,7 @@ export type RequestMessage =
 	| RequestViewScm;
 
 export type ResponseMessage =
-	ResponseAddRemote
+	| ResponseAddRemote
 	| ResponseAddTag
 	| ResponseApplyStash
 	| ResponseBranchFromStash
@@ -1396,7 +1392,6 @@ export type ResponseMessage =
 	| ResponseViewFileAtRevision
 	| ResponseViewScm;
 
-
 /** Helper Types */
 
 type PrimitiveTypes = string | number | boolean | symbol | bigint | undefined | null;
@@ -1409,17 +1404,9 @@ export type Writeable<T> = { -readonly [K in keyof T]: T[K] };
 /**
  * Make all properties in T recursively readonly
  */
-export type DeepReadonly<T> = T extends PrimitiveTypes
-	? T
-	: T extends (Array<infer U> | ReadonlyArray<infer U>)
-	? ReadonlyArray<DeepReadonly<U>>
-	: { readonly [K in keyof T]: DeepReadonly<T[K]> };
+export type DeepReadonly<T> = T extends PrimitiveTypes ? T : T extends Array<infer U> | ReadonlyArray<infer U> ? ReadonlyArray<DeepReadonly<U>> : { readonly [K in keyof T]: DeepReadonly<T[K]> };
 
 /**
  * Make all properties in T recursively writeable
  */
-export type DeepWriteable<T> = T extends PrimitiveTypes
-	? T
-	: T extends (Array<infer U> | ReadonlyArray<infer U>)
-	? Array<DeepWriteable<U>>
-	: { -readonly [K in keyof T]: DeepWriteable<T[K]> };
+export type DeepWriteable<T> = T extends PrimitiveTypes ? T : T extends Array<infer U> | ReadonlyArray<infer U> ? Array<DeepWriteable<U>> : { -readonly [K in keyof T]: DeepWriteable<T[K]> };

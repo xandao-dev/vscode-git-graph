@@ -14,7 +14,24 @@ import { ExtensionState } from '../src/extensionState';
 import { GitGraphView, standardiseCspSource } from '../src/gitGraphView';
 import { Logger } from '../src/logger';
 import { RepoChangeEvent, RepoManager } from '../src/repoManager';
-import { CodeReview, CommitOrdering, GitCommitStash, GitConfigLocation, GitFileStatus, GitGraphViewGlobalState, GitGraphViewWorkspaceState, GitPushBranchMode, GitResetMode, MergeActionOn, PullRequestConfig, PullRequestProvider, RebaseActionOn, RequestMessage, ResponseMessage, TagType } from '../src/types';
+import {
+	CodeReview,
+	CommitOrdering,
+	GitCommitStash,
+	GitConfigLocation,
+	GitFileStatus,
+	GitGraphViewGlobalState,
+	GitGraphViewWorkspaceState,
+	GitPushBranchMode,
+	GitResetMode,
+	MergeActionOn,
+	PullRequestConfig,
+	PullRequestProvider,
+	RebaseActionOn,
+	RequestMessage,
+	ResponseMessage,
+	TagType
+} from '../src/types';
 import * as utils from '../src/utils';
 import { EventEmitter } from '../src/utils/event';
 
@@ -119,7 +136,7 @@ describe('GitGraphView', () => {
 			expect(mockedWebviewPanel.panel.reveal).toHaveBeenCalledTimes(1);
 		});
 
-		it('Should reveal the existing WebviewPanel (when one exists, but it isn\'t visible)', () => {
+		it("Should reveal the existing WebviewPanel (when one exists, but it isn't visible)", () => {
 			// Setup
 			GitGraphView.createOrShow('/path/to/extension', dataSource, extensionState, avatarManager, repoManager, logger, { repo: '/path/to/repo' });
 			const mockedWebviewPanel = vscode.getMockedWebviewPanel(0);
@@ -355,7 +372,7 @@ describe('GitGraphView', () => {
 				]);
 			});
 
-			it('Shouldn\'t send the updated repositories to the front-end when the view is not visible', () => {
+			it("Shouldn't send the updated repositories to the front-end when the view is not visible", () => {
 				// Setup
 				GitGraphView.createOrShow('/path/to/extension', dataSource, extensionState, avatarManager, repoManager, logger, null);
 				const mockedWebviewPanel = vscode.getMockedWebviewPanel(0);
@@ -435,7 +452,7 @@ describe('GitGraphView', () => {
 		});
 
 		describe('RepoFileWatcher.repoChangeCallback', () => {
-			it('Should refresh the view when it\'s visible', () => {
+			it("Should refresh the view when it's visible", () => {
 				// Setup
 				GitGraphView.createOrShow('/path/to/extension', dataSource, extensionState, avatarManager, repoManager, logger, null);
 
@@ -451,7 +468,7 @@ describe('GitGraphView', () => {
 				]);
 			});
 
-			it('Shouldn\'t refresh the view when it isn\'t visible', () => {
+			it("Shouldn't refresh the view when it isn't visible", () => {
 				// Setup
 				GitGraphView.createOrShow('/path/to/extension', dataSource, extensionState, avatarManager, repoManager, logger, null);
 				const mockedWebviewPanel = vscode.getMockedWebviewPanel(0);
@@ -595,7 +612,7 @@ describe('GitGraphView', () => {
 				});
 			});
 
-			it('Shouldn\'t push the tag if an error occurred when adding the tag', async () => {
+			it("Shouldn't push the tag if an error occurred when adding the tag", async () => {
 				// Setup
 				const addTagResolvedValue = 'error message';
 				const spyOnAddTag = vi.spyOn(dataSource, 'addTag');
@@ -762,7 +779,7 @@ describe('GitGraphView', () => {
 				});
 			});
 
-			it('Shouldn\'t pull the branch if an error occurred when checking out the branch', async () => {
+			it("Shouldn't pull the branch if an error occurred when checking out the branch", async () => {
 				// Setup
 				const checkoutBranchResolvedValue = 'error message';
 				const spyOnCheckoutBranch = vi.spyOn(dataSource, 'checkoutBranch');
@@ -893,7 +910,7 @@ describe('GitGraphView', () => {
 				});
 			});
 
-			it('Shouldn\'t open the Visual Studio Code Source Control View if an error occurred when cherrypicking the commit', async () => {
+			it("Shouldn't open the Visual Studio Code Source Control View if an error occurred when cherrypicking the commit", async () => {
 				// Setup
 				const cherrypickCommitResolvedValue = 'error message';
 				const spyOnCherrypickCommit = vi.spyOn(dataSource, 'cherrypickCommit');
@@ -1081,7 +1098,7 @@ describe('GitGraphView', () => {
 		});
 
 		describe('commitMessage', () => {
-			it('Should get a commit\'s message', async () => {
+			it("Should get a commit's message", async () => {
 				// Setup
 				const getCommitMessageResolvedValue = { message: 'Subject\n\nBody', error: null };
 				const spyOnGetCommitMessage = vi.spyOn(dataSource, 'getCommitMessage');
@@ -1399,7 +1416,7 @@ describe('GitGraphView', () => {
 				});
 			});
 
-			it('Shouldn\'t create a pull request if an error occurred when pushing the branch', async () => {
+			it("Shouldn't create a pull request if an error occurred when pushing the branch", async () => {
 				// Setup
 				const pullRequestConfig: PullRequestConfig = {
 					provider: PullRequestProvider.Bitbucket,
@@ -1517,7 +1534,7 @@ describe('GitGraphView', () => {
 				});
 			});
 
-			it('Shouldn\'t delete a branch on a remote if an error occurred when deleting the local branch', async () => {
+			it("Shouldn't delete a branch on a remote if an error occurred when deleting the local branch", async () => {
 				// Setup
 				const deleteBranchResolvedValue = 'error message';
 				const spyOnDeleteBranch = vi.spyOn(dataSource, 'deleteBranch');
@@ -1824,7 +1841,15 @@ describe('GitGraphView', () => {
 
 				// Assert
 				await waitForExpect(() => {
-					expect(spyOnEditRemote).toHaveBeenCalledWith('/path/to/repo', 'old-origin', 'new-origin', 'https://github.com/mhutchie/old.git', 'https://github.com/mhutchie/new.git', 'https://github.com/mhutchie/old-push.git', 'https://github.com/mhutchie/new-push.git');
+					expect(spyOnEditRemote).toHaveBeenCalledWith(
+						'/path/to/repo',
+						'old-origin',
+						'new-origin',
+						'https://github.com/mhutchie/old.git',
+						'https://github.com/mhutchie/new.git',
+						'https://github.com/mhutchie/old-push.git',
+						'https://github.com/mhutchie/new-push.git'
+					);
 					expect(messages).toStrictEqual([
 						{
 							command: 'editRemote',
@@ -1983,7 +2008,7 @@ describe('GitGraphView', () => {
 				});
 			});
 
-			it('Shouldn\'t delete the local user.name or user.email if an error occurred when editing the global user.name', async () => {
+			it("Shouldn't delete the local user.name or user.email if an error occurred when editing the global user.name", async () => {
 				// Setup
 				const setConfigValueResolvedValue1 = 'error message';
 				const setConfigValueResolvedValue2 = null;
@@ -2017,7 +2042,7 @@ describe('GitGraphView', () => {
 				});
 			});
 
-			it('Shouldn\'t delete the local user.name or user.email if an error occurred when editing the global user.email', async () => {
+			it("Shouldn't delete the local user.name or user.email if an error occurred when editing the global user.email", async () => {
 				// Setup
 				const setConfigValueResolvedValue1 = null;
 				const setConfigValueResolvedValue2 = 'error message';
@@ -2132,7 +2157,7 @@ describe('GitGraphView', () => {
 			it('Should fetch an avatar', async () => {
 				// Setup
 				const spyOnFetchAvatarImage = vi.spyOn(avatarManager, 'fetchAvatarImage');
-				spyOnFetchAvatarImage.mockImplementationOnce(() => { });
+				spyOnFetchAvatarImage.mockImplementationOnce(() => {});
 
 				// Run
 				onDidReceiveMessage({
@@ -2383,8 +2408,8 @@ describe('GitGraphView', () => {
 				const spyOnSetLastActiveRepo = vi.spyOn(extensionState, 'setLastActiveRepo');
 				const spyOnRepoFileWatcherStart = vi.spyOn(GitGraphView.currentPanel!['repoFileWatcher'], 'start');
 				spyOnGetRepoInfo.mockResolvedValueOnce(getRepoInfoResolvedValue);
-				spyOnSetLastActiveRepo.mockImplementationOnce(() => { });
-				spyOnRepoFileWatcherStart.mockImplementationOnce(() => { });
+				spyOnSetLastActiveRepo.mockImplementationOnce(() => {});
+				spyOnRepoFileWatcherStart.mockImplementationOnce(() => {});
 
 				// Run
 				onDidReceiveMessage({
@@ -3294,7 +3319,7 @@ describe('GitGraphView', () => {
 				// Setup
 				const repoState = mockRepoState();
 				const spyOnSetRepoState = vi.spyOn(repoManager, 'setRepoState');
-				spyOnSetRepoState.mockImplementationOnce(() => { });
+				spyOnSetRepoState.mockImplementationOnce(() => {});
 
 				// Run
 				onDidReceiveMessage({
@@ -3405,7 +3430,7 @@ describe('GitGraphView', () => {
 		});
 
 		describe('tagDetails', () => {
-			it('Should get a tag\'s details', async () => {
+			it("Should get a tag's details", async () => {
 				// Setup
 				const getTagDetailsResolvedValue = { details: null, error: null };
 				const spyOnGetTagDetails = vi.spyOn(dataSource, 'getTagDetails');
@@ -3484,7 +3509,14 @@ describe('GitGraphView', () => {
 
 				// Assert
 				await waitForExpect(() => {
-					expect(spyOnViewDiff).toHaveBeenCalledWith('/path/to/repo', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2', 'old-file.txt', 'new-file.txt', GitFileStatus.Renamed);
+					expect(spyOnViewDiff).toHaveBeenCalledWith(
+						'/path/to/repo',
+						'1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
+						'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
+						'old-file.txt',
+						'new-file.txt',
+						GitFileStatus.Renamed
+					);
 					expect(messages).toStrictEqual([
 						{
 							command: 'viewDiff',
@@ -3606,7 +3638,7 @@ describe('GitGraphView', () => {
 			});
 		});
 
-		it('Should log an error message when Webview.postMessage rejects, and the GitGraphView hasn\'t been disposed', async () => {
+		it("Should log an error message when Webview.postMessage rejects, and the GitGraphView hasn't been disposed", async () => {
 			// Setup
 			const mockedWebviewPanel = vscode.getMockedWebviewPanel(0);
 			vi.spyOn(utils, 'viewScm').mockResolvedValueOnce(null);
@@ -3653,7 +3685,7 @@ describe('GitGraphView', () => {
 			});
 		});
 
-		it('Shouldn\'t send a message to the Webview if it has been disposed', async () => {
+		it("Shouldn't send a message to the Webview if it has been disposed", async () => {
 			// Setup
 			const mockedWebviewPanel = vscode.getMockedWebviewPanel(0);
 			vi.spyOn(utils, 'viewScm').mockResolvedValueOnce(null);
@@ -3681,10 +3713,14 @@ describe('GitGraphView', () => {
 		afterEach(() => {
 			// Assert
 			const mockedWebviewPanel = vscode.getMockedWebviewPanel(0);
-			expect(mockedWebviewPanel.panel.webview.html).toContain('<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src vscode-webview-resource: \'unsafe-inline\'; script-src \'nonce-1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d\'; img-src data:;">');
+			expect(mockedWebviewPanel.panel.webview.html).toContain(
+				"<meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; style-src vscode-webview-resource: 'unsafe-inline'; script-src 'nonce-1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d'; img-src data:;\">"
+			);
 			expect(mockedWebviewPanel.panel.webview.html).toContain('<link rel="stylesheet" type="text/css" href="vscode-webview-resource://file///path/to/extension/media/out.min.css">');
 			expect(mockedWebviewPanel.panel.webview.html).toContain('<title>Git Graph</title>');
-			expect(mockedWebviewPanel.panel.webview.html).toContain('<style>body{--git-graph-color0:#0085d9; --git-graph-color1:#d9008f; --git-graph-color2:#00d90a; --git-graph-color3:#d98500; --git-graph-color4:#a300d9; --git-graph-color5:#ff0000; --git-graph-color6:#00d9cc; --git-graph-color7:#e138e8; --git-graph-color8:#85d900; --git-graph-color9:#dc5b23; --git-graph-color10:#6f24d6; --git-graph-color11:#ffcc00; } [data-color=\"0\"]{--git-graph-color:var(--git-graph-color0);} [data-color=\"1\"]{--git-graph-color:var(--git-graph-color1);} [data-color=\"2\"]{--git-graph-color:var(--git-graph-color2);} [data-color=\"3\"]{--git-graph-color:var(--git-graph-color3);} [data-color=\"4\"]{--git-graph-color:var(--git-graph-color4);} [data-color=\"5\"]{--git-graph-color:var(--git-graph-color5);} [data-color=\"6\"]{--git-graph-color:var(--git-graph-color6);} [data-color=\"7\"]{--git-graph-color:var(--git-graph-color7);} [data-color=\"8\"]{--git-graph-color:var(--git-graph-color8);} [data-color=\"9\"]{--git-graph-color:var(--git-graph-color9);} [data-color=\"10\"]{--git-graph-color:var(--git-graph-color10);} [data-color=\"11\"]{--git-graph-color:var(--git-graph-color11);} </style>');
+			expect(mockedWebviewPanel.panel.webview.html).toContain(
+				'<style>body{--git-graph-color0:#0085d9; --git-graph-color1:#d9008f; --git-graph-color2:#00d90a; --git-graph-color3:#d98500; --git-graph-color4:#a300d9; --git-graph-color5:#ff0000; --git-graph-color6:#00d9cc; --git-graph-color7:#e138e8; --git-graph-color8:#85d900; --git-graph-color9:#dc5b23; --git-graph-color10:#6f24d6; --git-graph-color11:#ffcc00; } [data-color=\"0\"]{--git-graph-color:var(--git-graph-color0);} [data-color=\"1\"]{--git-graph-color:var(--git-graph-color1);} [data-color=\"2\"]{--git-graph-color:var(--git-graph-color2);} [data-color=\"3\"]{--git-graph-color:var(--git-graph-color3);} [data-color=\"4\"]{--git-graph-color:var(--git-graph-color4);} [data-color=\"5\"]{--git-graph-color:var(--git-graph-color5);} [data-color=\"6\"]{--git-graph-color:var(--git-graph-color6);} [data-color=\"7\"]{--git-graph-color:var(--git-graph-color7);} [data-color=\"8\"]{--git-graph-color:var(--git-graph-color8);} [data-color=\"9\"]{--git-graph-color:var(--git-graph-color9);} [data-color=\"10\"]{--git-graph-color:var(--git-graph-color10);} [data-color=\"11\"]{--git-graph-color:var(--git-graph-color11);} </style>'
+			);
 		});
 
 		it('Should get HTML when no Git executable is known', () => {

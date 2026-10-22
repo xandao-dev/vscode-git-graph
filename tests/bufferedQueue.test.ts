@@ -11,7 +11,8 @@ describe('BufferedQueue', () => {
 
 	it('Should add items to the queue, and then process them once the buffer has expired', async () => {
 		// Setup
-		const onItem = vi.fn(() => Promise.resolve(true)), onChanges = vi.fn(() => { });
+		const onItem = vi.fn(() => Promise.resolve(true)),
+			onChanges = vi.fn(() => {});
 		const queue = new BufferedQueue<string>(onItem, onChanges);
 
 		// Run
@@ -42,9 +43,10 @@ describe('BufferedQueue', () => {
 		expect(queue['timeout']).toBe(null);
 	});
 
-	it('Shouldn\'t add duplicate items to the queue', async () => {
+	it("Shouldn't add duplicate items to the queue", async () => {
 		// Setup
-		const onItem = vi.fn(() => Promise.resolve(true)), onChanges = vi.fn(() => { });
+		const onItem = vi.fn(() => Promise.resolve(true)),
+			onChanges = vi.fn(() => {});
 		const queue = new BufferedQueue<string>(onItem, onChanges);
 
 		// Run
@@ -70,9 +72,10 @@ describe('BufferedQueue', () => {
 		expect(onChanges).toHaveBeenCalledTimes(1);
 	});
 
-	it('Shouldn\'t call onChanges if not items resulted in a change', async () => {
+	it("Shouldn't call onChanges if not items resulted in a change", async () => {
 		// Setup
-		const onItem = vi.fn(() => Promise.resolve(false)), onChanges = vi.fn(() => { });
+		const onItem = vi.fn(() => Promise.resolve(false)),
+			onChanges = vi.fn(() => {});
 		const queue = new BufferedQueue<string>(onItem, onChanges);
 
 		// Run
@@ -97,9 +100,10 @@ describe('BufferedQueue', () => {
 		expect(onChanges).toHaveBeenCalledTimes(0);
 	});
 
-	it('Shouldn\'t trigger a new timeout if the queue is already processing events', () => {
+	it("Shouldn't trigger a new timeout if the queue is already processing events", () => {
 		// Setup
-		const onItem = vi.fn(() => Promise.resolve(true)), onChanges = vi.fn(() => { });
+		const onItem = vi.fn(() => Promise.resolve(true)),
+			onChanges = vi.fn(() => {});
 		const queue = new BufferedQueue<string>(onItem, onChanges);
 		queue['processing'] = true;
 
@@ -115,7 +119,8 @@ describe('BufferedQueue', () => {
 
 	it('Should clear the timeout when disposed', async () => {
 		// Setup
-		const onItem = vi.fn(() => Promise.resolve(true)), onChanges = vi.fn(() => { });
+		const onItem = vi.fn(() => Promise.resolve(true)),
+			onChanges = vi.fn(() => {});
 		const queue = new BufferedQueue<string>(onItem, onChanges);
 
 		// Run
@@ -139,7 +144,8 @@ describe('BufferedQueue', () => {
 	describe('bufferDuration', () => {
 		it('Should use the default buffer duration of 1000ms', async () => {
 			// Setup
-			const onItem = vi.fn(() => Promise.resolve(true)), onChanges = vi.fn(() => { });
+			const onItem = vi.fn(() => Promise.resolve(true)),
+				onChanges = vi.fn(() => {});
 			const queue = new BufferedQueue<string>(onItem, onChanges);
 
 			// Run
@@ -161,7 +167,8 @@ describe('BufferedQueue', () => {
 
 		it('Should use the specified buffer duration', async () => {
 			// Setup
-			const onItem = vi.fn(() => Promise.resolve(true)), onChanges = vi.fn(() => { });
+			const onItem = vi.fn(() => Promise.resolve(true)),
+				onChanges = vi.fn(() => {});
 			const queue = new BufferedQueue<string>(onItem, onChanges, 128);
 
 			// Run

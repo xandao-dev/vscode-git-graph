@@ -94,7 +94,6 @@ class DiffDocument {
 	}
 }
 
-
 /* Encoding and decoding URI's */
 
 /**

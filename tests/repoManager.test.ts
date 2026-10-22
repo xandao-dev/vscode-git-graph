@@ -26,7 +26,19 @@ let onDidChangeGitExecutable: EventEmitter<utils.GitExecutable>;
 let logger: Logger;
 let dataSource: DataSource;
 let extensionState: ExtensionState;
-let spyOnGetRepos: MockInstance, spyOnGetIgnoredRepos: MockInstance, spyOnSetIgnoredRepos: MockInstance, spyOnSaveRepos: MockInstance, spyOnTransferRepo: MockInstance, spyOnRepoRoot: MockInstance, spyOnGetSubmodules: MockInstance, spyOnLog: MockInstance, spyOnMkdir: MockInstance, spyOnReaddir: MockInstance, spyOnReadFile: MockInstance, spyOnStat: MockInstance, spyOnWriteFile: MockInstance;
+let spyOnGetRepos: MockInstance,
+	spyOnGetIgnoredRepos: MockInstance,
+	spyOnSetIgnoredRepos: MockInstance,
+	spyOnSaveRepos: MockInstance,
+	spyOnTransferRepo: MockInstance,
+	spyOnRepoRoot: MockInstance,
+	spyOnGetSubmodules: MockInstance,
+	spyOnLog: MockInstance,
+	spyOnMkdir: MockInstance,
+	spyOnReaddir: MockInstance,
+	spyOnReadFile: MockInstance,
+	spyOnStat: MockInstance,
+	spyOnWriteFile: MockInstance;
 
 beforeAll(async () => {
 	onDidChangeConfiguration = new EventEmitter<ConfigurationChangeEvent>();
@@ -85,7 +97,7 @@ describe('RepoManager', () => {
 	describe('onDidChangeWorkspaceFolders', () => {
 		it('Should add repositories contained within an added workspace folder', async () => {
 			// Setup
-			let emitOnDidChangeWorkspaceFolders: (event: { added: { uri: vscode.Uri }[], removed: { uri: vscode.Uri }[] }) => Promise<void>;
+			let emitOnDidChangeWorkspaceFolders: (event: { added: { uri: vscode.Uri }[]; removed: { uri: vscode.Uri }[] }) => Promise<void>;
 			vscode.workspace.onDidChangeWorkspaceFolders.mockImplementationOnce((listener) => {
 				emitOnDidChangeWorkspaceFolders = listener as () => Promise<void>;
 				return { dispose: vi.fn() };
@@ -122,7 +134,7 @@ describe('RepoManager', () => {
 
 		it('Should add repositories contained within an added workspace folder (unable to find workspaceFolderIndex)', async () => {
 			// Setup
-			let emitOnDidChangeWorkspaceFolders: (event: { added: { uri: vscode.Uri }[], removed: { uri: vscode.Uri }[] }) => Promise<void>;
+			let emitOnDidChangeWorkspaceFolders: (event: { added: { uri: vscode.Uri }[]; removed: { uri: vscode.Uri }[] }) => Promise<void>;
 			vscode.workspace.onDidChangeWorkspaceFolders.mockImplementationOnce((listener) => {
 				emitOnDidChangeWorkspaceFolders = listener as () => Promise<void>;
 				return { dispose: vi.fn() };
@@ -158,7 +170,7 @@ describe('RepoManager', () => {
 
 		it('Should not emit a repo event when no repositories were contained within an added workspace folder', async () => {
 			// Setup
-			let emitOnDidChangeWorkspaceFolders: (event: { added: { uri: vscode.Uri }[], removed: { uri: vscode.Uri }[] }) => Promise<void>;
+			let emitOnDidChangeWorkspaceFolders: (event: { added: { uri: vscode.Uri }[]; removed: { uri: vscode.Uri }[] }) => Promise<void>;
 			vscode.workspace.onDidChangeWorkspaceFolders.mockImplementationOnce((listener) => {
 				emitOnDidChangeWorkspaceFolders = listener as () => Promise<void>;
 				return { dispose: vi.fn() };
@@ -185,7 +197,7 @@ describe('RepoManager', () => {
 			mockRepositoryWithNoSubmodules();
 			mockRepositoryWithNoSubmodules();
 			mockRepositoryWithNoSubmodules();
-			let emitOnDidChangeWorkspaceFolders: (event: { added: { uri: vscode.Uri }[], removed: { uri: vscode.Uri }[] }) => Promise<void>;
+			let emitOnDidChangeWorkspaceFolders: (event: { added: { uri: vscode.Uri }[]; removed: { uri: vscode.Uri }[] }) => Promise<void>;
 			vscode.workspace.onDidChangeWorkspaceFolders.mockImplementationOnce((listener) => {
 				emitOnDidChangeWorkspaceFolders = listener as () => Promise<void>;
 				return { dispose: vi.fn() };
@@ -224,15 +236,12 @@ describe('RepoManager', () => {
 			// Setup
 			mockRepositoryWithNoSubmodules();
 			mockDirectoryThatsNotRepository();
-			let emitOnDidChangeWorkspaceFolders: (event: { added: { uri: vscode.Uri }[], removed: { uri: vscode.Uri }[] }) => Promise<void>;
+			let emitOnDidChangeWorkspaceFolders: (event: { added: { uri: vscode.Uri }[]; removed: { uri: vscode.Uri }[] }) => Promise<void>;
 			vscode.workspace.onDidChangeWorkspaceFolders.mockImplementationOnce((listener) => {
 				emitOnDidChangeWorkspaceFolders = listener as () => Promise<void>;
 				return { dispose: vi.fn() };
 			});
-			const repoManager = await constructRepoManagerAndWaitUntilStarted(
-				['/path/to/workspace-folder1', '/path/to/workspace-folder2'],
-				['/path/to/workspace-folder1']
-			);
+			const repoManager = await constructRepoManagerAndWaitUntilStarted(['/path/to/workspace-folder1', '/path/to/workspace-folder2'], ['/path/to/workspace-folder1']);
 
 			const onDidChangeReposEvents: RepoChangeEvent[] = [];
 			repoManager.onDidChangeRepos((event) => onDidChangeReposEvents.push(event));
@@ -250,12 +259,12 @@ describe('RepoManager', () => {
 			repoManager.dispose();
 		});
 
-		it('Should update all repositories workspaceFolderIndex\'s when workspace folders have been reordered', async () => {
+		it("Should update all repositories workspaceFolderIndex's when workspace folders have been reordered", async () => {
 			// Setup
 			mockRepositoryWithNoSubmodules();
 			mockRepositoryWithNoSubmodules();
 			mockRepositoryWithNoSubmodules();
-			let emitOnDidChangeWorkspaceFolders: (event: { added: { uri: vscode.Uri }[], removed: { uri: vscode.Uri }[] }) => Promise<void>;
+			let emitOnDidChangeWorkspaceFolders: (event: { added: { uri: vscode.Uri }[]; removed: { uri: vscode.Uri }[] }) => Promise<void>;
 			vscode.workspace.onDidChangeWorkspaceFolders.mockImplementationOnce((listener) => {
 				emitOnDidChangeWorkspaceFolders = listener as () => Promise<void>;
 				return { dispose: vi.fn() };
@@ -314,15 +323,12 @@ describe('RepoManager', () => {
 			// Setup
 			mockRepositoryWithNoSubmodules();
 			mockRepositoryWithNoSubmodules();
-			let emitOnDidChangeWorkspaceFolders: (event: { added: { uri: vscode.Uri }[], removed: { uri: vscode.Uri }[] }) => Promise<void>;
+			let emitOnDidChangeWorkspaceFolders: (event: { added: { uri: vscode.Uri }[]; removed: { uri: vscode.Uri }[] }) => Promise<void>;
 			vscode.workspace.onDidChangeWorkspaceFolders.mockImplementationOnce((listener) => {
 				emitOnDidChangeWorkspaceFolders = listener as () => Promise<void>;
 				return { dispose: vi.fn() };
 			});
-			const repoManager = await constructRepoManagerAndWaitUntilStarted(
-				['/path/to/workspace-folder1', '/path/to/workspace-folder2'],
-				['/path/to/workspace-folder1', '/path/to/workspace-folder2']
-			);
+			const repoManager = await constructRepoManagerAndWaitUntilStarted(['/path/to/workspace-folder1', '/path/to/workspace-folder2'], ['/path/to/workspace-folder1', '/path/to/workspace-folder2']);
 
 			const onDidChangeReposEvents: RepoChangeEvent[] = [];
 			repoManager.onDidChangeRepos((event) => onDidChangeReposEvents.push(event));
@@ -343,7 +349,7 @@ describe('RepoManager', () => {
 	});
 
 	describe('maxDepthOfRepoSearchChanged', () => {
-		it('Should not trigger a workspace search if the value hasn\'t increased', async () => {
+		it("Should not trigger a workspace search if the value hasn't increased", async () => {
 			// Setup
 			mockDirectoryThatsNotRepository();
 			const repoManager = await constructRepoManagerAndWaitUntilStarted(['/path/to/workspace-folder1'], []);
@@ -423,12 +429,9 @@ describe('RepoManager', () => {
 			mockRepositoryWithNoSubmodules();
 
 			// Run
-			const repoManager = await constructRepoManagerAndWaitUntilStarted(
-				['/path/to/workspace-folder1'],
-				{
-					'/path/to/workspace-folder1': mockRepoState({ workspaceFolderIndex: null })
-				}
-			);
+			const repoManager = await constructRepoManagerAndWaitUntilStarted(['/path/to/workspace-folder1'], {
+				'/path/to/workspace-folder1': mockRepoState({ workspaceFolderIndex: null })
+			});
 
 			// Assert
 			expect(repoManager.getRepos()).toStrictEqual({
@@ -443,17 +446,14 @@ describe('RepoManager', () => {
 			repoManager.dispose();
 		});
 
-		it('Should run startup tasks (doesn\'t call saveRepos when updateReposWorkspaceFolderIndex doesn\'t make changes)', async () => {
+		it("Should run startup tasks (doesn't call saveRepos when updateReposWorkspaceFolderIndex doesn't make changes)", async () => {
 			// Setup
 			mockRepositoryWithNoSubmodules();
 
 			// Run
-			const repoManager = await constructRepoManagerAndWaitUntilStarted(
-				['/path/to/workspace-folder1'],
-				{
-					'/path/to/workspace-folder1': mockRepoState({ workspaceFolderIndex: 0 })
-				}
-			);
+			const repoManager = await constructRepoManagerAndWaitUntilStarted(['/path/to/workspace-folder1'], {
+				'/path/to/workspace-folder1': mockRepoState({ workspaceFolderIndex: 0 })
+			});
 
 			// Assert
 			expect(repoManager.getRepos()).toStrictEqual({
@@ -466,17 +466,14 @@ describe('RepoManager', () => {
 			repoManager.dispose();
 		});
 
-		it('Should run startup tasks (doesn\'t call sendRepos when checkReposExist makes changes)', async () => {
+		it("Should run startup tasks (doesn't call sendRepos when checkReposExist makes changes)", async () => {
 			// Setup
 			mockDirectoryThatsNotRepository();
 			mockDirectoryThatsNotRepository();
 
 			// Run
 			const onDidChangeReposEvents: RepoChangeEvent[] = [];
-			const repoManager = constructRepoManager(
-				['/path/to/workspace-folder1'],
-				['/path/to/workspace-folder1']
-			);
+			const repoManager = constructRepoManager(['/path/to/workspace-folder1'], ['/path/to/workspace-folder1']);
 			repoManager.onDidChangeRepos((event) => onDidChangeReposEvents.push(event));
 			await waitForRepoManagerToStart();
 
@@ -495,16 +492,13 @@ describe('RepoManager', () => {
 			repoManager.dispose();
 		});
 
-		it('Should run startup tasks (calls sendRepos when checkReposExist doesn\'t make changes)', async () => {
+		it("Should run startup tasks (calls sendRepos when checkReposExist doesn't make changes)", async () => {
 			// Setup
 			mockDirectoryThatsNotRepository();
 
 			// Run
 			const onDidChangeReposEvents: RepoChangeEvent[] = [];
-			const repoManager = constructRepoManager(
-				['/path/to/workspace-folder1'],
-				[]
-			);
+			const repoManager = constructRepoManager(['/path/to/workspace-folder1'], []);
 			repoManager.onDidChangeRepos((event) => onDidChangeReposEvents.push(event));
 			await waitForRepoManagerToStart();
 
@@ -525,15 +519,12 @@ describe('RepoManager', () => {
 	});
 
 	describe('removeReposNotInWorkspace', () => {
-		it('Should remove repositories that aren\'t in the workspace', async () => {
+		it("Should remove repositories that aren't in the workspace", async () => {
 			// Setup
 			mockRepositoryWithNoSubmodules();
 
 			// Run
-			const repoManager = await constructRepoManagerAndWaitUntilStarted(
-				['/path/to/workspace-folder1'],
-				['/path/to/workspace-folder1', '/path/to/workspace-folder2']
-			);
+			const repoManager = await constructRepoManagerAndWaitUntilStarted(['/path/to/workspace-folder1'], ['/path/to/workspace-folder1', '/path/to/workspace-folder2']);
 
 			// Assert
 			expect(spyOnSaveRepos).toHaveBeenCalledWith({
@@ -562,7 +553,7 @@ describe('RepoManager', () => {
 			repoManager.dispose();
 		});
 
-		it('Shouldn\'t remove repositories that are within a workspace folder', async () => {
+		it("Shouldn't remove repositories that are within a workspace folder", async () => {
 			// Setup
 			mockRepositoryWithNoSubmodules();
 			mockDirectoryThatsNotRepository();
@@ -584,7 +575,7 @@ describe('RepoManager', () => {
 			repoManager.dispose();
 		});
 
-		it('Shouldn\'t remove repositories that contain a workspace folder', async () => {
+		it("Shouldn't remove repositories that contain a workspace folder", async () => {
 			// Setup
 			mockRepositoryWithNoSubmodules();
 
@@ -859,10 +850,7 @@ describe('RepoManager', () => {
 			mockRepositoryWithNoSubmodules();
 			mockRepositoryWithNoSubmodules();
 			mockDirectoryThatsNotRepository();
-			const repoManager = await constructRepoManagerAndWaitUntilStarted(
-				['/path/to/workspace-folder1'],
-				['/path/to/workspace-folder1/repo2', '/path/to/workspace-folder1/repo1']
-			);
+			const repoManager = await constructRepoManagerAndWaitUntilStarted(['/path/to/workspace-folder1'], ['/path/to/workspace-folder1/repo2', '/path/to/workspace-folder1/repo1']);
 
 			// Run
 			const result = repoManager.getRepos();
@@ -884,10 +872,7 @@ describe('RepoManager', () => {
 			mockRepositoryWithNoSubmodules();
 			mockRepositoryWithNoSubmodules();
 			mockDirectoryThatsNotRepository();
-			const repoManager = await constructRepoManagerAndWaitUntilStarted(
-				['/path/to/workspace-folder1'],
-				['/path/to/workspace-folder1/repo2', '/path/to/workspace-folder1/repo1']
-			);
+			const repoManager = await constructRepoManagerAndWaitUntilStarted(['/path/to/workspace-folder1'], ['/path/to/workspace-folder1/repo2', '/path/to/workspace-folder1/repo1']);
 
 			// Run
 			const result = repoManager.getNumRepos();
@@ -906,10 +891,7 @@ describe('RepoManager', () => {
 			mockRepositoryWithNoSubmodules();
 			mockRepositoryWithNoSubmodules();
 			mockDirectoryThatsNotRepository();
-			const repoManager = await constructRepoManagerAndWaitUntilStarted(
-				['/path/to/workspace-folder1'],
-				['/path/to/workspace-folder1/repo1', '/path/to/workspace-folder1/repo2']
-			);
+			const repoManager = await constructRepoManagerAndWaitUntilStarted(['/path/to/workspace-folder1'], ['/path/to/workspace-folder1/repo1', '/path/to/workspace-folder1/repo2']);
 
 			// Run
 			const result = repoManager.getRepoContainingFile('/path/to/workspace-folder1/repo2/file.txt');
@@ -926,10 +908,7 @@ describe('RepoManager', () => {
 			mockRepositoryWithNoSubmodules();
 			mockRepositoryWithNoSubmodules();
 			mockDirectoryThatsNotRepository();
-			const repoManager = await constructRepoManagerAndWaitUntilStarted(
-				['/path/to/workspace-folder1'],
-				['/path/to/workspace-folder1/repo1', '/path/to/workspace-folder1/repo1/subrepo']
-			);
+			const repoManager = await constructRepoManagerAndWaitUntilStarted(['/path/to/workspace-folder1'], ['/path/to/workspace-folder1/repo1', '/path/to/workspace-folder1/repo1/subrepo']);
 
 			// Run
 			const result = repoManager.getRepoContainingFile('/path/to/workspace-folder1/repo1/subrepo/file.txt');
@@ -948,10 +927,7 @@ describe('RepoManager', () => {
 			mockRepositoryWithNoSubmodules();
 			mockRepositoryWithNoSubmodules();
 			mockDirectoryThatsNotRepository();
-			const repoManager = await constructRepoManagerAndWaitUntilStarted(
-				['/path/to/workspace-folder1'],
-				['/path/to/workspace-folder1/repo1', '/path/to/workspace-folder1/repo2']
-			);
+			const repoManager = await constructRepoManagerAndWaitUntilStarted(['/path/to/workspace-folder1'], ['/path/to/workspace-folder1/repo1', '/path/to/workspace-folder1/repo2']);
 
 			// Run
 			const result = await repoManager.getKnownRepo('/path/to/workspace-folder1/repo1');
@@ -968,10 +944,7 @@ describe('RepoManager', () => {
 			mockRepositoryWithNoSubmodules();
 			mockRepositoryWithNoSubmodules();
 			mockDirectoryThatsNotRepository();
-			const repoManager = await constructRepoManagerAndWaitUntilStarted(
-				['/path/to/workspace-folder1'],
-				['/path/to/workspace-folder1/sym-repo1', '/path/to/workspace-folder1/sym-repo2']
-			);
+			const repoManager = await constructRepoManagerAndWaitUntilStarted(['/path/to/workspace-folder1'], ['/path/to/workspace-folder1/sym-repo1', '/path/to/workspace-folder1/sym-repo2']);
 
 			const spyOnRealPath = vi.spyOn(utils, 'realpath');
 			spyOnRealPath.mockResolvedValueOnce('/path/to/workspace-folder1/repo2');
@@ -993,10 +966,7 @@ describe('RepoManager', () => {
 			mockRepositoryWithNoSubmodules();
 			mockRepositoryWithNoSubmodules();
 			mockDirectoryThatsNotRepository();
-			const repoManager = await constructRepoManagerAndWaitUntilStarted(
-				['/path/to/workspace-folder1'],
-				['/path/to/workspace-folder1/repo1', '/path/to/workspace-folder1/repo2']
-			);
+			const repoManager = await constructRepoManagerAndWaitUntilStarted(['/path/to/workspace-folder1'], ['/path/to/workspace-folder1/repo1', '/path/to/workspace-folder1/repo2']);
 
 			const spyOnRealPath = vi.spyOn(utils, 'realpath');
 			spyOnRealPath.mockResolvedValueOnce('/path/to/workspace-folder1/repo3');
@@ -1054,10 +1024,7 @@ describe('RepoManager', () => {
 			mockRepositoryWithNoSubmodules();
 			mockRepositoryWithNoSubmodules();
 			mockDirectoryThatsNotRepository();
-			const repoManager = await constructRepoManagerAndWaitUntilStarted(
-				['/path/to/workspace-folder1'],
-				['/path/to/workspace-folder1/repo1', '/path/to/workspace-folder1/repo2']
-			);
+			const repoManager = await constructRepoManagerAndWaitUntilStarted(['/path/to/workspace-folder1'], ['/path/to/workspace-folder1/repo1', '/path/to/workspace-folder1/repo2']);
 
 			const onDidChangeReposEvents: RepoChangeEvent[] = [];
 			repoManager.onDidChangeRepos((event) => onDidChangeReposEvents.push(event));
@@ -1142,10 +1109,7 @@ describe('RepoManager', () => {
 			mockRepositoryWithNoSubmodules();
 			mockRepositoryWithNoSubmodules();
 			mockDirectoryThatsNotRepository();
-			const repoManager = await constructRepoManagerAndWaitUntilStarted(
-				['/path/to/workspace-folder1'],
-				['/path/to/workspace-folder1/repo1', '/path/to/workspace-folder1/repo2']
-			);
+			const repoManager = await constructRepoManagerAndWaitUntilStarted(['/path/to/workspace-folder1'], ['/path/to/workspace-folder1/repo1', '/path/to/workspace-folder1/repo2']);
 
 			const onDidChangeReposEvents: RepoChangeEvent[] = [];
 			repoManager.onDidChangeRepos((event) => onDidChangeReposEvents.push(event));
@@ -1181,8 +1145,10 @@ describe('RepoManager', () => {
 			mockRepository((path) => path.replace('workspace-folder1', 'workspace-folder2'));
 			mockRepository((path) => path.replace('workspace-folder1', 'workspace-folder2'));
 			mockRepository((path) => path.replace('workspace-folder1', 'workspace-folder2'));
-			spyOnTransferRepo.mockImplementationOnce(() => { });
-			spyOnTransferRepo.mockImplementationOnce(() => { throw new Error(); });
+			spyOnTransferRepo.mockImplementationOnce(() => {});
+			spyOnTransferRepo.mockImplementationOnce(() => {
+				throw new Error();
+			});
 
 			// Run
 			const result = await repoManager.checkReposExist();
@@ -1217,10 +1183,7 @@ describe('RepoManager', () => {
 			mockRepositoryWithNoSubmodules();
 			mockRepositoryWithNoSubmodules();
 			mockDirectoryThatsNotRepository();
-			const repoManager = await constructRepoManagerAndWaitUntilStarted(
-				['/path/to/workspace-folder1'],
-				['/path/to/workspace-folder1/repo1', '/path/to/workspace-folder1/repo2']
-			);
+			const repoManager = await constructRepoManagerAndWaitUntilStarted(['/path/to/workspace-folder1'], ['/path/to/workspace-folder1/repo1', '/path/to/workspace-folder1/repo2']);
 
 			const newRepoState = {
 				cdvDivider: 0.75,
@@ -1436,10 +1399,7 @@ describe('RepoManager', () => {
 			mockDirectoryThatsNotRepository();
 
 			// Run
-			const repoManager = await constructRepoManagerAndWaitUntilStarted(
-				['/path/to/workspace-folder1'],
-				['/path/to/workspace-folder1/repo', '/path/to/workspace-folder1/repo/submodule1']
-			);
+			const repoManager = await constructRepoManagerAndWaitUntilStarted(['/path/to/workspace-folder1'], ['/path/to/workspace-folder1/repo', '/path/to/workspace-folder1/repo/submodule1']);
 
 			// Assert
 			expect(repoManager.getRepos()).toStrictEqual({
@@ -1452,7 +1412,7 @@ describe('RepoManager', () => {
 			repoManager.dispose();
 		});
 
-		it('Shouldn\'t add any submodules that are already known', async () => {
+		it("Shouldn't add any submodules that are already known", async () => {
 			// Setup
 			mockRepositoryWithSubmodules(['/path/to/workspace-folder1/repo/submodule1', '/path/to/workspace-folder1/repo/submodule2']);
 			mockRepositoryWithNoSubmodules();
@@ -1476,14 +1436,18 @@ describe('RepoManager', () => {
 			repoManager.dispose();
 		});
 
-		it('Shouldn\'t add any submodules that have been ignored', async () => {
+		it("Shouldn't add any submodules that have been ignored", async () => {
 			// Setup
 			mockRepositoryWithSubmodules(['/path/to/workspace-folder1/repo/submodule1', '/path/to/workspace-folder1/repo/submodule2']);
 			mockRepositoryWithNoSubmodules();
 			mockDirectoryThatsNotRepository();
 
 			// Run
-			const repoManager = await constructRepoManagerAndWaitUntilStarted(['/path/to/workspace-folder1'], ['/path/to/workspace-folder1/repo', '/path/to/workspace-folder1/repo/submodule1'], ['/path/to/workspace-folder1/repo/submodule2']);
+			const repoManager = await constructRepoManagerAndWaitUntilStarted(
+				['/path/to/workspace-folder1'],
+				['/path/to/workspace-folder1/repo', '/path/to/workspace-folder1/repo/submodule1'],
+				['/path/to/workspace-folder1/repo/submodule2']
+			);
 
 			// Assert
 			expect(repoManager.getRepos()).toStrictEqual({
@@ -1584,7 +1548,7 @@ describe('RepoManager', () => {
 			expect(spyOnEnqueue).not.toHaveBeenCalled();
 		});
 
-		it('Shouldn\'t add a repository when a file is added', async () => {
+		it("Shouldn't add a repository when a file is added", async () => {
 			// Setup
 			mockFsStatOnce(null, false);
 
@@ -1602,7 +1566,7 @@ describe('RepoManager', () => {
 			});
 		});
 
-		it('Shouldn\'t add a repository when a directory is added, but it doesn\'t contain any repositories', async () => {
+		it("Shouldn't add a repository when a directory is added, but it doesn't contain any repositories", async () => {
 			// Setup
 			mockFsStatOnce(null, true);
 			mockDirectoryThatsNotRepository();
@@ -1702,7 +1666,7 @@ describe('RepoManager', () => {
 			expect(spyOnEnqueue).not.toHaveBeenCalled();
 		});
 
-		it('Shouldn\'t remove a repository when a repository isn\'t deleted', async () => {
+		it("Shouldn't remove a repository when a repository isn't deleted", async () => {
 			// Setup
 			mockFsStatOnce(null, true);
 
@@ -1722,7 +1686,7 @@ describe('RepoManager', () => {
 			});
 		});
 
-		it('Shouldn\'t remove a repository when a directory is removed, but it doesn\'t contain any repositories', async () => {
+		it("Shouldn't remove a repository when a directory is removed, but it doesn't contain any repositories", async () => {
 			// Setup
 			mockFsStatOnce(new Error(), true);
 
@@ -1849,7 +1813,7 @@ describe('RepoManager', () => {
 			repoManager.dispose();
 		});
 
-		it('Should not remove any repository if the deleted directory doesn\'t contain any repositories', async () => {
+		it("Should not remove any repository if the deleted directory doesn't contain any repositories", async () => {
 			// Setup
 			mockRepositoryWithNoSubmodules();
 			mockDirectoryThatsNotRepository();
@@ -1875,52 +1839,54 @@ describe('RepoManager', () => {
 
 	describe('checkRepoForNewConfig', () => {
 		describe('apply config', () => {
-			const testApplyField = <K extends keyof GitRepoState, L extends keyof ExternalRepoConfig.File>(stateKey: K, stateValue: GitRepoState[K], fileKey: L, fileValue: ExternalRepoConfig.File[L]) => async () => {
-				// Setup
-				mockDirectoryThatsNotRepository();
-				const repoManager = await constructRepoManagerAndWaitUntilStarted(['/path/to/workspace-folder1'], []);
-				mockRepositoryWithNoSubmodules();
-				const file: ExternalRepoConfig.File = {
-					exportedAt: 1587559258000
+			const testApplyField =
+				<K extends keyof GitRepoState, L extends keyof ExternalRepoConfig.File>(stateKey: K, stateValue: GitRepoState[K], fileKey: L, fileValue: ExternalRepoConfig.File[L]) =>
+				async () => {
+					// Setup
+					mockDirectoryThatsNotRepository();
+					const repoManager = await constructRepoManagerAndWaitUntilStarted(['/path/to/workspace-folder1'], []);
+					mockRepositoryWithNoSubmodules();
+					const file: ExternalRepoConfig.File = {
+						exportedAt: 1587559258000
+					};
+					file[fileKey] = fileValue;
+					mockFsReadFileOnce(null, file);
+
+					// Run
+					await repoManager.registerRepo('/path/to/workspace-folder1/repo', false);
+
+					// Assert
+					const expected: GitRepoSet = {
+						'/path/to/workspace-folder1/repo': {
+							cdvDivider: 0.5,
+							cdvHeight: 250,
+							columnWidths: null,
+							commitOrdering: RepoCommitOrdering.Default,
+							fileViewType: FileViewType.Default,
+							hideRemotes: [],
+							includeCommitsMentionedByReflogs: BooleanOverride.Default,
+							issueLinkingConfig: null,
+							lastImportAt: 1587559258000,
+							name: null,
+							onlyFollowFirstParent: BooleanOverride.Default,
+							onRepoLoadShowCheckedOutBranch: BooleanOverride.Default,
+							onRepoLoadShowSpecificBranches: null,
+							pullRequestConfig: null,
+							showRemoteBranches: true,
+							showRemoteBranchesV2: BooleanOverride.Default,
+							showStashes: BooleanOverride.Default,
+							showTags: BooleanOverride.Default,
+							workspaceFolderIndex: 0
+						}
+					};
+					expected['/path/to/workspace-folder1/repo'][stateKey] = stateValue;
+					expect(repoManager.getRepos()).toStrictEqual(expected);
+					expect(spyOnSaveRepos).toHaveBeenCalledWith(expected);
+					expect(vscode.window.showInformationMessage).toHaveBeenCalledTimes(0);
+
+					// Teardown
+					repoManager.dispose();
 				};
-				file[fileKey] = fileValue;
-				mockFsReadFileOnce(null, file);
-
-				// Run
-				await repoManager.registerRepo('/path/to/workspace-folder1/repo', false);
-
-				// Assert
-				const expected: GitRepoSet = {
-					'/path/to/workspace-folder1/repo': {
-						cdvDivider: 0.5,
-						cdvHeight: 250,
-						columnWidths: null,
-						commitOrdering: RepoCommitOrdering.Default,
-						fileViewType: FileViewType.Default,
-						hideRemotes: [],
-						includeCommitsMentionedByReflogs: BooleanOverride.Default,
-						issueLinkingConfig: null,
-						lastImportAt: 1587559258000,
-						name: null,
-						onlyFollowFirstParent: BooleanOverride.Default,
-						onRepoLoadShowCheckedOutBranch: BooleanOverride.Default,
-						onRepoLoadShowSpecificBranches: null,
-						pullRequestConfig: null,
-						showRemoteBranches: true,
-						showRemoteBranchesV2: BooleanOverride.Default,
-						showStashes: BooleanOverride.Default,
-						showTags: BooleanOverride.Default,
-						workspaceFolderIndex: 0
-					}
-				};
-				expected['/path/to/workspace-folder1/repo'][stateKey] = stateValue;
-				expect(repoManager.getRepos()).toStrictEqual(expected);
-				expect(spyOnSaveRepos).toHaveBeenCalledWith(expected);
-				expect(vscode.window.showInformationMessage).toHaveBeenCalledTimes(0);
-
-				// Teardown
-				repoManager.dispose();
-			};
 
 			describe('commitOrdering', () => {
 				it('Should import RepoCommitOrdering.Date correctly', testApplyField('commitOrdering', RepoCommitOrdering.Date, 'commitOrdering', RepoCommitOrdering.Date));
@@ -1965,30 +1931,175 @@ describe('RepoManager', () => {
 			});
 
 			describe('pullRequestConfig', () => {
-				it('Should import a Bitbucket config correctly', testApplyField(
-					'pullRequestConfig', { provider: PullRequestProvider.Bitbucket, custom: null, hostRootUrl: 'a', sourceRemote: 'b', sourceOwner: 'c', sourceRepo: 'd', destRemote: 'e', destOwner: 'f', destRepo: 'g', destProjectId: 'h', destBranch: 'i' },
-					'pullRequestConfig', { provider: ExternalRepoConfig.PullRequestProvider.Bitbucket, custom: null, hostRootUrl: 'a', sourceRemote: 'b', sourceOwner: 'c', sourceRepo: 'd', destRemote: 'e', destOwner: 'f', destRepo: 'g', destProjectId: 'h', destBranch: 'i' }
-				));
+				it(
+					'Should import a Bitbucket config correctly',
+					testApplyField(
+						'pullRequestConfig',
+						{
+							provider: PullRequestProvider.Bitbucket,
+							custom: null,
+							hostRootUrl: 'a',
+							sourceRemote: 'b',
+							sourceOwner: 'c',
+							sourceRepo: 'd',
+							destRemote: 'e',
+							destOwner: 'f',
+							destRepo: 'g',
+							destProjectId: 'h',
+							destBranch: 'i'
+						},
+						'pullRequestConfig',
+						{
+							provider: ExternalRepoConfig.PullRequestProvider.Bitbucket,
+							custom: null,
+							hostRootUrl: 'a',
+							sourceRemote: 'b',
+							sourceOwner: 'c',
+							sourceRepo: 'd',
+							destRemote: 'e',
+							destOwner: 'f',
+							destRepo: 'g',
+							destProjectId: 'h',
+							destBranch: 'i'
+						}
+					)
+				);
 
-				it('Should import a Custom config correctly', testApplyField(
-					'pullRequestConfig', { provider: PullRequestProvider.Custom, custom: { name: 'Name', templateUrl: '$1/$2/$3/$4/$5/$6/$8' }, hostRootUrl: 'a', sourceRemote: 'b', sourceOwner: 'c', sourceRepo: 'd', destRemote: 'e', destOwner: 'f', destRepo: 'g', destProjectId: 'h', destBranch: 'i' },
-					'pullRequestConfig', { provider: ExternalRepoConfig.PullRequestProvider.Custom, custom: { name: 'Name', templateUrl: '$1/$2/$3/$4/$5/$6/$8' }, hostRootUrl: 'a', sourceRemote: 'b', sourceOwner: 'c', sourceRepo: 'd', destRemote: 'e', destOwner: 'f', destRepo: 'g', destProjectId: 'h', destBranch: 'i' }
-				));
+				it(
+					'Should import a Custom config correctly',
+					testApplyField(
+						'pullRequestConfig',
+						{
+							provider: PullRequestProvider.Custom,
+							custom: { name: 'Name', templateUrl: '$1/$2/$3/$4/$5/$6/$8' },
+							hostRootUrl: 'a',
+							sourceRemote: 'b',
+							sourceOwner: 'c',
+							sourceRepo: 'd',
+							destRemote: 'e',
+							destOwner: 'f',
+							destRepo: 'g',
+							destProjectId: 'h',
+							destBranch: 'i'
+						},
+						'pullRequestConfig',
+						{
+							provider: ExternalRepoConfig.PullRequestProvider.Custom,
+							custom: { name: 'Name', templateUrl: '$1/$2/$3/$4/$5/$6/$8' },
+							hostRootUrl: 'a',
+							sourceRemote: 'b',
+							sourceOwner: 'c',
+							sourceRepo: 'd',
+							destRemote: 'e',
+							destOwner: 'f',
+							destRepo: 'g',
+							destProjectId: 'h',
+							destBranch: 'i'
+						}
+					)
+				);
 
-				it('Should import a GitHub config correctly', testApplyField(
-					'pullRequestConfig', { provider: PullRequestProvider.GitHub, custom: null, hostRootUrl: 'a', sourceRemote: 'b', sourceOwner: 'c', sourceRepo: 'd', destRemote: 'e', destOwner: 'f', destRepo: 'g', destProjectId: 'h', destBranch: 'i' },
-					'pullRequestConfig', { provider: ExternalRepoConfig.PullRequestProvider.GitHub, custom: null, hostRootUrl: 'a', sourceRemote: 'b', sourceOwner: 'c', sourceRepo: 'd', destRemote: 'e', destOwner: 'f', destRepo: 'g', destProjectId: 'h', destBranch: 'i' }
-				));
+				it(
+					'Should import a GitHub config correctly',
+					testApplyField(
+						'pullRequestConfig',
+						{
+							provider: PullRequestProvider.GitHub,
+							custom: null,
+							hostRootUrl: 'a',
+							sourceRemote: 'b',
+							sourceOwner: 'c',
+							sourceRepo: 'd',
+							destRemote: 'e',
+							destOwner: 'f',
+							destRepo: 'g',
+							destProjectId: 'h',
+							destBranch: 'i'
+						},
+						'pullRequestConfig',
+						{
+							provider: ExternalRepoConfig.PullRequestProvider.GitHub,
+							custom: null,
+							hostRootUrl: 'a',
+							sourceRemote: 'b',
+							sourceOwner: 'c',
+							sourceRepo: 'd',
+							destRemote: 'e',
+							destOwner: 'f',
+							destRepo: 'g',
+							destProjectId: 'h',
+							destBranch: 'i'
+						}
+					)
+				);
 
-				it('Should import a GitLab config correctly', testApplyField(
-					'pullRequestConfig', { provider: PullRequestProvider.GitLab, custom: null, hostRootUrl: 'a', sourceRemote: 'b', sourceOwner: 'c', sourceRepo: 'd', destRemote: 'e', destOwner: 'f', destRepo: 'g', destProjectId: 'h', destBranch: 'i' },
-					'pullRequestConfig', { provider: ExternalRepoConfig.PullRequestProvider.GitLab, custom: null, hostRootUrl: 'a', sourceRemote: 'b', sourceOwner: 'c', sourceRepo: 'd', destRemote: 'e', destOwner: 'f', destRepo: 'g', destProjectId: 'h', destBranch: 'i' }
-				));
+				it(
+					'Should import a GitLab config correctly',
+					testApplyField(
+						'pullRequestConfig',
+						{
+							provider: PullRequestProvider.GitLab,
+							custom: null,
+							hostRootUrl: 'a',
+							sourceRemote: 'b',
+							sourceOwner: 'c',
+							sourceRepo: 'd',
+							destRemote: 'e',
+							destOwner: 'f',
+							destRepo: 'g',
+							destProjectId: 'h',
+							destBranch: 'i'
+						},
+						'pullRequestConfig',
+						{
+							provider: ExternalRepoConfig.PullRequestProvider.GitLab,
+							custom: null,
+							hostRootUrl: 'a',
+							sourceRemote: 'b',
+							sourceOwner: 'c',
+							sourceRepo: 'd',
+							destRemote: 'e',
+							destOwner: 'f',
+							destRepo: 'g',
+							destProjectId: 'h',
+							destBranch: 'i'
+						}
+					)
+				);
 
-				it('Should import a GitHub config with no destination remote correctly', testApplyField(
-					'pullRequestConfig', { provider: PullRequestProvider.GitHub, custom: null, hostRootUrl: 'a', sourceRemote: 'b', sourceOwner: 'c', sourceRepo: 'd', destRemote: null, destOwner: 'f', destRepo: 'g', destProjectId: 'h', destBranch: 'i' },
-					'pullRequestConfig', { provider: ExternalRepoConfig.PullRequestProvider.GitHub, custom: null, hostRootUrl: 'a', sourceRemote: 'b', sourceOwner: 'c', sourceRepo: 'd', destRemote: null, destOwner: 'f', destRepo: 'g', destProjectId: 'h', destBranch: 'i' }
-				));
+				it(
+					'Should import a GitHub config with no destination remote correctly',
+					testApplyField(
+						'pullRequestConfig',
+						{
+							provider: PullRequestProvider.GitHub,
+							custom: null,
+							hostRootUrl: 'a',
+							sourceRemote: 'b',
+							sourceOwner: 'c',
+							sourceRepo: 'd',
+							destRemote: null,
+							destOwner: 'f',
+							destRepo: 'g',
+							destProjectId: 'h',
+							destBranch: 'i'
+						},
+						'pullRequestConfig',
+						{
+							provider: ExternalRepoConfig.PullRequestProvider.GitHub,
+							custom: null,
+							hostRootUrl: 'a',
+							sourceRemote: 'b',
+							sourceOwner: 'c',
+							sourceRepo: 'd',
+							destRemote: null,
+							destOwner: 'f',
+							destRepo: 'g',
+							destProjectId: 'h',
+							destBranch: 'i'
+						}
+					)
+				);
 			});
 
 			describe('showRemoteBranches', () => {
@@ -2024,7 +2135,9 @@ describe('RepoManager', () => {
 				await repoManager.registerRepo('/path/to/workspace-folder1/repo', false);
 
 				// Assert
-				expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('The value for "' + fileKey + '" in the configuration file "/path/to/workspace-folder1/repo/.vscode/vscode-git-graph.json" is invalid.');
+				expect(vscode.window.showErrorMessage).toHaveBeenCalledWith(
+					'The value for "' + fileKey + '" in the configuration file "/path/to/workspace-folder1/repo/.vscode/vscode-git-graph.json" is invalid.'
+				);
 
 				// Teardown
 				repoManager.dispose();
@@ -2047,25 +2160,102 @@ describe('RepoManager', () => {
 			it('Should display a validation error when "pullRequestConfig" is invalid (not an object)', testValidationOfField('pullRequestConfig', 'invalid'));
 			it('Should display a validation error when "pullRequestConfig" is invalid (null)', testValidationOfField('pullRequestConfig', null));
 			it('Should display a validation error when "pullRequestConfig" is invalid (unknown provider)', testValidationOfField('pullRequestConfig', { provider: 'invalid' }));
-			it('Should display a validation error when "pullRequestConfig" is invalid (no custom provider config)', testValidationOfField('pullRequestConfig', { provider: ExternalRepoConfig.PullRequestProvider.Custom }));
-			it('Should display a validation error when "pullRequestConfig" is invalid (custom provider config is null)', testValidationOfField('pullRequestConfig', { provider: ExternalRepoConfig.PullRequestProvider.Custom, custom: null }));
-			it('Should display a validation error when "pullRequestConfig" is invalid (custom provider config is missing name)', testValidationOfField('pullRequestConfig', { provider: ExternalRepoConfig.PullRequestProvider.Custom, custom: { templateUrl: 'x' } }));
-			it('Should display a validation error when "pullRequestConfig" is invalid (custom provider config is missing templateUrl)', testValidationOfField('pullRequestConfig', { provider: ExternalRepoConfig.PullRequestProvider.Custom, custom: { name: 'x' } }));
-			it('Should display a validation error when "pullRequestConfig" is invalid (no hostRootUrl)', testValidationOfField('pullRequestConfig', { provider: ExternalRepoConfig.PullRequestProvider.Bitbucket, custom: null }));
-			it('Should display a validation error when "pullRequestConfig" is invalid (no sourceRemote)', testValidationOfField('pullRequestConfig', { provider: ExternalRepoConfig.PullRequestProvider.Bitbucket, custom: null, hostRootUrl: 'a' }));
-			it('Should display a validation error when "pullRequestConfig" is invalid (no sourceOwner)', testValidationOfField('pullRequestConfig', { provider: ExternalRepoConfig.PullRequestProvider.Bitbucket, custom: null, hostRootUrl: 'a', sourceRemote: 'b' }));
-			it('Should display a validation error when "pullRequestConfig" is invalid (no sourceRepo)', testValidationOfField('pullRequestConfig', { provider: ExternalRepoConfig.PullRequestProvider.Bitbucket, custom: null, hostRootUrl: 'a', sourceRemote: 'b', sourceOwner: 'c' }));
-			it('Should display a validation error when "pullRequestConfig" is invalid (no destRemote)', testValidationOfField('pullRequestConfig', { provider: ExternalRepoConfig.PullRequestProvider.Bitbucket, custom: null, hostRootUrl: 'a', sourceRemote: 'b', sourceOwner: 'c', sourceRepo: 'd' }));
-			it('Should display a validation error when "pullRequestConfig" is invalid (no destOwner)', testValidationOfField('pullRequestConfig', { provider: ExternalRepoConfig.PullRequestProvider.Bitbucket, custom: null, hostRootUrl: 'a', sourceRemote: 'b', sourceOwner: 'c', sourceRepo: 'd', destRemote: 'e' }));
-			it('Should display a validation error when "pullRequestConfig" is invalid (no destRepo)', testValidationOfField('pullRequestConfig', { provider: ExternalRepoConfig.PullRequestProvider.Bitbucket, custom: null, hostRootUrl: 'a', sourceRemote: 'b', sourceOwner: 'c', sourceRepo: 'd', destRemote: null, destOwner: 'f' }));
-			it('Should display a validation error when "pullRequestConfig" is invalid (no destProjectId)', testValidationOfField('pullRequestConfig', { provider: ExternalRepoConfig.PullRequestProvider.Bitbucket, custom: null, hostRootUrl: 'a', sourceRemote: 'b', sourceOwner: 'c', sourceRepo: 'd', destRemote: 'e', destOwner: 'f', destRepo: 'g' }));
-			it('Should display a validation error when "pullRequestConfig" is invalid (no destBranch)', testValidationOfField('pullRequestConfig', { provider: ExternalRepoConfig.PullRequestProvider.Bitbucket, custom: null, hostRootUrl: 'a', sourceRemote: 'b', sourceOwner: 'c', sourceRepo: 'd', destRemote: 'e', destOwner: 'f', destRepo: 'g', destProjectId: 'h' }));
+			it(
+				'Should display a validation error when "pullRequestConfig" is invalid (no custom provider config)',
+				testValidationOfField('pullRequestConfig', { provider: ExternalRepoConfig.PullRequestProvider.Custom })
+			);
+			it(
+				'Should display a validation error when "pullRequestConfig" is invalid (custom provider config is null)',
+				testValidationOfField('pullRequestConfig', { provider: ExternalRepoConfig.PullRequestProvider.Custom, custom: null })
+			);
+			it(
+				'Should display a validation error when "pullRequestConfig" is invalid (custom provider config is missing name)',
+				testValidationOfField('pullRequestConfig', { provider: ExternalRepoConfig.PullRequestProvider.Custom, custom: { templateUrl: 'x' } })
+			);
+			it(
+				'Should display a validation error when "pullRequestConfig" is invalid (custom provider config is missing templateUrl)',
+				testValidationOfField('pullRequestConfig', { provider: ExternalRepoConfig.PullRequestProvider.Custom, custom: { name: 'x' } })
+			);
+			it(
+				'Should display a validation error when "pullRequestConfig" is invalid (no hostRootUrl)',
+				testValidationOfField('pullRequestConfig', { provider: ExternalRepoConfig.PullRequestProvider.Bitbucket, custom: null })
+			);
+			it(
+				'Should display a validation error when "pullRequestConfig" is invalid (no sourceRemote)',
+				testValidationOfField('pullRequestConfig', { provider: ExternalRepoConfig.PullRequestProvider.Bitbucket, custom: null, hostRootUrl: 'a' })
+			);
+			it(
+				'Should display a validation error when "pullRequestConfig" is invalid (no sourceOwner)',
+				testValidationOfField('pullRequestConfig', { provider: ExternalRepoConfig.PullRequestProvider.Bitbucket, custom: null, hostRootUrl: 'a', sourceRemote: 'b' })
+			);
+			it(
+				'Should display a validation error when "pullRequestConfig" is invalid (no sourceRepo)',
+				testValidationOfField('pullRequestConfig', { provider: ExternalRepoConfig.PullRequestProvider.Bitbucket, custom: null, hostRootUrl: 'a', sourceRemote: 'b', sourceOwner: 'c' })
+			);
+			it(
+				'Should display a validation error when "pullRequestConfig" is invalid (no destRemote)',
+				testValidationOfField('pullRequestConfig', { provider: ExternalRepoConfig.PullRequestProvider.Bitbucket, custom: null, hostRootUrl: 'a', sourceRemote: 'b', sourceOwner: 'c', sourceRepo: 'd' })
+			);
+			it(
+				'Should display a validation error when "pullRequestConfig" is invalid (no destOwner)',
+				testValidationOfField('pullRequestConfig', {
+					provider: ExternalRepoConfig.PullRequestProvider.Bitbucket,
+					custom: null,
+					hostRootUrl: 'a',
+					sourceRemote: 'b',
+					sourceOwner: 'c',
+					sourceRepo: 'd',
+					destRemote: 'e'
+				})
+			);
+			it(
+				'Should display a validation error when "pullRequestConfig" is invalid (no destRepo)',
+				testValidationOfField('pullRequestConfig', {
+					provider: ExternalRepoConfig.PullRequestProvider.Bitbucket,
+					custom: null,
+					hostRootUrl: 'a',
+					sourceRemote: 'b',
+					sourceOwner: 'c',
+					sourceRepo: 'd',
+					destRemote: null,
+					destOwner: 'f'
+				})
+			);
+			it(
+				'Should display a validation error when "pullRequestConfig" is invalid (no destProjectId)',
+				testValidationOfField('pullRequestConfig', {
+					provider: ExternalRepoConfig.PullRequestProvider.Bitbucket,
+					custom: null,
+					hostRootUrl: 'a',
+					sourceRemote: 'b',
+					sourceOwner: 'c',
+					sourceRepo: 'd',
+					destRemote: 'e',
+					destOwner: 'f',
+					destRepo: 'g'
+				})
+			);
+			it(
+				'Should display a validation error when "pullRequestConfig" is invalid (no destBranch)',
+				testValidationOfField('pullRequestConfig', {
+					provider: ExternalRepoConfig.PullRequestProvider.Bitbucket,
+					custom: null,
+					hostRootUrl: 'a',
+					sourceRemote: 'b',
+					sourceOwner: 'c',
+					sourceRepo: 'd',
+					destRemote: 'e',
+					destOwner: 'f',
+					destRepo: 'g',
+					destProjectId: 'h'
+				})
+			);
 			it('Should display a validation error when "showRemoteBranches" is invalid', testValidationOfField('showRemoteBranches', 'invalid'));
 			it('Should display a validation error when "showStashes" is invalid', testValidationOfField('showStashes', 'invalid'));
 			it('Should display a validation error when "showTags" is invalid', testValidationOfField('showTags', 'invalid'));
 		});
 
-		it('Shouldn\'t proceed with processing config if it couldn\'t be parsed', async () => {
+		it("Shouldn't proceed with processing config if it couldn't be parsed", async () => {
 			// Setup
 			mockDirectoryThatsNotRepository();
 			const repoManager = await constructRepoManagerAndWaitUntilStarted(['/path/to/workspace-folder1'], []);
@@ -2086,7 +2276,7 @@ describe('RepoManager', () => {
 			repoManager.dispose();
 		});
 
-		it('Shouldn\'t proceed with processing config if it isn\'t an object', async () => {
+		it("Shouldn't proceed with processing config if it isn't an object", async () => {
 			// Setup
 			mockDirectoryThatsNotRepository();
 			const repoManager = await constructRepoManagerAndWaitUntilStarted(['/path/to/workspace-folder1'], []);
@@ -2128,7 +2318,11 @@ describe('RepoManager', () => {
 
 			// Assert
 			await waitForExpect(() => expect(vscode.window.showInformationMessage).toHaveBeenCalledTimes(2));
-			expect(vscode.window.showInformationMessage).toHaveBeenCalledWith('A newer Git Graph Repository Configuration File has been detected for the repository "repo1". Would you like to override your current repository configuration with the new changes?', 'Yes', 'No');
+			expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
+				'A newer Git Graph Repository Configuration File has been detected for the repository "repo1". Would you like to override your current repository configuration with the new changes?',
+				'Yes',
+				'No'
+			);
 			expect(vscode.window.showInformationMessage).toHaveBeenCalledWith('Git Graph Repository Configuration was successfully imported for the repository "repo1".');
 			expect(spyOnBufferedQueueEnqueue).toHaveBeenCalledWith('/path/to/workspace-folder1/repo1');
 		});
@@ -2153,7 +2347,11 @@ describe('RepoManager', () => {
 
 			// Assert
 			await waitForExpect(() => expect(vscode.window.showInformationMessage).toHaveBeenCalledTimes(2));
-			expect(vscode.window.showInformationMessage).toHaveBeenCalledWith('A newer Git Graph Repository Configuration File has been detected for the repository "Old Name". Would you like to override your current repository configuration with the new changes?', 'Yes', 'No');
+			expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
+				'A newer Git Graph Repository Configuration File has been detected for the repository "Old Name". Would you like to override your current repository configuration with the new changes?',
+				'Yes',
+				'No'
+			);
 			expect(vscode.window.showInformationMessage).toHaveBeenCalledWith('Git Graph Repository Configuration was successfully imported for the repository "Name".');
 			expect(spyOnBufferedQueueEnqueue).toHaveBeenCalledWith('/path/to/workspace-folder1/repo1');
 		});
@@ -2183,7 +2381,7 @@ describe('RepoManager', () => {
 			expect(spyOnSaveRepos).toHaveBeenCalledTimes(1);
 		});
 
-		it('Shouldn\'t import the repository configuration when user cancels the modal', async () => {
+		it("Shouldn't import the repository configuration when user cancels the modal", async () => {
 			// Setup
 			mockRepositoryWithNoSubmodules();
 			mockDirectoryThatsNotRepository();
@@ -2205,7 +2403,7 @@ describe('RepoManager', () => {
 			expect(spyOnSaveRepos).not.toHaveBeenCalled();
 		});
 
-		it('Shouldn\'t import the repository configuration when it is not for a known repository', async () => {
+		it("Shouldn't import the repository configuration when it is not for a known repository", async () => {
 			// Setup
 			mockRepositoryWithNoSubmodules();
 			mockDirectoryThatsNotRepository();
@@ -2242,7 +2440,9 @@ describe('RepoManager', () => {
 			expect(JSON.parse(spyOnWriteFile.mock.calls[0][1])).toStrictEqual({
 				'exportedAt': 1587559258000
 			});
-			expect(vscode.window.showInformationMessage).toHaveBeenCalledWith('Successfully exported the Git Graph Repository Configuration to "/path/to/workspace-folder1/repo1/.vscode/vscode-git-graph.json".');
+			expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
+				'Successfully exported the Git Graph Repository Configuration to "/path/to/workspace-folder1/repo1/.vscode/vscode-git-graph.json".'
+			);
 			expect(spyOnSaveRepos).toHaveBeenCalledWith({
 				'/path/to/workspace-folder1/repo1': {
 					cdvDivider: 0.5,
@@ -2293,7 +2493,9 @@ describe('RepoManager', () => {
 			expect(JSON.parse(spyOnWriteFile.mock.calls[0][1])).toStrictEqual({
 				'exportedAt': 1587559258000
 			});
-			expect(vscode.window.showInformationMessage).toHaveBeenCalledWith('Successfully exported the Git Graph Repository Configuration to "/path/to/workspace-folder1/repo1/.vscode/vscode-git-graph.json".');
+			expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
+				'Successfully exported the Git Graph Repository Configuration to "/path/to/workspace-folder1/repo1/.vscode/vscode-git-graph.json".'
+			);
 			expect(spyOnSaveRepos).not.toHaveBeenCalled();
 
 			// Teardown
@@ -2320,7 +2522,9 @@ describe('RepoManager', () => {
 			expect(JSON.parse(spyOnWriteFile.mock.calls[0][1])).toStrictEqual({
 				'exportedAt': 1587559258000
 			});
-			expect(vscode.window.showInformationMessage).toHaveBeenCalledWith('Successfully exported the Git Graph Repository Configuration to "/path/to/workspace-folder1/repo1/.vscode/vscode-git-graph.json".');
+			expect(vscode.window.showInformationMessage).toHaveBeenCalledWith(
+				'Successfully exported the Git Graph Repository Configuration to "/path/to/workspace-folder1/repo1/.vscode/vscode-git-graph.json".'
+			);
 			expect(spyOnSaveRepos).toHaveBeenCalledWith({
 				'/path/to/workspace-folder1/repo1': {
 					cdvDivider: 0.5,
@@ -2349,7 +2553,7 @@ describe('RepoManager', () => {
 			repoManager.dispose();
 		});
 
-		it('Should return an error message when .vscode can\'t be created', async () => {
+		it("Should return an error message when .vscode can't be created", async () => {
 			// Setup
 			mockRepositoryWithNoSubmodules();
 			mockDirectoryThatsNotRepository();
@@ -2361,14 +2565,16 @@ describe('RepoManager', () => {
 			const result = await repoManager.exportRepoConfig('/path/to/workspace-folder1/repo1');
 
 			// Assert
-			expect(result).toBe('An unexpected error occurred while checking if the "/path/to/workspace-folder1/repo1/.vscode" directory exists. This directory is used to store the Git Graph Repository Configuration file.');
+			expect(result).toBe(
+				'An unexpected error occurred while checking if the "/path/to/workspace-folder1/repo1/.vscode" directory exists. This directory is used to store the Git Graph Repository Configuration file.'
+			);
 			expect(spyOnSaveRepos).not.toHaveBeenCalled();
 
 			// Teardown
 			repoManager.dispose();
 		});
 
-		it('Should return an error message when the file can\'t be written', async () => {
+		it("Should return an error message when the file can't be written", async () => {
 			// Setup
 			mockRepositoryWithNoSubmodules();
 			mockDirectoryThatsNotRepository();
@@ -2388,30 +2594,29 @@ describe('RepoManager', () => {
 			repoManager.dispose();
 		});
 
-		const testExportField = <K extends keyof GitRepoState, L extends keyof ExternalRepoConfig.File>(stateKey: K, stateValue: GitRepoState[K], fileKey: L, fileValue: ExternalRepoConfig.File[L]) => async () => {
-			// Setup
-			mockRepositoryWithNoSubmodules();
-			mockDirectoryThatsNotRepository();
-			mockWriteExternalConfigFileOnce();
-			vscode.window.showInformationMessage.mockResolvedValueOnce(null);
-			const repoManager = await constructRepoManagerAndWaitUntilStarted(
-				['/path/to/workspace-folder1'],
-				['/path/to/workspace-folder1/repo1']
-			);
-			repoManager.getRepos()['/path/to/workspace-folder1/repo1'][stateKey] = stateValue;
+		const testExportField =
+			<K extends keyof GitRepoState, L extends keyof ExternalRepoConfig.File>(stateKey: K, stateValue: GitRepoState[K], fileKey: L, fileValue: ExternalRepoConfig.File[L]) =>
+			async () => {
+				// Setup
+				mockRepositoryWithNoSubmodules();
+				mockDirectoryThatsNotRepository();
+				mockWriteExternalConfigFileOnce();
+				vscode.window.showInformationMessage.mockResolvedValueOnce(null);
+				const repoManager = await constructRepoManagerAndWaitUntilStarted(['/path/to/workspace-folder1'], ['/path/to/workspace-folder1/repo1']);
+				repoManager.getRepos()['/path/to/workspace-folder1/repo1'][stateKey] = stateValue;
 
-			// Run
-			await repoManager.exportRepoConfig('/path/to/workspace-folder1/repo1');
+				// Run
+				await repoManager.exportRepoConfig('/path/to/workspace-folder1/repo1');
 
-			// Assert
-			const expected: any = {};
-			expected[fileKey] = fileValue;
-			expected['exportedAt'] = 1587559258000;
-			expect(JSON.parse(spyOnWriteFile.mock.calls[0][1])).toStrictEqual(expected);
+				// Assert
+				const expected: any = {};
+				expected[fileKey] = fileValue;
+				expected['exportedAt'] = 1587559258000;
+				expect(JSON.parse(spyOnWriteFile.mock.calls[0][1])).toStrictEqual(expected);
 
-			// Teardown
-			repoManager.dispose();
-		};
+				// Teardown
+				repoManager.dispose();
+			};
 
 		describe('commitOrdering', () => {
 			it('Should export RepoCommitOrdering.Date correctly', testExportField('commitOrdering', RepoCommitOrdering.Date, 'commitOrdering', RepoCommitOrdering.Date));
@@ -2456,25 +2661,141 @@ describe('RepoManager', () => {
 		});
 
 		describe('pullRequestConfig', () => {
-			it('Should export a Bitbucket config correctly', testExportField(
-				'pullRequestConfig', { provider: PullRequestProvider.Bitbucket, custom: null, hostRootUrl: 'a', sourceRemote: 'b', sourceOwner: 'c', sourceRepo: 'd', destRemote: 'e', destOwner: 'f', destRepo: 'g', destProjectId: 'h', destBranch: 'i' },
-				'pullRequestConfig', { provider: ExternalRepoConfig.PullRequestProvider.Bitbucket, custom: null, hostRootUrl: 'a', sourceRemote: 'b', sourceOwner: 'c', sourceRepo: 'd', destRemote: 'e', destOwner: 'f', destRepo: 'g', destProjectId: 'h', destBranch: 'i' }
-			));
+			it(
+				'Should export a Bitbucket config correctly',
+				testExportField(
+					'pullRequestConfig',
+					{
+						provider: PullRequestProvider.Bitbucket,
+						custom: null,
+						hostRootUrl: 'a',
+						sourceRemote: 'b',
+						sourceOwner: 'c',
+						sourceRepo: 'd',
+						destRemote: 'e',
+						destOwner: 'f',
+						destRepo: 'g',
+						destProjectId: 'h',
+						destBranch: 'i'
+					},
+					'pullRequestConfig',
+					{
+						provider: ExternalRepoConfig.PullRequestProvider.Bitbucket,
+						custom: null,
+						hostRootUrl: 'a',
+						sourceRemote: 'b',
+						sourceOwner: 'c',
+						sourceRepo: 'd',
+						destRemote: 'e',
+						destOwner: 'f',
+						destRepo: 'g',
+						destProjectId: 'h',
+						destBranch: 'i'
+					}
+				)
+			);
 
-			it('Should export a Custom config correctly', testExportField(
-				'pullRequestConfig', { provider: PullRequestProvider.Custom, custom: { name: 'Name', templateUrl: '$1/$2/$3/$4/$5/$6/$8' }, hostRootUrl: 'a', sourceRemote: 'b', sourceOwner: 'c', sourceRepo: 'd', destRemote: 'e', destOwner: 'f', destRepo: 'g', destProjectId: 'h', destBranch: 'i' },
-				'pullRequestConfig', { provider: ExternalRepoConfig.PullRequestProvider.Custom, custom: { name: 'Name', templateUrl: '$1/$2/$3/$4/$5/$6/$8' }, hostRootUrl: 'a', sourceRemote: 'b', sourceOwner: 'c', sourceRepo: 'd', destRemote: 'e', destOwner: 'f', destRepo: 'g', destProjectId: 'h', destBranch: 'i' }
-			));
+			it(
+				'Should export a Custom config correctly',
+				testExportField(
+					'pullRequestConfig',
+					{
+						provider: PullRequestProvider.Custom,
+						custom: { name: 'Name', templateUrl: '$1/$2/$3/$4/$5/$6/$8' },
+						hostRootUrl: 'a',
+						sourceRemote: 'b',
+						sourceOwner: 'c',
+						sourceRepo: 'd',
+						destRemote: 'e',
+						destOwner: 'f',
+						destRepo: 'g',
+						destProjectId: 'h',
+						destBranch: 'i'
+					},
+					'pullRequestConfig',
+					{
+						provider: ExternalRepoConfig.PullRequestProvider.Custom,
+						custom: { name: 'Name', templateUrl: '$1/$2/$3/$4/$5/$6/$8' },
+						hostRootUrl: 'a',
+						sourceRemote: 'b',
+						sourceOwner: 'c',
+						sourceRepo: 'd',
+						destRemote: 'e',
+						destOwner: 'f',
+						destRepo: 'g',
+						destProjectId: 'h',
+						destBranch: 'i'
+					}
+				)
+			);
 
-			it('Should export a GitHub config correctly', testExportField(
-				'pullRequestConfig', { provider: PullRequestProvider.GitHub, custom: null, hostRootUrl: 'a', sourceRemote: 'b', sourceOwner: 'c', sourceRepo: 'd', destRemote: 'e', destOwner: 'f', destRepo: 'g', destProjectId: 'h', destBranch: 'i' },
-				'pullRequestConfig', { provider: ExternalRepoConfig.PullRequestProvider.GitHub, custom: null, hostRootUrl: 'a', sourceRemote: 'b', sourceOwner: 'c', sourceRepo: 'd', destRemote: 'e', destOwner: 'f', destRepo: 'g', destProjectId: 'h', destBranch: 'i' }
-			));
+			it(
+				'Should export a GitHub config correctly',
+				testExportField(
+					'pullRequestConfig',
+					{
+						provider: PullRequestProvider.GitHub,
+						custom: null,
+						hostRootUrl: 'a',
+						sourceRemote: 'b',
+						sourceOwner: 'c',
+						sourceRepo: 'd',
+						destRemote: 'e',
+						destOwner: 'f',
+						destRepo: 'g',
+						destProjectId: 'h',
+						destBranch: 'i'
+					},
+					'pullRequestConfig',
+					{
+						provider: ExternalRepoConfig.PullRequestProvider.GitHub,
+						custom: null,
+						hostRootUrl: 'a',
+						sourceRemote: 'b',
+						sourceOwner: 'c',
+						sourceRepo: 'd',
+						destRemote: 'e',
+						destOwner: 'f',
+						destRepo: 'g',
+						destProjectId: 'h',
+						destBranch: 'i'
+					}
+				)
+			);
 
-			it('Should export a GitLab config correctly', testExportField(
-				'pullRequestConfig', { provider: PullRequestProvider.GitLab, custom: null, hostRootUrl: 'a', sourceRemote: 'b', sourceOwner: 'c', sourceRepo: 'd', destRemote: 'e', destOwner: 'f', destRepo: 'g', destProjectId: 'h', destBranch: 'i' },
-				'pullRequestConfig', { provider: ExternalRepoConfig.PullRequestProvider.GitLab, custom: null, hostRootUrl: 'a', sourceRemote: 'b', sourceOwner: 'c', sourceRepo: 'd', destRemote: 'e', destOwner: 'f', destRepo: 'g', destProjectId: 'h', destBranch: 'i' }
-			));
+			it(
+				'Should export a GitLab config correctly',
+				testExportField(
+					'pullRequestConfig',
+					{
+						provider: PullRequestProvider.GitLab,
+						custom: null,
+						hostRootUrl: 'a',
+						sourceRemote: 'b',
+						sourceOwner: 'c',
+						sourceRepo: 'd',
+						destRemote: 'e',
+						destOwner: 'f',
+						destRepo: 'g',
+						destProjectId: 'h',
+						destBranch: 'i'
+					},
+					'pullRequestConfig',
+					{
+						provider: ExternalRepoConfig.PullRequestProvider.GitLab,
+						custom: null,
+						hostRootUrl: 'a',
+						sourceRemote: 'b',
+						sourceOwner: 'c',
+						sourceRepo: 'd',
+						destRemote: 'e',
+						destOwner: 'f',
+						destRepo: 'g',
+						destProjectId: 'h',
+						destBranch: 'i'
+					}
+				)
+			);
 		});
 
 		describe('showRemoteBranches', () => {
@@ -2549,7 +2870,7 @@ function mockWriteExternalConfigFileOnce() {
 function constructRepoManager(workspaceFolders: string[] | undefined, repos: string[] | GitRepoSet, ignoreRepos: string[] = []) {
 	let repoSet: GitRepoSet = {};
 	if (Array.isArray(repos)) {
-		repos.forEach((repo) => repoSet[repo] = mockRepoState());
+		repos.forEach((repo) => (repoSet[repo] = mockRepoState()));
 	} else {
 		repoSet = Object.assign({}, repos);
 	}
@@ -2560,9 +2881,7 @@ function constructRepoManager(workspaceFolders: string[] | undefined, repos: str
 
 	vscode.mockExtensionSettingReturnValue('maxDepthOfRepoSearch', 0);
 
-	vscode.workspace.workspaceFolders = workspaceFolders
-		? workspaceFolders.map((path, index) => ({ uri: vscode.Uri.file(path), index: index }))
-		: undefined;
+	vscode.workspace.workspaceFolders = workspaceFolders ? workspaceFolders.map((path, index) => ({ uri: vscode.Uri.file(path), index: index })) : undefined;
 
 	return new RepoManager(dataSource, extensionState, onDidChangeConfiguration.subscribe, logger);
 }

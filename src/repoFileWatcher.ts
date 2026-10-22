@@ -39,9 +39,9 @@ export class RepoFileWatcher {
 		this.repo = repo;
 		// Create a File System Watcher for all events within the specified repository
 		this.fsWatcher = vscode.workspace.createFileSystemWatcher(repo + '/**');
-		this.fsWatcher.onDidCreate(uri => this.refresh(uri));
-		this.fsWatcher.onDidChange(uri => this.refresh(uri));
-		this.fsWatcher.onDidDelete(uri => this.refresh(uri));
+		this.fsWatcher.onDidCreate((uri) => this.refresh(uri));
+		this.fsWatcher.onDidChange((uri) => this.refresh(uri));
+		this.fsWatcher.onDidDelete((uri) => this.refresh(uri));
 		this.logger.log('Started watching repo: ' + repo);
 	}
 
@@ -74,9 +74,8 @@ export class RepoFileWatcher {
 	 */
 	public unmute() {
 		this.muted = false;
-		this.resumeAt = (new Date()).getTime() + 1500;
+		this.resumeAt = new Date().getTime() + 1500;
 	}
-
 
 	/**
 	 * Handle a file event triggered by the File System Watcher.
@@ -84,8 +83,13 @@ export class RepoFileWatcher {
 	 */
 	private refresh(uri: vscode.Uri) {
 		if (this.muted) return;
-		if (!getPathFromUri(uri).replace(this.repo + '/', '').match(FILE_CHANGE_REGEX)) return;
-		if ((new Date()).getTime() < this.resumeAt) return;
+		if (
+			!getPathFromUri(uri)
+				.replace(this.repo + '/', '')
+				.match(FILE_CHANGE_REGEX)
+		)
+			return;
+		if (new Date().getTime() < this.resumeAt) return;
 
 		if (this.refreshTimeout !== null) {
 			clearTimeout(this.refreshTimeout);

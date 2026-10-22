@@ -1,25 +1,24 @@
 import * as vscode from 'vscode';
 import { RequestMessage, ResponseMessage, Writeable } from '../../src/types';
 
-
 /* Mocks */
 
 const mockedExtensionSettingValues: { [section: string]: any } = {};
 const mockedCommands: { [command: string]: (...args: any[]) => any } = {};
 
 interface WebviewPanelMocks {
-	messages: ResponseMessage[],
+	messages: ResponseMessage[];
 	panel: {
-		onDidChangeViewState: (e: vscode.WebviewPanelOnDidChangeViewStateEvent) => any,
-		onDidDispose: (e: void) => any,
-		setVisibility: (visible: boolean) => void,
+		onDidChangeViewState: (e: vscode.WebviewPanelOnDidChangeViewStateEvent) => any;
+		onDidDispose: (e: void) => any;
+		setVisibility: (visible: boolean) => void;
 		webview: {
-			onDidReceiveMessage: (msg: RequestMessage) => void
-		}
-	}
+			onDidReceiveMessage: (msg: RequestMessage) => void;
+		};
+	};
 }
 
-let mockedWebviews: { panel: vscode.WebviewPanel, mocks: WebviewPanelMocks }[] = [];
+let mockedWebviews: { panel: vscode.WebviewPanel; mocks: WebviewPanelMocks }[] = [];
 
 const extensionContext = {
 	asAbsolutePath: vi.fn(),
@@ -58,9 +57,7 @@ export const mocks = {
 	},
 	workspaceConfiguration: {
 		get: vi.fn((section: string, defaultValue?: any) => {
-			return typeof mockedExtensionSettingValues[section] !== 'undefined'
-				? mockedExtensionSettingValues[section]
-				: defaultValue;
+			return typeof mockedExtensionSettingValues[section] !== 'undefined' ? mockedExtensionSettingValues[section] : defaultValue;
 		}),
 		inspect: vi.fn((section: string) => ({
 			workspaceValue: mockedExtensionSettingValues[section],
@@ -68,7 +65,6 @@ export const mocks = {
 		}))
 	}
 };
-
 
 /* Visual Studio Code API Mocks */
 
@@ -117,7 +113,7 @@ export class Uri implements vscode.Uri {
 		return this.path;
 	}
 
-	public with(change: { scheme?: string | undefined; authority?: string | undefined; path?: string | undefined; query?: string | undefined; fragment?: string | undefined; }): vscode.Uri {
+	public with(change: { scheme?: string | undefined; authority?: string | undefined; path?: string | undefined; query?: string | undefined; fragment?: string | undefined }): vscode.Uri {
 		return new Uri(change.scheme || this.scheme, change.authority || this.authority, change.path || this.path, change.query || this.query, change.fragment || this.fragment);
 	}
 
@@ -183,21 +179,26 @@ export const workspace = {
 	getConfiguration: vi.fn(() => mocks.workspaceConfiguration),
 	onDidChangeWorkspaceFolders: vi.fn((_: () => Promise<void>) => ({ dispose: vi.fn() })),
 	onDidCloseTextDocument: vi.fn((_: () => void) => ({ dispose: vi.fn() })),
-	workspaceFolders: <{ uri: Uri, index: number }[] | undefined>undefined
+	workspaceFolders: <{ uri: Uri; index: number }[] | undefined>undefined
 };
 
-function createWebviewPanel(viewType: string, title: string, _showOptions: ViewColumn | { viewColumn: ViewColumn, preserveFocus?: boolean }, _options?: vscode.WebviewPanelOptions & vscode.WebviewOptions) {
+function createWebviewPanel(
+	viewType: string,
+	title: string,
+	_showOptions: ViewColumn | { viewColumn: ViewColumn; preserveFocus?: boolean },
+	_options?: vscode.WebviewPanelOptions & vscode.WebviewOptions
+) {
 	const mocks: WebviewPanelMocks = {
 		messages: [],
 		panel: {
-			onDidChangeViewState: () => { },
-			onDidDispose: () => { },
+			onDidChangeViewState: () => {},
+			onDidDispose: () => {},
 			setVisibility: (visible) => {
 				webviewPanel.visible = visible;
 				mocks.panel.onDidChangeViewState({ webviewPanel: webviewPanel });
 			},
 			webview: {
-				onDidReceiveMessage: () => { }
+				onDidReceiveMessage: () => {}
 			}
 		}
 	};
@@ -215,7 +216,7 @@ function createWebviewPanel(viewType: string, title: string, _showOptions: ViewC
 			return { dispose: vi.fn() };
 		}),
 		options: {},
-		reveal: vi.fn((_viewColumn?: ViewColumn, _preserveFocus?: boolean) => { }),
+		reveal: vi.fn((_viewColumn?: ViewColumn, _preserveFocus?: boolean) => {}),
 		title: title,
 		viewColumn: undefined,
 		visible: true,
@@ -239,7 +240,6 @@ function createWebviewPanel(viewType: string, title: string, _showOptions: ViewC
 	mockedWebviews.push({ panel: webviewPanel, mocks: mocks });
 	return webviewPanel;
 }
-
 
 /* Utilities */
 
