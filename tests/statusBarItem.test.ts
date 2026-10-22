@@ -1,6 +1,5 @@
 import * as vscode from './mocks/vscode';
-jest.mock('vscode', () => vscode, { virtual: true });
-jest.mock('../src/logger');
+vi.mock('../src/logger');
 
 import { ConfigurationChangeEvent } from 'vscode';
 import { Logger } from '../src/logger';

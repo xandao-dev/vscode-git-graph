@@ -30,13 +30,13 @@
 	"license": "SEE LICENSE IN 'LICENSE'",
 	"icon": "resources/icon.png",
 	"engines": {
-		"vscode": "^1.38.0"
+		"vscode": "^1.90.0"
 	},
 	"extensionKind": [
 		"workspace"
 	],
 	"activationEvents": [
-		"*"
+		"onStartupFinished"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
@@ -95,7 +95,7 @@
 				"command": "git-graph.openFile",
 				"title": "Open File",
 				"icon": "$(go-to-file)",
-				"enablement": "isInDiffEditor && resourceScheme == git-graph && git-graph:codiconsSupported"
+				"enablement": "isInDiffEditor && resourceScheme == git-graph"
 			}
 		],
 		"configuration": {
@@ -1491,14 +1491,14 @@
 			"commandPalette": [
 				{
 					"command": "git-graph.openFile",
-					"when": "isInDiffEditor && resourceScheme == git-graph && git-graph:codiconsSupported"
+					"when": "isInDiffEditor && resourceScheme == git-graph"
 				}
 			],
 			"editor/title": [
 				{
 					"command": "git-graph.openFile",
 					"group": "navigation",
-					"when": "isInDiffEditor && resourceScheme == git-graph && git-graph:codiconsSupported"
+					"when": "isInDiffEditor && resourceScheme == git-graph"
 				}
 			],
 			"scm/title": [
@@ -1517,31 +1517,26 @@
 	},
 	"scripts": {
 		"vscode:prepublish": "npm run compile",
-		"vscode:uninstall": "node ./out/life-cycle/uninstall.js",
-		"clean": "node ./.vscode/clean.js",
-		"compile": "npm run lint && npm run clean && npm run compile-src && npm run compile-web",
-		"compile-src": "tsc -p ./src && node ./.vscode/package-src.js",
-		"compile-web": "tsc -p ./web && node ./.vscode/package-web.js",
-		"compile-web-debug": "tsc -p ./web && node ./.vscode/package-web.js debug",
-		"lint": "eslint -c .eslintrc.json --max-warnings 0 --ext .ts ./src ./tests ./web",
+		"vscode:uninstall": "node ./out/uninstall.js",
+		"compile": "npm run lint && npm run compile-src && npm run compile-web",
+		"compile-src": "vp pack",
+		"compile-web": "vp build",
+		"compile-web-debug": "vp build --mode development",
+		"format": "vp fmt",
+		"lint": "vp fmt --check && vp lint --max-warnings 0",
 		"package": "vsce package",
 		"package-and-install": "npm run package && node ./.vscode/install-package.js",
-		"test": "jest --verbose",
-		"test-and-report-coverage": "jest --verbose --coverage"
+		"test": "vp test",
+		"test-and-report-coverage": "vp test --coverage"
 	},
 	"dependencies": {
 		"iconv-lite": "0.5.0"
 	},
 	"devDependencies": {
-		"@types/jest": "26.0.19",
-		"@types/node": "8.10.62",
-		"@types/vscode": "1.38.0",
-		"@typescript-eslint/eslint-plugin": "4.10.0",
-		"@typescript-eslint/parser": "4.10.0",
-		"eslint": "7.15.0",
-		"jest": "26.6.3",
-		"ts-jest": "26.4.4",
-		"typescript": "4.0.2",
-		"uglify-js": "3.10.0"
+		"@types/node": "22.20.5",
+		"@types/vscode": "1.90.0",
+		"@vitest/coverage-v8": "5.0.5",
+		"@vscode/vsce": "4.0.0",
+		"vite-plus": "1.3.0"
 	}
 }

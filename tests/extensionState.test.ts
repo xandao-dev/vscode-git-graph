@@ -1,7 +1,7 @@
+import type { MockInstance } from 'vite-plus/test';
 import './mocks/date';
 import * as vscode from './mocks/vscode';
-jest.mock('vscode', () => vscode, { virtual: true });
-jest.mock('fs');
+vi.mock('fs');
 
 import * as fs from 'fs';
 import { ExtensionState } from '../src/extensionState';
@@ -724,7 +724,7 @@ describe('ExtensionState', () => {
 	describe('isAvatarStorageAvailable', () => {
 		it('Should return TRUE if the avatar storage folder existed on startup', () => {
 			// Setup
-			const spyOnStat = jest.spyOn(fs, 'stat');
+			const spyOnStat: MockInstance = vi.spyOn(fs, 'stat');
 			spyOnStat.mockImplementationOnce((_, callback) => callback(null, {} as fs.Stats));
 			const extensionState = new ExtensionState(extensionContext, onDidChangeGitExecutable.subscribe);
 
@@ -741,8 +741,8 @@ describe('ExtensionState', () => {
 
 		it('Should return TRUE if the avatar storage folder was successfully created', () => {
 			// Setup
-			jest.spyOn(fs, 'stat').mockImplementationOnce((_, callback) => callback(new Error(), {} as fs.Stats));
-			const spyOnMkdir = jest.spyOn(fs, 'mkdir');
+			(<MockInstance>vi.spyOn(fs, 'stat')).mockImplementationOnce((_, callback) => callback(new Error(), {} as fs.Stats));
+			const spyOnMkdir = vi.spyOn(fs, 'mkdir');
 			spyOnMkdir.mockImplementation((_, callback) => callback(null));
 			const extensionState = new ExtensionState(extensionContext, onDidChangeGitExecutable.subscribe);
 
@@ -760,8 +760,8 @@ describe('ExtensionState', () => {
 
 		it('Should return TRUE if the avatar storage folder was created after the initial stat check', () => {
 			// Setup
-			jest.spyOn(fs, 'stat').mockImplementationOnce((_, callback) => callback(new Error(), {} as fs.Stats));
-			const spyOnMkdir = jest.spyOn(fs, 'mkdir');
+			(<MockInstance>vi.spyOn(fs, 'stat')).mockImplementationOnce((_, callback) => callback(new Error(), {} as fs.Stats));
+			const spyOnMkdir = vi.spyOn(fs, 'mkdir');
 			spyOnMkdir.mockImplementation((_, callback) => callback({ code: 'EEXIST' } as NodeJS.ErrnoException));
 			const extensionState = new ExtensionState(extensionContext, onDidChangeGitExecutable.subscribe);
 
@@ -779,8 +779,8 @@ describe('ExtensionState', () => {
 
 		it('Should return FALSE if the avatar storage folder could not be created', () => {
 			// Setup
-			jest.spyOn(fs, 'stat').mockImplementationOnce((_, callback) => callback(new Error(), {} as fs.Stats));
-			const spyOnMkdir = jest.spyOn(fs, 'mkdir');
+			(<MockInstance>vi.spyOn(fs, 'stat')).mockImplementationOnce((_, callback) => callback(new Error(), {} as fs.Stats));
+			const spyOnMkdir = vi.spyOn(fs, 'mkdir');
 			spyOnMkdir.mockImplementation((_, callback) => callback({} as NodeJS.ErrnoException));
 			const extensionState = new ExtensionState(extensionContext, onDidChangeGitExecutable.subscribe);
 
@@ -868,10 +868,10 @@ describe('ExtensionState', () => {
 	});
 
 	describe('clearAvatarCache', () => {
-		let spyOnReaddir: jest.SpyInstance, spyOnUnlink: jest.SpyInstance;
+		let spyOnReaddir: MockInstance, spyOnUnlink: MockInstance;
 		beforeAll(() => {
-			spyOnReaddir = jest.spyOn(fs, 'readdir');
-			spyOnUnlink = jest.spyOn(fs, 'unlink');
+			spyOnReaddir = vi.spyOn(fs, 'readdir');
+			spyOnUnlink = vi.spyOn(fs, 'unlink');
 		});
 
 		it('Should clear all avatars from the cache and delete all avatars that are currently stored on the file system', async () => {

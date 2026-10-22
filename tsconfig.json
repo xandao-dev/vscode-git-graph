@@ -1,0 +1,23 @@
+{
+	"compilerOptions": {
+		"isolatedModules": true,
+		"lib": [
+			"es2023"
+		],
+		"module": "preserve",
+		"moduleResolution": "bundler",
+		"noEmit": true,
+		"noFallthroughCasesInSwitch": true,
+		"noImplicitAny": true,
+		"noUnusedLocals": true,
+		"noUnusedParameters": true,
+		"strict": true,
+		"target": "es2023",
+		"types": [
+			"node"
+		]
+	},
+	"files": [
+		"vite.config.ts"
+	]
+}

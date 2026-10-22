@@ -1,0 +1,16 @@
+version: 2
+updates:
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+    ignore:
+      # Must match the minimum version of Visual Studio Code supported by Git Graph (engines.vscode in package.json)
+      - dependency-name: '@types/vscode'
+      # Should match the Node.js version used by the minimum version of Visual Studio Code supported by Git Graph
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'

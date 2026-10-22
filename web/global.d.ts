@@ -1,4 +1,8 @@
-import * as GG from '../out/types'; // Import types from back-end (requires `npm run compile-src`)
+import type { FindWidgetState } from './findWidget';
+import type { SettingsWidgetState } from './settingsWidget';
+import type { TargetType } from './utils';
+
+import type * as GG from '../src/types';
 
 declare global {
 
@@ -99,13 +103,6 @@ declare global {
 
 	/* Dialog & ContextMenu shared base Target interfaces */
 
-	const enum TargetType {
-		Commit = 'commit',
-		CommitDetailsView = 'cdv',
-		Ref = 'ref',
-		Repo = 'repo'
-	}
-
 	interface CommitOrRefTarget {
 		type: TargetType.Commit | TargetType.Ref | TargetType.CommitDetailsView;
 		elem: HTMLElement;
@@ -123,6 +120,3 @@ declare global {
 		ref: string;
 	}
 }
-
-export as namespace GG;
-export = GG;

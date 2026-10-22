@@ -4,8 +4,8 @@ describe('Event Emitter', () => {
 	it('Registers and disposes subscribers', () => {
 		// Setup
 		const emitter = new EventEmitter<number>();
-		const mockSubscriber1 = jest.fn((x: number) => x);
-		const mockSubscriber2 = jest.fn((x: number) => x);
+		const mockSubscriber1 = vi.fn((x: number) => x);
+		const mockSubscriber2 = vi.fn((x: number) => x);
 
 		// Run
 		emitter.subscribe(mockSubscriber1);
@@ -25,8 +25,8 @@ describe('Event Emitter', () => {
 	it('Disposes a specific subscriber', () => {
 		// Setup
 		const emitter = new EventEmitter<number>();
-		const mockSubscriber1 = jest.fn((x: number) => x);
-		const mockSubscriber2 = jest.fn((x: number) => x);
+		const mockSubscriber1 = vi.fn((x: number) => x);
+		const mockSubscriber2 = vi.fn((x: number) => x);
 
 		// Run
 		const disposable = emitter.subscribe(mockSubscriber1);
@@ -45,7 +45,7 @@ describe('Event Emitter', () => {
 	it('Handles duplicate disposes of a specific subscriber', () => {
 		// Setup
 		const emitter = new EventEmitter<number>();
-		const mockSubscriber = jest.fn((x: number) => x);
+		const mockSubscriber = vi.fn((x: number) => x);
 
 		// Run
 		const disposable = emitter.subscribe(mockSubscriber);
@@ -62,8 +62,8 @@ describe('Event Emitter', () => {
 	it('Calls subscribers when an event is emitted', () => {
 		// Setup
 		const emitter = new EventEmitter<number>();
-		const mockSubscriber1 = jest.fn((x: number) => x);
-		const mockSubscriber2 = jest.fn((x: number) => x);
+		const mockSubscriber1 = vi.fn((x: number) => x);
+		const mockSubscriber2 = vi.fn((x: number) => x);
 
 		// Run
 		emitter.subscribe(mockSubscriber1);

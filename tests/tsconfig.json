@@ -1,23 +1,22 @@
 {
 	"compilerOptions": {
-		"declaration": true,
+		"isolatedModules": true,
 		"lib": [
-			"es6"
+			"es2023"
 		],
-		"module": "commonjs",
+		"module": "preserve",
+		"moduleResolution": "bundler",
+		"noEmit": true,
 		"noFallthroughCasesInSwitch": true,
 		"noImplicitAny": true,
 		"noUnusedLocals": true,
 		"noUnusedParameters": true,
-		"removeComments": true,
-		"sourceMap": true,
 		"strict": true,
-		"target": "es6",
+		"target": "es2023",
 		"types": [
-			"jest",
 			"node",
 			"vscode",
-			"../src/utils/@types/node"
+			"vite-plus/test/globals"
 		]
 	}
 }

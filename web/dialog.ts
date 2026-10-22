@@ -1,3 +1,7 @@
+import * as GG from '../src/types';
+import { closeDialogAndContextMenu, eventOverlay, findCommitElemWithId } from './main';
+import { CLASS_FOCUSSED, CLASS_SELECTED, REF_INVALID_REGEX, SVG_ICONS, TargetType, addListenerToCollectionElems, alterClass, alterClassOfCollection, escapeHtml, formatCommaSeparatedList, getCommitElems, handledEvent } from './utils';
+
 const CLASS_DIALOG_ACTIVE = 'dialogActive';
 const CLASS_DIALOG_INPUT_INVALID = 'inputInvalid';
 const CLASS_DIALOG_NO_INPUT = 'noInput';
@@ -8,7 +12,7 @@ const enum DialogType {
 	Message
 }
 
-const enum DialogInputType {
+export const enum DialogInputType {
 	Text,
 	TextRef,
 	Select,
@@ -69,7 +73,7 @@ interface DialogCheckboxInput {
 	readonly info?: string;
 }
 
-interface DialogSelectInputOption {
+export interface DialogSelectInputOption {
 	readonly name: string;
 	readonly value: string;
 }
@@ -79,10 +83,10 @@ interface DialogRadioInputOption {
 	readonly value: string;
 }
 
-type DialogInput = DialogTextInput | DialogTextAreaInput | DialogTextRefInput | DialogSelectInput | DialogRadioInput | DialogCheckboxInput;
-type DialogInputValue = string | string[] | boolean;
+export type DialogInput = DialogTextInput | DialogTextAreaInput | DialogTextRefInput | DialogSelectInput | DialogRadioInput | DialogCheckboxInput;
+export type DialogInputValue = string | string[] | boolean;
 
-type DialogTarget = {
+export type DialogTarget = {
 	type: TargetType.Commit | TargetType.Ref | TargetType.CommitDetailsView;
 	elem: HTMLElement;
 	hash: string;
@@ -92,7 +96,7 @@ type DialogTarget = {
 /**
  * Implements the Git Graph View's dialogs.
  */
-class Dialog {
+export class Dialog {
 	private elem: HTMLElement | null = null;
 	private target: DialogTarget | null = null;
 	private actioned: (() => void) | null = null;

@@ -1,4 +1,9 @@
-interface SettingsWidgetState {
+import * as GG from '../src/types';
+import { DialogInput, DialogInputType, DialogInputValue } from './dialog';
+import { GitGraphView, dialog, getIncludeCommitsMentionedByReflogs, getOnRepoLoadShowCheckedOutBranch, getOnRepoLoadShowSpecificBranches, getOnlyFollowFirstParent, getShowStashes, getShowTags, runAction } from './main';
+import { CLASS_ACTIVE, CLASS_LOADING, CLASS_TRANSITION, ELLIPSIS, SVG_ICONS, TargetType, addListenerToClass, alterClass, arraysStrictlyEqualIgnoringOrder, escapeHtml, formatCommaSeparatedList, getRepoName, observeElemScroll, sendMessage, updateGlobalViewState } from './utils';
+
+export interface SettingsWidgetState {
 	readonly currentRepo: string | null;
 	readonly scrollTop: number;
 }
@@ -6,7 +11,7 @@ interface SettingsWidgetState {
 /**
  * Implements the Git Graph View's Settings Widget.
  */
-class SettingsWidget {
+export class SettingsWidget {
 	private readonly view: GitGraphView;
 
 	private currentRepo: string | null = null;
@@ -603,7 +608,7 @@ class SettingsWidget {
 					regExpParseError = null;
 				}
 			} catch (e) {
-				regExpParseError = e.message;
+				regExpParseError = (e as Error).message;
 			}
 			if (regExpParseError !== null) {
 				dialog.showError('Invalid Issue Regex', regExpParseError, 'Go Back', () => {

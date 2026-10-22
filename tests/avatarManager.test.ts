@@ -1,11 +1,11 @@
+import type { MockInstance } from 'vite-plus/test';
 import * as date from './mocks/date';
 import * as vscode from './mocks/vscode';
-jest.mock('vscode', () => vscode, { virtual: true });
-jest.mock('fs');
-jest.mock('https');
-jest.mock('../src/dataSource');
-jest.mock('../src/extensionState');
-jest.mock('../src/logger');
+vi.mock('fs');
+vi.mock('https');
+vi.mock('../src/dataSource');
+vi.mock('../src/extensionState');
+vi.mock('../src/logger');
 
 import * as fs from 'fs';
 import { ClientRequest, IncomingMessage } from 'http';
@@ -26,7 +26,7 @@ let onDidChangeGitExecutable: EventEmitter<GitExecutable>;
 let logger: Logger;
 let dataSource: DataSource;
 let extensionState: ExtensionState;
-let spyOnSaveAvatar: jest.SpyInstance, spyOnRemoveAvatarFromCache: jest.SpyInstance, spyOnHttpsGet: jest.SpyInstance, spyOnWriteFile: jest.SpyInstance, spyOnReadFile: jest.SpyInstance, spyOnLog: jest.SpyInstance, spyOnGetRemoteUrl: jest.SpyInstance;
+let spyOnSaveAvatar: MockInstance, spyOnRemoveAvatarFromCache: MockInstance, spyOnHttpsGet: MockInstance, spyOnWriteFile: MockInstance, spyOnReadFile: MockInstance, spyOnLog: MockInstance, spyOnGetRemoteUrl: MockInstance;
 
 beforeAll(() => {
 	onDidChangeConfiguration = new EventEmitter<ConfigurationChangeEvent>();
@@ -34,13 +34,13 @@ beforeAll(() => {
 	logger = new Logger();
 	dataSource = new DataSource(null, onDidChangeConfiguration.subscribe, onDidChangeGitExecutable.subscribe, logger);
 	extensionState = new ExtensionState(vscode.mocks.extensionContext, onDidChangeGitExecutable.subscribe);
-	spyOnSaveAvatar = jest.spyOn(extensionState, 'saveAvatar');
-	spyOnRemoveAvatarFromCache = jest.spyOn(extensionState, 'removeAvatarFromCache');
-	spyOnHttpsGet = jest.spyOn(https, 'get');
-	spyOnWriteFile = jest.spyOn(fs, 'writeFile');
-	spyOnReadFile = jest.spyOn(fs, 'readFile');
-	spyOnLog = jest.spyOn(logger, 'log');
-	spyOnGetRemoteUrl = jest.spyOn(dataSource, 'getRemoteUrl');
+	spyOnSaveAvatar = vi.spyOn(extensionState, 'saveAvatar');
+	spyOnRemoveAvatarFromCache = vi.spyOn(extensionState, 'removeAvatarFromCache');
+	spyOnHttpsGet = vi.spyOn(https, 'get');
+	spyOnWriteFile = vi.spyOn(fs, 'writeFile');
+	spyOnReadFile = vi.spyOn(fs, 'readFile');
+	spyOnLog = vi.spyOn(logger, 'log');
+	spyOnGetRemoteUrl = vi.spyOn(dataSource, 'getRemoteUrl');
 });
 
 afterAll(() => {
@@ -54,8 +54,8 @@ afterAll(() => {
 describe('AvatarManager', () => {
 	let avatarManager: AvatarManager;
 	beforeEach(() => {
-		jest.spyOn(extensionState, 'getAvatarStoragePath').mockReturnValueOnce('/path/to/avatars');
-		jest.spyOn(extensionState, 'getAvatarCache').mockReturnValueOnce({
+		vi.spyOn(extensionState, 'getAvatarStoragePath').mockReturnValueOnce('/path/to/avatars');
+		vi.spyOn(extensionState, 'getAvatarCache').mockReturnValueOnce({
 			'user1@mhutchie.com': {
 				image: '530a7b02594e057f39179d3bd8b849f0.png',
 				timestamp: date.now * 1000,
@@ -73,8 +73,8 @@ describe('AvatarManager', () => {
 			}
 		});
 		avatarManager = new AvatarManager(dataSource, extensionState, logger);
-		jest.clearAllTimers();
-		jest.useRealTimers();
+		vi.clearAllTimers();
+		vi.useRealTimers();
 	});
 	afterEach(() => {
 		avatarManager.dispose();
@@ -1347,7 +1347,7 @@ describe('AvatarManager', () => {
 		it('Should fetch multiple avatars', async () => {
 			// Setup
 			spyOnGetRemoteUrl.mockResolvedValueOnce(null);
-			jest.useFakeTimers();
+			vi.useFakeTimers();
 			mockHttpsResponse(200, 'binary-image-data-one');
 			mockWriteFile(null);
 			mockReadFile('binary-image-data-one');
@@ -1627,9 +1627,9 @@ describe('AvatarManager', () => {
 	});
 
 	describe('clearCache', () => {
-		let spyOnClearAvatarCache: jest.SpyInstance;
+		let spyOnClearAvatarCache: MockInstance;
 		beforeAll(() => {
-			spyOnClearAvatarCache = jest.spyOn(extensionState, 'clearAvatarCache');
+			spyOnClearAvatarCache = vi.spyOn(extensionState, 'clearAvatarCache');
 		});
 
 		it('Should clear the cache of avatars', async () => {
@@ -1680,7 +1680,7 @@ function mockHttpsResponse(statusCode: number, imageData: string, headers: { [he
 			callbacks['end']();
 		}
 		return ({
-			on: jest.fn()
+			on: vi.fn()
 		}) as any as ClientRequest;
 	});
 }
@@ -1711,7 +1711,7 @@ function mockHttpsIncomingMessageErrorEvent() {
 		callback(message);
 		callbacks['error']();
 		return ({
-			on: jest.fn()
+			on: vi.fn()
 		}) as any as ClientRequest;
 	});
 }
@@ -1768,7 +1768,7 @@ function waitForEvents(avatarManager: AvatarManager, n: number, runPendingTimers
 		avatarManager.onAvatar((event) => {
 			events.push(event);
 			if (runPendingTimers) {
-				jest.runOnlyPendingTimers();
+				vi.runOnlyPendingTimers();
 			}
 			if (events.length === n) {
 				resolve(events);

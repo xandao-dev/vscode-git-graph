@@ -1,4 +1,20 @@
-class GitGraphView {
+import * as GG from '../src/types';
+import './styles/main.css';
+import './styles/contextMenu.css';
+import './styles/dialog.css';
+import './styles/dropdown.css';
+import './styles/findWidget.css';
+import './styles/settingsWidget.css';
+import { CLASS_CONTEXT_MENU_ACTIVE, ContextMenu, ContextMenuAction, ContextMenuActions, ContextMenuTarget } from './contextMenu';
+import { Dialog, DialogInput, DialogInputType, DialogSelectInputOption, DialogTarget } from './dialog';
+import { Dropdown, DropdownOption } from './dropdown';
+import { FindWidget } from './findWidget';
+import { Graph } from './graph';
+import { SettingsWidget } from './settingsWidget';
+import { CLASS_EXTERNAL_URL, CLASS_INTERNAL_URL, IssueLinking, TextFormatter, generateIssueLinkFromMatch, isExternalUrlElem, isInternalUrlElem, isUrlElem, parseIssueLinkingConfig } from './textFormatter';
+import { CLASS_ACTIVE, CLASS_BRANCH_LABELS_ALIGNED_TO_GRAPH, CLASS_COMMIT_DETAILS_OPEN, CLASS_ENABLED, CLASS_FETCH_SUPPORTED, CLASS_PENDING_REVIEW, CLASS_REFRESHING, CLASS_REF_HEAD, CLASS_REF_REMOTE, CLASS_REF_STASH, CLASS_REF_TAG, CLASS_TAG_LABELS_RIGHT_ALIGNED, COLUMN_AUTO, COLUMN_HIDDEN, COLUMN_LEFT_RIGHT_PADDING, COLUMN_MIN_WIDTH, CSS_PROP_EDITOR_FONT_FAMILY, CSS_PROP_FIND_MATCH_HIGHLIGHT_BACKGROUND, CSS_PROP_FONT_FAMILY, CSS_PROP_LIMIT_GRAPH_WIDTH, CSS_PROP_SELECTION_BACKGROUND, ELLIPSIS, EventOverlay, GIT_FILE_CHANGE_TYPES, GIT_SIGNATURE_STATUS_DESCRIPTIONS, ImageResizer, SHOW_ALL_BRANCHES, SVG_ICONS, TargetType, UNCOMMITTED, VSCODE_API, addListenerToClass, alterClass, arraysEqual, arraysStrictlyEqual, escapeHtml, formatCommaSeparatedList, formatLongDate, formatShortDate, getChildUl, getCommitElems, getRepoName, getSortedRepositoryPaths, getVSCodeStyle, handledEvent, insertAfter, insertBeforeFirstChildWithClass, modifyColourOpacity, observeElemScroll, sendMessage, showErrorMessage, unescapeHtml, updateGlobalViewState } from './utils';
+
+export class GitGraphView {
 	private gitRepos: GG.GitRepoSet;
 	private gitBranches: ReadonlyArray<string> = [];
 	private gitBranchHead: string | null = null;
@@ -2012,7 +2028,7 @@ class GitGraphView {
 	}
 
 	private observeViewScroll() {
-		let active = this.viewElem.scrollTop > 0, timeout: NodeJS.Timer | null = null;
+		let active = this.viewElem.scrollTop > 0, timeout: number | null = null;
 		this.scrollShadowElem.className = active ? CLASS_ACTIVE : '';
 		this.viewElem.addEventListener('scroll', () => {
 			const scrollTop = this.viewElem.scrollTop;
@@ -3190,7 +3206,7 @@ class GitGraphView {
 
 /* Main */
 
-const contextMenu = new ContextMenu(), dialog = new Dialog(), eventOverlay = new EventOverlay();
+export const contextMenu = new ContextMenu(), dialog = new Dialog(), eventOverlay = new EventOverlay();
 let loaded = false;
 
 window.addEventListener('load', () => {
@@ -3791,37 +3807,37 @@ function getShowRemoteBranches(repoValue: GG.BooleanOverride) {
 		: repoValue === GG.BooleanOverride.Enabled;
 }
 
-function getShowStashes(repoValue: GG.BooleanOverride) {
+export function getShowStashes(repoValue: GG.BooleanOverride) {
 	return repoValue === GG.BooleanOverride.Default
 		? initialState.config.showStashes
 		: repoValue === GG.BooleanOverride.Enabled;
 }
 
-function getShowTags(repoValue: GG.BooleanOverride) {
+export function getShowTags(repoValue: GG.BooleanOverride) {
 	return repoValue === GG.BooleanOverride.Default
 		? initialState.config.showTags
 		: repoValue === GG.BooleanOverride.Enabled;
 }
 
-function getIncludeCommitsMentionedByReflogs(repoValue: GG.BooleanOverride) {
+export function getIncludeCommitsMentionedByReflogs(repoValue: GG.BooleanOverride) {
 	return repoValue === GG.BooleanOverride.Default
 		? initialState.config.includeCommitsMentionedByReflogs
 		: repoValue === GG.BooleanOverride.Enabled;
 }
 
-function getOnlyFollowFirstParent(repoValue: GG.BooleanOverride) {
+export function getOnlyFollowFirstParent(repoValue: GG.BooleanOverride) {
 	return repoValue === GG.BooleanOverride.Default
 		? initialState.config.onlyFollowFirstParent
 		: repoValue === GG.BooleanOverride.Enabled;
 }
 
-function getOnRepoLoadShowCheckedOutBranch(repoValue: GG.BooleanOverride) {
+export function getOnRepoLoadShowCheckedOutBranch(repoValue: GG.BooleanOverride) {
 	return repoValue === GG.BooleanOverride.Default
 		? initialState.config.onRepoLoad.showCheckedOutBranch
 		: repoValue === GG.BooleanOverride.Enabled;
 }
 
-function getOnRepoLoadShowSpecificBranches(repoValue: string[] | null) {
+export function getOnRepoLoadShowSpecificBranches(repoValue: string[] | null) {
 	return repoValue === null
 		? initialState.config.onRepoLoad.showSpecificBranches
 		: repoValue;
@@ -3840,7 +3856,7 @@ function haveFilesChanged(oldFiles: ReadonlyArray<GG.GitFileChange> | null, newF
 	}
 }
 
-function abbrevCommit(commitHash: string) {
+export function abbrevCommit(commitHash: string) {
 	return commitHash.substring(0, 8);
 }
 
@@ -3934,12 +3950,12 @@ function getRepoDropdownOptions(repos: Readonly<GG.GitRepoSet>) {
 	return options;
 }
 
-function runAction(msg: GG.RequestMessage, action: string) {
+export function runAction(msg: GG.RequestMessage, action: string) {
 	dialog.showActionRunning(action);
 	sendMessage(msg);
 }
 
-function getBranchLabels(heads: ReadonlyArray<string>, remotes: ReadonlyArray<GG.GitCommitRemote>) {
+export function getBranchLabels(heads: ReadonlyArray<string>, remotes: ReadonlyArray<GG.GitCommitRemote>) {
 	let headLabels: { name: string; remotes: string[] }[] = [], headLookup: { [name: string]: number } = {}, remoteLabels: ReadonlyArray<GG.GitCommitRemote>;
 	for (let i = 0; i < heads.length; i++) {
 		headLabels.push({ name: heads[i], remotes: [] });
@@ -3964,7 +3980,7 @@ function getBranchLabels(heads: ReadonlyArray<string>, remotes: ReadonlyArray<GG
 	return { heads: headLabels, remotes: remoteLabels };
 }
 
-function findCommitElemWithId(elems: HTMLCollectionOf<HTMLElement>, id: number | null) {
+export function findCommitElemWithId(elems: HTMLCollectionOf<HTMLElement>, id: number | null) {
 	if (id === null) return null;
 	let findIdStr = id.toString();
 	for (let i = 0; i < elems.length; i++) {
@@ -3985,7 +4001,7 @@ function generateSignatureHtml(signature: GG.GitSignature) {
 		+ '</span>';
 }
 
-function closeDialogAndContextMenu() {
+export function closeDialogAndContextMenu() {
 	if (dialog.isOpen()) dialog.close();
 	if (contextMenu.isOpen()) contextMenu.close();
 }

@@ -594,9 +594,9 @@ export function evalPromises<X, Y>(data: X[], maxParallel: number, createPromise
  * @param cmd The Child Process.
  * @returns Promise that resolves to [{code, error}, stdout, stderr]
  */
-export function resolveSpawnOutput(cmd: cp.ChildProcess) {
+export function resolveSpawnOutput(cmd: cp.ChildProcessWithoutNullStreams) {
 	return Promise.all([
-		new Promise<{ code: number, error: Error | null }>((resolve) => {
+		new Promise<{ code: number | null, error: Error | null }>((resolve) => {
 			// status promise
 			let resolved = false;
 			cmd.on('error', (error) => {
@@ -781,17 +781,13 @@ export const enum GitVersionRequirement {
 	TagDetails = '1.7.8'
 }
 
-export const enum VsCodeVersionRequirement {
-	Codicons = '1.42.0'
-}
-
 /**
  * Checks whether a version is at least a required version.
  * @param version The version to check.
  * @param requiredVersion The minimum required version.
  * @returns TRUE => `version` is at least `requiredVersion`, FALSE => `version` is older than `requiredVersion`.
  */
-export function doesVersionMeetRequirement(version: string, requiredVersion: GitVersionRequirement | VsCodeVersionRequirement) {
+export function doesVersionMeetRequirement(version: string, requiredVersion: GitVersionRequirement) {
 	const v1 = parseVersion(version);
 	const v2 = parseVersion(requiredVersion);
 

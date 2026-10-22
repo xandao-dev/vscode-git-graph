@@ -1,0 +1,2 @@
+# Keep the line endings of TypeScript files exactly as they are in the working tree (CRLF, as enforced by `vp fmt`)
+*.ts -text
