@@ -3089,6 +3089,7 @@ export class GitGraphView {
 			i,
 			j,
 			path,
+			key,
 			absPath,
 			cur: FileTreeFolder;
 		let files: FileTreeFolder = { type: 'folder', name: '', folderPath: '', contents: contents, open: true, reviewed: true };
@@ -3098,20 +3099,21 @@ export class GitGraphView {
 			path = gitFiles[i].newFilePath.split('/');
 			absPath = this.currentRepo;
 			for (j = 0; j < path.length; j++) {
+				key = getFileTreeKey(path[j]);
 				absPath += '/' + path[j];
 				if (typeof this.gitRepos[absPath] !== 'undefined') {
-					if (typeof cur.contents[path[j]] === 'undefined') {
-						cur.contents[path[j]] = { type: 'repo', name: path[j], path: absPath };
+					if (typeof cur.contents[key] === 'undefined') {
+						cur.contents[key] = { type: 'repo', name: path[j], path: absPath };
 					}
 					break;
 				} else if (j < path.length - 1) {
-					if (typeof cur.contents[path[j]] === 'undefined') {
+					if (typeof cur.contents[key] === 'undefined') {
 						contents = {};
-						cur.contents[path[j]] = { type: 'folder', name: path[j], folderPath: absPath.substring(this.currentRepo.length + 1), contents: contents, open: true, reviewed: true };
+						cur.contents[key] = { type: 'folder', name: path[j], folderPath: absPath.substring(this.currentRepo.length + 1), contents: contents, open: true, reviewed: true };
 					}
-					cur = <FileTreeFolder>cur.contents[path[j]];
+					cur = <FileTreeFolder>cur.contents[key];
 				} else if (path[j] !== '') {
-					cur.contents[path[j]] = { type: 'file', name: path[j], index: i, reviewed: codeReview === null || !codeReview.remainingFiles.includes(gitFiles[i].newFilePath) };
+					cur.contents[key] = { type: 'file', name: path[j], index: i, reviewed: codeReview === null || !codeReview.remainingFiles.includes(gitFiles[i].newFilePath) };
 				}
 			}
 		}
@@ -4371,6 +4373,11 @@ window.addEventListener('load', () => {
 
 /* File Tree Methods (for the Commit Details & Comparison Views) */
 
+// The keys of a folder's contents are prefixed, so that names like "constructor" or "__proto__" don't collide with the members of Object.prototype
+function getFileTreeKey(name: string) {
+	return 'graph-' + name;
+}
+
 function generateFileViewHtml(
 	folder: FileTreeFolder,
 	gitFiles: ReadonlyArray<GG.GitFileChange>,
@@ -4539,10 +4546,12 @@ function generateFileTreeLeafHtml(name: string, leaf: FileTreeLeaf, gitFiles: Re
 function alterFileTreeFolderOpen(folder: FileTreeFolder, folderPath: string, open: boolean) {
 	let path = folderPath.split('/'),
 		i,
+		key,
 		cur = folder;
 	for (i = 0; i < path.length; i++) {
-		if (typeof cur.contents[path[i]] !== 'undefined') {
-			cur = <FileTreeFolder>cur.contents[path[i]];
+		key = getFileTreeKey(path[i]);
+		if (typeof cur.contents[key] !== 'undefined') {
+			cur = <FileTreeFolder>cur.contents[key];
 			if (i === path.length - 1) cur.open = open;
 		} else {
 			return;
@@ -4553,15 +4562,17 @@ function alterFileTreeFolderOpen(folder: FileTreeFolder, folderPath: string, ope
 function alterFileTreeFileReviewed(folder: FileTreeFolder, filePath: string, reviewed: boolean) {
 	let path = filePath.split('/'),
 		i,
+		key,
 		cur = folder,
 		folders = [folder];
 	for (i = 0; i < path.length; i++) {
-		if (typeof cur.contents[path[i]] !== 'undefined') {
+		key = getFileTreeKey(path[i]);
+		if (typeof cur.contents[key] !== 'undefined') {
 			if (i < path.length - 1) {
-				cur = <FileTreeFolder>cur.contents[path[i]];
+				cur = <FileTreeFolder>cur.contents[key];
 				folders.push(cur);
 			} else {
-				(<FileTreeFile>cur.contents[path[i]]).reviewed = reviewed;
+				(<FileTreeFile>cur.contents[key]).reviewed = reviewed;
 			}
 		} else {
 			break;
@@ -4685,7 +4696,7 @@ function getChildByPathSegment(folder: FileTreeFolder, pathSeg: string) {
 	let cur: FileTreeNode = folder,
 		comps = pathSeg.split('/');
 	for (let i = 0; i < comps.length; i++) {
-		cur = (<FileTreeFolder>cur).contents[comps[i]];
+		cur = (<FileTreeFolder>cur).contents[getFileTreeKey(comps[i])];
 	}
 	return cur;
 }
