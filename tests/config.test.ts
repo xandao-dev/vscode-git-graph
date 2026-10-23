@@ -110,6 +110,65 @@ describe('Config', () => {
 			});
 		});
 
+		describe('autoScroll', () => {
+			it('Should return TRUE when the configuration value is TRUE', () => {
+				// Setup
+				vscode.mockExtensionSettingReturnValue('commitDetailsView.autoScroll', true);
+
+				// Run
+				const value = config.commitDetailsView.autoScroll;
+
+				// Assert
+				expect(workspaceConfiguration.get).toBeCalledWith('commitDetailsView.autoScroll', true);
+				expect(value).toBe(true);
+			});
+
+			it('Should return FALSE when the configuration value is FALSE', () => {
+				// Setup
+				vscode.mockExtensionSettingReturnValue('commitDetailsView.autoScroll', false);
+
+				// Run
+				const value = config.commitDetailsView.autoScroll;
+
+				// Assert
+				expect(workspaceConfiguration.get).toBeCalledWith('commitDetailsView.autoScroll', true);
+				expect(value).toBe(false);
+			});
+
+			it('Should return TRUE when the configuration value is truthy', () => {
+				// Setup
+				vscode.mockExtensionSettingReturnValue('commitDetailsView.autoScroll', 5);
+
+				// Run
+				const value = config.commitDetailsView.autoScroll;
+
+				// Assert
+				expect(workspaceConfiguration.get).toBeCalledWith('commitDetailsView.autoScroll', true);
+				expect(value).toBe(true);
+			});
+
+			it('Should return FALSE when the configuration value is falsy', () => {
+				// Setup
+				vscode.mockExtensionSettingReturnValue('commitDetailsView.autoScroll', 0);
+
+				// Run
+				const value = config.commitDetailsView.autoScroll;
+
+				// Assert
+				expect(workspaceConfiguration.get).toBeCalledWith('commitDetailsView.autoScroll', true);
+				expect(value).toBe(false);
+			});
+
+			it('Should return the default value (TRUE) when the configuration value is unknown', () => {
+				// Run
+				const value = config.commitDetailsView.autoScroll;
+
+				// Assert
+				expect(workspaceConfiguration.get).toBeCalledWith('commitDetailsView.autoScroll', true);
+				expect(value).toBe(true);
+			});
+		});
+
 		describe('fileTreeCompactFolders', () => {
 			it('Should return TRUE when the configuration value is TRUE', () => {
 				// Setup

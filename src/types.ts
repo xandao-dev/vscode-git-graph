@@ -276,6 +276,7 @@ export interface GitGraphViewWorkspaceState {
 
 export interface CommitDetailsViewConfig {
 	readonly autoCenter: boolean;
+	readonly autoScroll: boolean;
 	readonly fileTreeCompactFolders: boolean;
 	readonly fileViewType: FileViewType;
 	readonly location: CommitDetailsViewLocation;

@@ -74,6 +74,7 @@ Detailed information of all Git Graph settings is available [here](https://githu
 A summary of the Git Graph extension settings are:
 * **Commit Details View**:
     * **Auto Center**: Automatically center the Commit Details View when it is opened.
+    * **Auto Scroll**: Automatically scroll the Git Graph View to show the Commit Details View when it is opened.
     * **File View**:
         * **File Tree**:
             * **Compact Folders**: Render the File Tree in the Commit Details View in a compacted form, such that folders with a single child folder are compressed into a single combined folder element.

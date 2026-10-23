@@ -3385,7 +3385,7 @@ export class GitGraphView {
 		if (!expandedCommit.loading) this.setCdvDivider();
 		if (!isDocked) this.renderGraph();
 
-		if (!refresh) {
+		if (!refresh && this.config.commitDetailsView.autoScroll) {
 			if (isDocked) {
 				let elemTop = this.controlsElem.clientHeight + expandedCommit.commitElem.offsetTop;
 				if (elemTop - 8 < this.viewElem.scrollTop) {

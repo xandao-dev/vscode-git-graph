@@ -107,6 +107,11 @@
 					"default": true,
 					"description": "Automatically center the Commit Details View when it is opened."
 				},
+				"git-graph.commitDetailsView.autoScroll": {
+					"type": "boolean",
+					"default": true,
+					"description": "Automatically scroll the Git Graph View to show the Commit Details View when it is opened. When disabled, the \"Auto Center\" setting has no effect."
+				},
 				"git-graph.commitDetailsView.fileView.fileTree.compactFolders": {
 					"type": "boolean",
 					"default": true,
