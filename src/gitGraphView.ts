@@ -16,10 +16,15 @@ import {
 	copyToClipboard,
 	createPullRequest,
 	getNonce,
+	getPathFromStr,
+	getRepoName,
+	insertWorktreeUncommittedChanges,
 	openExtensionSettings,
 	openExternalUrl,
 	openFile,
+	openWorktreeInNewWindow,
 	showErrorMessage,
+	swapWorkspaceFolderForWorktree,
 	viewDiff,
 	viewDiffWithWorkingFile,
 	viewFileAtRevision,
@@ -202,7 +207,7 @@ export class GitGraphView extends Disposable {
 	 */
 	private async respondToMessage(msg: RequestMessage) {
 		this.repoFileWatcher.mute();
-		let errorInfos: ErrorInfo[];
+		let errorInfo: ErrorInfo, errorInfos: ErrorInfo[];
 
 		switch (msg.command) {
 			case 'addRemote':
@@ -337,6 +342,24 @@ export class GitGraphView extends Disposable {
 					errors: errorInfos
 				});
 				break;
+			case 'createWorktree':
+				const worktreePath = getPathFromStr(path.resolve(msg.repo, msg.path));
+				errorInfo = await this.dataSource.createWorktree(msg.repo, worktreePath, msg.ref, msg.newBranch);
+				if (errorInfo === null) {
+					// The worktree exists even if it couldn't be set up, so it's still opened
+					const setUpError = msg.setUp ? await this.dataSource.setUpWorktree(msg.repo, worktreePath) : null;
+					if (msg.openAfter === 'window') {
+						errorInfo = await openWorktreeInNewWindow(worktreePath);
+					} else if (msg.openAfter === 'terminal') {
+						errorInfo = await this.dataSource.openGitTerminal(worktreePath, null, getRepoName(worktreePath));
+					}
+					if (errorInfo === null) errorInfo = setUpError;
+				}
+				this.sendMessage({
+					command: 'createWorktree',
+					error: errorInfo
+				});
+				break;
 			case 'deleteBranch':
 				errorInfos = [await this.dataSource.deleteBranch(msg.repo, msg.branchName, msg.forceDelete)];
 				if (errorInfos[0] === null) {
@@ -451,11 +474,8 @@ export class GitGraphView extends Disposable {
 				break;
 			case 'loadCommits':
 				this.loadCommitsRefreshId = msg.refreshId;
-				this.sendMessage({
-					command: 'loadCommits',
-					refreshId: msg.refreshId,
-					onlyFollowFirstParent: msg.onlyFollowFirstParent,
-					...(await this.dataSource.getCommits(
+				const [commitData, worktrees] = await Promise.all([
+					this.dataSource.getCommits(
 						msg.repo,
 						msg.branches,
 						msg.maxCommits,
@@ -467,7 +487,16 @@ export class GitGraphView extends Disposable {
 						msg.remotes,
 						msg.hideRemotes,
 						msg.stashes
-					))
+					),
+					this.dataSource.getWorktrees(msg.repo)
+				]);
+				this.sendMessage({
+					command: 'loadCommits',
+					refreshId: msg.refreshId,
+					onlyFollowFirstParent: msg.onlyFollowFirstParent,
+					...commitData,
+					commits: getConfig().showUncommittedChanges ? insertWorktreeUncommittedChanges(commitData.commits, worktrees) : commitData.commits,
+					worktrees: worktrees
 				});
 				break;
 			case 'loadConfig':
@@ -504,11 +533,24 @@ export class GitGraphView extends Disposable {
 					this.respondLoadRepos(this.repoManager.getRepos(), null);
 				}
 				break;
+			case 'loadWorktreeCleanup':
+				this.sendMessage({
+					command: 'loadWorktreeCleanup',
+					merged: await this.dataSource.getMergedWorktrees(msg.repo),
+					error: null
+				});
+				break;
 			case 'merge':
 				this.sendMessage({
 					command: 'merge',
 					actionOn: msg.actionOn,
 					error: await this.dataSource.merge(msg.repo, msg.obj, msg.actionOn, msg.createNewCommit, msg.squash, msg.noCommit)
+				});
+				break;
+			case 'moveWorktreeBranch':
+				this.sendMessage({
+					command: 'moveWorktreeBranch',
+					error: await this.dataSource.moveWorktreeBranch(msg.repo, msg.worktree, msg.branchName, msg.stashChanges)
 				});
 				break;
 			case 'openExtensionSettings':
@@ -539,6 +581,20 @@ export class GitGraphView extends Disposable {
 				this.sendMessage({
 					command: 'openTerminal',
 					error: await this.dataSource.openGitTerminal(msg.repo, null, msg.name)
+				});
+				break;
+			case 'openWorktree':
+				if (msg.method === 'swap') {
+					// Load the worktree when the Git Graph View receives the updated set of repositories
+					this.extensionState.setLastActiveRepo(msg.worktree);
+					errorInfo = swapWorkspaceFolderForWorktree(msg.repo, msg.worktree);
+					if (errorInfo !== null) this.extensionState.setLastActiveRepo(msg.repo);
+				} else {
+					errorInfo = await openWorktreeInNewWindow(msg.worktree);
+				}
+				this.sendMessage({
+					command: 'openWorktree',
+					error: errorInfo
 				});
 				break;
 			case 'popStash':
@@ -588,6 +644,12 @@ export class GitGraphView extends Disposable {
 					actionOn: msg.actionOn,
 					interactive: msg.interactive,
 					error: await this.dataSource.rebase(msg.repo, msg.obj, msg.actionOn, msg.ignoreDate, msg.interactive)
+				});
+				break;
+			case 'removeWorktrees':
+				this.sendMessage({
+					command: 'removeWorktrees',
+					errors: await this.dataSource.removeWorktrees(msg.repo, msg.worktrees, msg.force, msg.deleteBranches, msg.prune)
 				});
 				break;
 			case 'renameBranch':
@@ -784,6 +846,7 @@ export class GitGraphView extends Disposable {
 					<span id="repoControl"><span class="unselectable">Repo: </span><div id="repoDropdown" class="dropdown"></div></span>
 					<span id="branchControl"><span class="unselectable">Branches: </span><div id="branchDropdown" class="dropdown"></div></span>
 					<label id="showRemoteBranchesControl"><input type="checkbox" id="showRemoteBranchesCheckbox" tabindex="-1"><span class="customCheckbox"></span>Show Remote Branches</label>
+					<label id="worktreesControl"><input type="checkbox" id="worktreesCheckbox" tabindex="-1"><span class="customCheckbox"></span>Worktrees</label>
 					<div id="findBtn" title="Find"></div>
 					<div id="terminalBtn" title="Open a Terminal for this Repository"></div>
 					<div id="settingsBtn" title="Repository Settings"></div>
@@ -796,6 +859,7 @@ export class GitGraphView extends Disposable {
 				</div>
 				<div id="footer"></div>
 			</div>
+			<div id="worktreesPanel"></div>
 			<div id="scrollShadow"></div>
 			<script nonce="${nonce}">var initialState = ${JSON.stringify(initialState)}, globalState = ${JSON.stringify(globalState)}, workspaceState = ${JSON.stringify(workspaceState)};</script>
 			<script nonce="${nonce}" src="${this.getMediaUri('out.min.js')}"></script>

@@ -32,6 +32,7 @@ import {
 	GitExecutable,
 	GitVersionRequirement,
 	UNCOMMITTED,
+	UNCOMMITTED_WORKTREE_PREFIX,
 	abbrevCommit,
 	abbrevText,
 	archive,
@@ -52,17 +53,20 @@ import {
 	getRelativeTimeDiff,
 	getRepoName,
 	getSortedRepositoryPaths,
+	insertWorktreeUncommittedChanges,
 	isPathInWorkspace,
 	openExtensionSettings,
 	openExternalUrl,
 	openFile,
 	openGitTerminal,
+	openWorktreeInNewWindow,
 	pathWithTrailingSlash,
 	realpath,
 	resolveSpawnOutput,
 	resolveToSymbolicPath,
 	showErrorMessage,
 	showInformationMessage,
+	swapWorkspaceFolderForWorktree,
 	viewDiff,
 	viewDiffWithWorkingFile,
 	viewFileAtRevision,
@@ -635,6 +639,66 @@ describe('getRepoName', () => {
 
 		// Asset
 		expect(name).toBe('d');
+	});
+});
+
+describe('insertWorktreeUncommittedChanges', () => {
+	const commit = (hash: string, parents: string[]) => ({
+		hash: hash,
+		parents: parents,
+		author: 'Test Name',
+		email: 'test@mhutchie.com',
+		date: 1587559258,
+		message: 'Message',
+		heads: [],
+		tags: [],
+		remotes: [],
+		stash: null
+	});
+	const worktree = (path: string, head: string | null, uncommittedChanges: number, isCurrent: boolean = false) => ({
+		path: path,
+		head: head,
+		branch: null,
+		isMain: false,
+		isCurrent: isCurrent,
+		isLocked: false,
+		isPrunable: false,
+		agent: null,
+		uncommittedChanges: uncommittedChanges
+	});
+
+	it('Should insert the uncommitted changes of each other worktree directly above the commit it has checked out', () => {
+		// Setup
+		date.setCurrentTime(1587559259);
+		const commits = [commit('1a2b3c4d', ['2b3c4d5e']), commit('2b3c4d5e', ['3c4d5e6f']), commit('3c4d5e6f', [])];
+
+		// Run
+		const result = insertWorktreeUncommittedChanges(commits, [
+			worktree('/path/to/repo', '1a2b3c4d', 5, true),
+			worktree('/path/to/clean', '1a2b3c4d', 0),
+			worktree('/path/to/other', '3c4d5e6f', 2),
+			worktree('/path/to/not-loaded', '4d5e6f1a', 1)
+		]);
+
+		// Assert
+		expect(result).toStrictEqual([
+			commits[0],
+			commits[1],
+			{
+				hash: UNCOMMITTED_WORKTREE_PREFIX + '/path/to/other',
+				parents: ['3c4d5e6f'],
+				author: '*',
+				email: '',
+				date: 1587559259,
+				message: 'Uncommitted Changes (2)',
+				heads: [],
+				tags: [],
+				remotes: [],
+				stash: null
+			},
+			commits[2]
+		]);
+		expect(commits.length).toBe(3);
 	});
 });
 
@@ -1733,6 +1797,76 @@ describe('viewFileAtRevision', () => {
 
 		// Assert
 		expect(result).toBe('Visual Studio Code was unable to open subfolder/file.txt at commit 1a2b3c4d.');
+	});
+});
+
+describe('openWorktreeInNewWindow', () => {
+	it('Opens the worktree in a new window', async () => {
+		// Setup
+		vscode.commands.executeCommand.mockResolvedValueOnce(null);
+
+		// Run
+		const result = await openWorktreeInNewWindow('/path/to/worktree');
+
+		// Assert
+		expect(vscode.commands.executeCommand).toHaveBeenCalledWith('vscode.openFolder', expect.objectContaining({ fsPath: '/path/to/worktree' }), { forceNewWindow: true });
+		expect(result).toBe(null);
+	});
+
+	it('Returns an error message when executeCommand fails', async () => {
+		// Setup
+		vscode.commands.executeCommand.mockRejectedValueOnce(null);
+
+		// Run
+		const result = await openWorktreeInNewWindow('/path/to/worktree');
+
+		// Assert
+		expect(result).toBe('Visual Studio Code was unable to open the worktree "/path/to/worktree" in a new window.');
+	});
+});
+
+describe('swapWorkspaceFolderForWorktree', () => {
+	afterEach(() => {
+		vscode.workspace.workspaceFolders = undefined;
+	});
+
+	it("Replaces the repository's workspace folder with the worktree", () => {
+		// Setup
+		vscode.workspace.workspaceFolders = [
+			{ uri: vscode.Uri.file('/path/to/other-repo'), index: 0 },
+			{ uri: vscode.Uri.file('/path/to/repo'), index: 1 }
+		];
+
+		// Run
+		const result = swapWorkspaceFolderForWorktree('/path/to/repo', '/path/to/worktree');
+
+		// Assert
+		expect(result).toBe(null);
+		expect(vscode.workspace.updateWorkspaceFolders).toHaveBeenCalledWith(1, 1, { uri: expect.objectContaining({ fsPath: '/path/to/worktree' }) });
+	});
+
+	it("Returns an error message when the repository isn't a workspace folder", () => {
+		// Setup
+		vscode.workspace.workspaceFolders = [{ uri: vscode.Uri.file('/path/to'), index: 0 }];
+
+		// Run
+		const result = swapWorkspaceFolderForWorktree('/path/to/repo', '/path/to/worktree');
+
+		// Assert
+		expect(result).toBe('The repository "/path/to/repo" isn\'t a folder of this workspace, so it can\'t be swapped for the worktree. Open the worktree in a new window instead.');
+		expect(vscode.workspace.updateWorkspaceFolders).not.toHaveBeenCalled();
+	});
+
+	it('Returns an error message when Visual Studio Code rejects the change', () => {
+		// Setup
+		vscode.workspace.workspaceFolders = [{ uri: vscode.Uri.file('/path/to/repo'), index: 0 }];
+		vscode.workspace.updateWorkspaceFolders.mockReturnValueOnce(false);
+
+		// Run
+		const result = swapWorkspaceFolderForWorktree('/path/to/repo', '/path/to/worktree');
+
+		// Assert
+		expect(result).toBe('Visual Studio Code was unable to replace the workspace folder "/path/to/repo" with the worktree.');
 	});
 });
 

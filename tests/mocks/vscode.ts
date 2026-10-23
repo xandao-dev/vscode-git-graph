@@ -179,6 +179,7 @@ export const workspace = {
 	getConfiguration: vi.fn(() => mocks.workspaceConfiguration),
 	onDidChangeWorkspaceFolders: vi.fn((_: () => Promise<void>) => ({ dispose: vi.fn() })),
 	onDidCloseTextDocument: vi.fn((_: () => void) => ({ dispose: vi.fn() })),
+	updateWorkspaceFolders: vi.fn((_start: number, _deleteCount: number, ..._folders: { uri: Uri; name?: string }[]) => true),
 	workspaceFolders: <{ uri: Uri; index: number }[] | undefined>undefined
 };
 

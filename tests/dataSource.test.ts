@@ -12,6 +12,7 @@ vi.mock('path', { spy: true });
 import * as cp from 'child_process';
 import * as fs from 'fs';
 import * as iconv from 'iconv-lite';
+import * as os from 'os';
 import * as path from 'path';
 import { ConfigurationChangeEvent } from 'vscode';
 import { DataSource, GitConfigKey } from '../src/dataSource';
@@ -4966,6 +4967,525 @@ describe('DataSource', () => {
 			const [path, options] = spyOnReadFile.mock.calls[0];
 			expect(utils.getPathFromStr(path as string)).toBe('/path/to/repo/.gitmodules');
 			expect(options).toStrictEqual({ encoding: 'utf8' });
+		});
+	});
+
+	describe('getWorktrees', () => {
+		const mockLinkedWorktreeDirectoryOnce = () =>
+			vi
+				.spyOn(fs, 'stat')
+				.mockImplementationOnce((...args) => (args as unknown as [fs.PathLike, (err: NodeJS.ErrnoException | null, stats: fs.Stats) => void])[1](null, <fs.Stats>{ isFile: () => true }));
+
+		it('Should return the worktrees of the repository', async () => {
+			// Setup
+			mockGitSuccessOnce(
+				'worktree /path/to/repo\n' +
+					'HEAD 1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b\n' +
+					'branch refs/heads/main\n' +
+					'\n' +
+					'worktree /path/to/repo/.claude/worktrees/agent\n' +
+					'HEAD 2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c\n' +
+					'branch refs/heads/feature/agent\n' +
+					'\n' +
+					'worktree /path/to/detached\n' +
+					'HEAD 3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d\n' +
+					'detached\n' +
+					'locked\n' +
+					'\n' +
+					'worktree /path/to/gone\n' +
+					'HEAD 3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d\n' +
+					'branch refs/heads/old\n' +
+					'prunable gitdir file points to non-existent location\n' +
+					'\n'
+			);
+			mockGitSuccessOnce('M  modified.txt\n?? untracked.txt\n?? .claude/worktrees/agent/\n');
+			mockGitSuccessOnce('?? new.txt\n');
+			mockGitSuccessOnce('');
+			mockLinkedWorktreeDirectoryOnce();
+			vi.spyOn(utils, 'realpath').mockResolvedValueOnce('/path/to/repo');
+			vscode.mockExtensionSettingReturnValue('repository.showUntrackedFiles', true);
+
+			// Run
+			const result = await dataSource.getWorktrees('/path/to/repo');
+
+			// Assert
+			expect(result).toStrictEqual([
+				{
+					path: '/path/to/repo',
+					head: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
+					branch: 'main',
+					isMain: true,
+					isCurrent: true,
+					isLocked: false,
+					isPrunable: false,
+					agent: null,
+					uncommittedChanges: 2
+				},
+				{
+					path: '/path/to/repo/.claude/worktrees/agent',
+					head: '2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c',
+					branch: 'feature/agent',
+					isMain: false,
+					isCurrent: false,
+					isLocked: false,
+					isPrunable: false,
+					agent: 'Claude Code',
+					uncommittedChanges: 1
+				},
+				{
+					path: '/path/to/detached',
+					head: '3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d',
+					branch: null,
+					isMain: false,
+					isCurrent: false,
+					isLocked: true,
+					isPrunable: false,
+					agent: null,
+					uncommittedChanges: 0
+				},
+				{
+					path: '/path/to/gone',
+					head: '3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d',
+					branch: 'old',
+					isMain: false,
+					isCurrent: false,
+					isLocked: false,
+					isPrunable: true,
+					agent: null,
+					uncommittedChanges: 0
+				}
+			]);
+			expect(spyOnSpawn).toBeCalledTimes(4);
+			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['worktree', 'list', '--porcelain'], expect.objectContaining({ cwd: '/path/to/repo' }));
+			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['status', '--untracked-files=all', '--porcelain'], expect.objectContaining({ cwd: '/path/to/repo/.claude/worktrees/agent' }));
+			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['status', '--untracked-files=all', '--porcelain'], expect.objectContaining({ cwd: '/path/to/detached' }));
+			expect(fs.stat).toHaveBeenCalledWith('/path/to/repo/.claude/worktrees/agent/.git', expect.anything());
+		});
+
+		it('Should count an untracked directory that is not a worktree as an uncommitted change', async () => {
+			// Setup
+			mockGitSuccessOnce('worktree /path/to/repo\nHEAD 1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b\nbranch refs/heads/main\n\n');
+			mockGitSuccessOnce('?? untracked-dir/\n');
+			vi.spyOn(fs, 'stat').mockImplementationOnce((...args) => (args as unknown as [fs.PathLike, (err: NodeJS.ErrnoException | null, stats: fs.Stats) => void])[1](new Error(), <fs.Stats>{}));
+			vi.spyOn(utils, 'realpath').mockResolvedValueOnce('/path/to/repo');
+			vscode.mockExtensionSettingReturnValue('repository.showUntrackedFiles', true);
+
+			// Run
+			const result = await dataSource.getWorktrees('/path/to/repo');
+
+			// Assert
+			expect(result[0].uncommittedChanges).toBe(1);
+		});
+
+		it('Should identify the current worktree when the repository is opened through a symbolic link', async () => {
+			// Setup
+			mockGitSuccessOnce('worktree /real/path/to/repo\nHEAD 1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b\nbranch refs/heads/main\n\n');
+			mockGitSuccessOnce('');
+			vi.spyOn(utils, 'realpath').mockResolvedValueOnce('/real/path/to/repo');
+			vscode.mockExtensionSettingReturnValue('repository.showUntrackedFiles', true);
+
+			// Run
+			const result = await dataSource.getWorktrees('/path/to/repo');
+
+			// Assert
+			expect(result[0].path).toBe('/path/to/repo');
+			expect(result[0].isCurrent).toBe(true);
+			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['status', '--untracked-files=all', '--porcelain'], expect.objectContaining({ cwd: '/path/to/repo' }));
+		});
+
+		it('Should exclude a bare main repository, and return a NULL head for a worktree without commits', async () => {
+			// Setup
+			mockGitSuccessOnce('worktree /path/to/bare.git\nbare\n\nworktree /path/to/repo\nHEAD 0000000000000000000000000000000000000000\nbranch refs/heads/main\n\n');
+			mockGitSuccessOnce('');
+			vi.spyOn(utils, 'realpath').mockResolvedValueOnce('/path/to/repo');
+			vscode.mockExtensionSettingReturnValue('repository.showUntrackedFiles', false);
+
+			// Run
+			const result = await dataSource.getWorktrees('/path/to/repo');
+
+			// Assert
+			expect(result).toStrictEqual([
+				{
+					path: '/path/to/repo',
+					head: null,
+					branch: 'main',
+					isMain: false,
+					isCurrent: true,
+					isLocked: false,
+					isPrunable: false,
+					agent: null,
+					uncommittedChanges: 0
+				}
+			]);
+			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['status', '--untracked-files=no', '--porcelain'], expect.objectContaining({ cwd: '/path/to/repo' }));
+		});
+
+		it("Should return an empty array when the worktrees can't be listed", async () => {
+			// Setup
+			mockGitThrowingErrorOnce();
+
+			// Run
+			const result = await dataSource.getWorktrees('/path/to/repo');
+
+			// Assert
+			expect(result).toStrictEqual([]);
+		});
+
+		it('Should exclude nested worktrees from the untracked files of the uncommitted changes', async () => {
+			// Setup
+			mockGitSuccessOnce(['M', 'modified.txt', ''].join('\0'));
+			mockGitSuccessOnce(['1	1	modified.txt', ''].join('\0'));
+			mockGitSuccessOnce(['M  modified.txt', '?? .claude/worktrees/agent/', '?? untracked.txt', ''].join('\0'));
+			mockLinkedWorktreeDirectoryOnce();
+			vscode.mockExtensionSettingReturnValue('repository.showUntrackedFiles', true);
+
+			// Run
+			const result = await dataSource.getUncommittedDetails('/path/to/repo');
+
+			// Assert
+			expect(result.commitDetails!.fileChanges).toStrictEqual([
+				{ additions: 1, deletions: 1, newFilePath: 'modified.txt', oldFilePath: 'modified.txt', type: 'M' },
+				{ additions: null, deletions: null, newFilePath: 'untracked.txt', oldFilePath: 'untracked.txt', type: 'U' }
+			]);
+		});
+	});
+
+	describe('getMergedWorktrees', () => {
+		it('Should return the worktrees whose branch is merged into HEAD', async () => {
+			// Setup
+			mockGitSuccessOnce(
+				'worktree /path/to/repo\nHEAD 1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b\nbranch refs/heads/main\n\n' +
+					'worktree /path/to/merged\nHEAD 2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c\nbranch refs/heads/merged\n\n' +
+					'worktree /path/to/unmerged\nHEAD 3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d\nbranch refs/heads/unmerged\n\n' +
+					'worktree /path/to/detached\nHEAD 3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d\ndetached\n\n'
+			);
+			mockGitSuccessOnce('');
+			mockGitSuccessOnce('');
+			mockGitSuccessOnce('');
+			mockGitSuccessOnce('');
+			mockGitSuccessOnce();
+			mockGitThrowingErrorOnce('');
+			vi.spyOn(utils, 'realpath').mockResolvedValueOnce('/path/to/repo');
+			vscode.mockExtensionSettingReturnValue('repository.showUntrackedFiles', true);
+
+			// Run
+			const result = await dataSource.getMergedWorktrees('/path/to/repo');
+
+			// Assert
+			expect(result).toStrictEqual(['/path/to/merged']);
+			expect(spyOnSpawn).toBeCalledTimes(7);
+			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['merge-base', '--is-ancestor', 'refs/heads/merged', 'HEAD'], expect.objectContaining({ cwd: '/path/to/repo' }));
+			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['merge-base', '--is-ancestor', 'refs/heads/unmerged', 'HEAD'], expect.objectContaining({ cwd: '/path/to/repo' }));
+		});
+	});
+
+	describe('createWorktree', () => {
+		it('Should create a worktree with a new branch', async () => {
+			// Setup
+			mockGitSuccessOnce();
+
+			// Run
+			const result = await dataSource.createWorktree('/path/to/repo', '/path/to/repo.worktrees/feature', '1a2b3c4d', 'feature');
+
+			// Assert
+			expect(result).toBe(null);
+			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['worktree', 'add', '-b', 'feature', '/path/to/repo.worktrees/feature', '1a2b3c4d'], expect.objectContaining({ cwd: '/path/to/repo' }));
+		});
+
+		it('Should create a worktree that checks out an existing branch or commit', async () => {
+			// Setup
+			mockGitSuccessOnce();
+
+			// Run
+			const result = await dataSource.createWorktree('/path/to/repo', '/path/to/repo.worktrees/develop', 'develop', null);
+
+			// Assert
+			expect(result).toBe(null);
+			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['worktree', 'add', '/path/to/repo.worktrees/develop', 'develop'], expect.objectContaining({ cwd: '/path/to/repo' }));
+		});
+
+		it('Should return an error message thrown by git', async () => {
+			// Setup
+			mockGitThrowingErrorOnce();
+
+			// Run
+			const result = await dataSource.createWorktree('/path/to/repo', '/path/to/repo.worktrees/develop', 'develop', null);
+
+			// Assert
+			expect(result).toBe('error message');
+		});
+	});
+
+	describe('setUpWorktree', () => {
+		let dir: string, repo: string, worktree: string;
+		beforeEach(() => {
+			dir = fs.mkdtempSync(path.join(os.tmpdir(), 'git-graph-'));
+			repo = path.join(dir, 'repo');
+			worktree = path.join(dir, 'worktree');
+			fs.mkdirSync(path.join(repo, 'secrets'), { recursive: true });
+			fs.mkdirSync(worktree);
+		});
+		afterEach(() => {
+			fs.rmSync(dir, { recursive: true, force: true });
+		});
+
+		it('Should copy the ignored files matching .worktreeinclude, link node_modules, and exclude the link', async () => {
+			// Setup
+			fs.writeFileSync(path.join(repo, '.worktreeinclude'), '.env\nnotes.txt\nsecrets/\n');
+			fs.writeFileSync(path.join(repo, '.env'), 'KEY=1');
+			fs.writeFileSync(path.join(repo, 'notes.txt'), 'notes');
+			fs.writeFileSync(path.join(repo, 'secrets', 'key.json'), '{}');
+			fs.mkdirSync(path.join(repo, 'node_modules'));
+			fs.mkdirSync(path.join(repo, '.git', 'info'), { recursive: true });
+			fs.writeFileSync(path.join(repo, '.git', 'info', 'exclude'), '*.log');
+			mockGitSuccessOnce('.env\0notes.txt\0secrets/key.json\0');
+			mockGitSuccessOnce('notes.txt\0');
+			mockGitThrowingErrorOnce();
+			mockGitSuccessOnce(path.join(repo, '.git') + '\n');
+
+			// Run
+			const result = await dataSource.setUpWorktree(repo, worktree);
+
+			// Assert
+			expect(result).toBe(null);
+			expect(fs.readFileSync(path.join(worktree, '.env'), 'utf8')).toBe('KEY=1');
+			expect(fs.readFileSync(path.join(worktree, 'secrets', 'key.json'), 'utf8')).toBe('{}');
+			expect(fs.existsSync(path.join(worktree, 'notes.txt'))).toBe(false);
+			expect(fs.realpathSync(path.join(worktree, 'node_modules'))).toBe(fs.realpathSync(path.join(repo, 'node_modules')));
+			expect(fs.readFileSync(path.join(repo, '.git', 'info', 'exclude'), 'utf8')).toBe('*.log\n/node_modules\n');
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(
+				1,
+				'/path/to/git',
+				['ls-files', '-z', '--others', '--ignored', '--exclude-from=' + path.join(repo, '.worktreeinclude')],
+				expect.objectContaining({ cwd: repo })
+			);
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(2, '/path/to/git', ['ls-files', '-z', '--others', '--exclude-standard'], expect.objectContaining({ cwd: repo }));
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(3, '/path/to/git', ['check-ignore', '-q', 'node_modules'], expect.objectContaining({ cwd: worktree }));
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(4, '/path/to/git', ['rev-parse', '--git-common-dir'], expect.objectContaining({ cwd: worktree }));
+		});
+
+		it("Should look for .env files when there isn't a .worktreeinclude file, and not exclude a link that's already ignored", async () => {
+			// Setup
+			fs.mkdirSync(path.join(repo, 'node_modules'));
+			mockGitSuccessOnce('');
+			mockGitSuccessOnce();
+
+			// Run
+			const result = await dataSource.setUpWorktree(repo, worktree);
+
+			// Assert
+			expect(result).toBe(null);
+			expect(fs.lstatSync(path.join(worktree, 'node_modules')).isSymbolicLink()).toBe(true);
+			expect(spyOnSpawn).toBeCalledTimes(2);
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(1, '/path/to/git', ['ls-files', '-z', '--others', '--ignored', '--exclude=.env*'], expect.objectContaining({ cwd: repo }));
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(2, '/path/to/git', ['check-ignore', '-q', 'node_modules'], expect.objectContaining({ cwd: worktree }));
+		});
+
+		it("Should not link node_modules when the repository doesn't have it", async () => {
+			// Setup
+			mockGitSuccessOnce('');
+
+			// Run
+			const result = await dataSource.setUpWorktree(repo, worktree);
+
+			// Assert
+			expect(result).toBe(null);
+			expect(fs.existsSync(path.join(worktree, 'node_modules'))).toBe(false);
+			expect(spyOnSpawn).toBeCalledTimes(1);
+		});
+
+		it("Should return an error message when a file can't be copied", async () => {
+			// Setup
+			mockGitSuccessOnce('.env\0');
+			mockGitSuccessOnce('');
+
+			// Run
+			const result = await dataSource.setUpWorktree(repo, worktree);
+
+			// Assert
+			expect(result).toMatch(/^The worktree was created, but it couldn't be set up: ENOENT/);
+		});
+
+		it("Should return the error message when the files can't be listed", async () => {
+			// Setup
+			mockGitThrowingErrorOnce();
+
+			// Run
+			const result = await dataSource.setUpWorktree(repo, worktree);
+
+			// Assert
+			expect(result).toBe("The worktree was created, but it couldn't be set up: error message");
+		});
+	});
+
+	describe('removeWorktrees', () => {
+		it('Should remove the worktrees, prune stale worktrees, and delete the branches', async () => {
+			// Setup
+			mockGitSuccessOnce();
+			mockGitSuccessOnce();
+			mockGitSuccessOnce();
+			mockGitThrowingErrorOnce();
+
+			// Run
+			const result = await dataSource.removeWorktrees('/path/to/repo', ['/path/to/a', '/path/to/b'], false, ['b'], true);
+
+			// Assert
+			expect(result).toStrictEqual([null, null, null, 'error message']);
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(1, '/path/to/git', ['worktree', 'remove', '/path/to/a'], expect.objectContaining({ cwd: '/path/to/repo' }));
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(2, '/path/to/git', ['worktree', 'remove', '/path/to/b'], expect.objectContaining({ cwd: '/path/to/repo' }));
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(3, '/path/to/git', ['worktree', 'prune'], expect.objectContaining({ cwd: '/path/to/repo' }));
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(4, '/path/to/git', ['branch', '-d', 'b'], expect.objectContaining({ cwd: '/path/to/repo' }));
+		});
+
+		it('Should force remove a worktree', async () => {
+			// Setup
+			mockGitSuccessOnce();
+
+			// Run
+			const result = await dataSource.removeWorktrees('/path/to/repo', ['/path/to/a'], true, [], false);
+
+			// Assert
+			expect(result).toStrictEqual([null]);
+			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['worktree', 'remove', '--force', '/path/to/a'], expect.objectContaining({ cwd: '/path/to/repo' }));
+		});
+	});
+
+	describe('moveWorktreeBranch', () => {
+		it('Should move the branch and its uncommitted changes into the repository', async () => {
+			// Setup
+			mockGitSuccessOnce('');
+			mockGitSuccessOnce('?? new.txt\n');
+			mockGitSuccessOnce();
+			mockGitSuccessOnce();
+			mockGitSuccessOnce();
+			mockGitSuccessOnce();
+
+			// Run
+			const result = await dataSource.moveWorktreeBranch('/path/to/repo', '/path/to/worktree', 'feature', false);
+
+			// Assert
+			expect(result).toBe(null);
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(1, '/path/to/git', ['status', '--porcelain', '--untracked-files=no'], expect.objectContaining({ cwd: '/path/to/repo' }));
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(2, '/path/to/git', ['status', '--porcelain', '--untracked-files=all'], expect.objectContaining({ cwd: '/path/to/worktree' }));
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(3, '/path/to/git', ['stash', 'push', '--include-untracked', '-m', 'Git Graph: Moving feature'], expect.objectContaining({ cwd: '/path/to/worktree' }));
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(4, '/path/to/git', ['checkout', '--detach'], expect.objectContaining({ cwd: '/path/to/worktree' }));
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(5, '/path/to/git', ['checkout', 'feature'], expect.objectContaining({ cwd: '/path/to/repo' }));
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(6, '/path/to/git', ['stash', 'pop'], expect.objectContaining({ cwd: '/path/to/repo' }));
+		});
+
+		it("Should move the branch without stashing when the worktree doesn't have uncommitted changes", async () => {
+			// Setup
+			mockGitSuccessOnce('');
+			mockGitSuccessOnce('');
+			mockGitSuccessOnce();
+			mockGitSuccessOnce();
+
+			// Run
+			const result = await dataSource.moveWorktreeBranch('/path/to/repo', '/path/to/worktree', 'feature', false);
+
+			// Assert
+			expect(result).toBe(null);
+			expect(spyOnSpawn).toBeCalledTimes(4);
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(3, '/path/to/git', ['checkout', '--detach'], expect.objectContaining({ cwd: '/path/to/worktree' }));
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(4, '/path/to/git', ['checkout', 'feature'], expect.objectContaining({ cwd: '/path/to/repo' }));
+		});
+
+		it('Should not move the branch when the repository has uncommitted changes', async () => {
+			// Setup
+			mockGitSuccessOnce(' M modified.txt\n');
+
+			// Run
+			const result = await dataSource.moveWorktreeBranch('/path/to/repo', '/path/to/worktree', 'feature', false);
+
+			// Assert
+			expect(result).toBe('This checkout has uncommitted changes. Commit or stash them before moving the branch "feature" here.');
+			expect(spyOnSpawn).toBeCalledTimes(1);
+		});
+
+		it("Should stash the repository's uncommitted changes before moving the branch", async () => {
+			// Setup
+			mockGitSuccessOnce(' M modified.txt\n');
+			mockGitSuccessOnce('?? new.txt\n');
+			mockGitSuccessOnce();
+			mockGitSuccessOnce();
+			mockGitSuccessOnce();
+			mockGitSuccessOnce();
+			mockGitSuccessOnce();
+
+			// Run
+			const result = await dataSource.moveWorktreeBranch('/path/to/repo', '/path/to/worktree', 'feature', true);
+
+			// Assert
+			expect(result).toBe(null);
+			expect(spyOnSpawn).toBeCalledTimes(7);
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(3, '/path/to/git', ['stash', 'push', '-m', 'Git Graph: Before moving feature here'], expect.objectContaining({ cwd: '/path/to/repo' }));
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(4, '/path/to/git', ['stash', 'push', '--include-untracked', '-m', 'Git Graph: Moving feature'], expect.objectContaining({ cwd: '/path/to/worktree' }));
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(7, '/path/to/git', ['stash', 'pop'], expect.objectContaining({ cwd: '/path/to/repo' }));
+		});
+
+		it("Should restore the repository's stashed changes when the worktree can't be detached", async () => {
+			// Setup
+			mockGitSuccessOnce(' M modified.txt\n');
+			mockGitSuccessOnce('');
+			mockGitSuccessOnce();
+			mockGitThrowingErrorOnce();
+			mockGitSuccessOnce();
+
+			// Run
+			const result = await dataSource.moveWorktreeBranch('/path/to/repo', '/path/to/worktree', 'feature', true);
+
+			// Assert
+			expect(result).toBe('error message');
+			expect(spyOnSpawn).toBeCalledTimes(5);
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(5, '/path/to/git', ['stash', 'pop'], expect.objectContaining({ cwd: '/path/to/repo' }));
+		});
+
+		it("Should restore the worktree when the branch can't be checked out in the repository", async () => {
+			// Setup
+			mockGitSuccessOnce('');
+			mockGitSuccessOnce('?? new.txt\n');
+			mockGitSuccessOnce();
+			mockGitSuccessOnce();
+			mockGitThrowingErrorOnce();
+			mockGitSuccessOnce();
+			mockGitSuccessOnce();
+
+			// Run
+			const result = await dataSource.moveWorktreeBranch('/path/to/repo', '/path/to/worktree', 'feature', false);
+
+			// Assert
+			expect(result).toBe('error message');
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(6, '/path/to/git', ['checkout', 'feature'], expect.objectContaining({ cwd: '/path/to/worktree' }));
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(7, '/path/to/git', ['stash', 'pop'], expect.objectContaining({ cwd: '/path/to/worktree' }));
+		});
+
+		it("Should explain where the uncommitted changes are when they can't be applied in the repository", async () => {
+			// Setup
+			mockGitSuccessOnce('');
+			mockGitSuccessOnce('?? new.txt\n');
+			mockGitSuccessOnce();
+			mockGitSuccessOnce();
+			mockGitSuccessOnce();
+			mockGitThrowingErrorOnce();
+
+			// Run
+			const result = await dataSource.moveWorktreeBranch('/path/to/repo', '/path/to/worktree', 'feature', false);
+
+			// Assert
+			expect(result).toBe(
+				'The branch "feature" was moved here, but the uncommitted changes from the worktree couldn\'t be applied. They\'re kept in the stash "Git Graph: Moving feature".\nerror message'
+			);
+		});
+
+		it("Should return the error message when the status of the repository can't be read", async () => {
+			// Setup
+			mockGitThrowingErrorOnce();
+
+			// Run
+			const result = await dataSource.moveWorktreeBranch('/path/to/repo', '/path/to/worktree', 'feature', false);
+
+			// Assert
+			expect(result).toBe('error message');
 		});
 	});
 

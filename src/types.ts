@@ -135,6 +135,20 @@ export interface GitStash {
 	readonly message: string;
 }
 
+export interface GitWorktree {
+	readonly path: string;
+	readonly head: string | null; // null => the worktree has no commits
+	readonly branch: string | null; // null => detached HEAD
+	readonly isMain: boolean;
+	readonly isCurrent: boolean; // TRUE => the worktree is the repository being viewed
+	readonly isLocked: boolean;
+	readonly isPrunable: boolean; // TRUE => the worktree's directory no longer exists
+	readonly agent: string | null; // The name of the coding agent that created the worktree (if known)
+	readonly uncommittedChanges: number;
+}
+
+export type WorktreeOpenAfter = 'window' | 'terminal' | 'none';
+
 export interface GitTagDetails {
 	readonly hash: string;
 	readonly taggerName: string;
@@ -756,6 +770,18 @@ export interface ResponseCreateBranch extends ResponseWithMultiErrorInfo {
 	readonly command: 'createBranch';
 }
 
+export interface RequestCreateWorktree extends RepoRequest {
+	readonly command: 'createWorktree';
+	readonly path: string;
+	readonly ref: string; // The branch or commit to check out in the worktree
+	readonly newBranch: string | null; // string => create a new branch with this name at `ref`, null => check out `ref`
+	readonly setUp: boolean; // TRUE => copy the repository's ignored .worktreeinclude (or .env*) files and link its node_modules folder
+	readonly openAfter: WorktreeOpenAfter;
+}
+export interface ResponseCreateWorktree extends ResponseWithErrorInfo {
+	readonly command: 'createWorktree';
+}
+
 export interface RequestCreatePullRequest extends RepoRequest {
 	readonly command: 'createPullRequest';
 	readonly config: PullRequestConfig;
@@ -936,6 +962,7 @@ export interface ResponseLoadCommits extends ResponseWithErrorInfo {
 	readonly tags: string[];
 	readonly moreCommitsAvailable: boolean;
 	readonly onlyFollowFirstParent: boolean;
+	readonly worktrees: GitWorktree[];
 }
 
 export interface RequestLoadConfig extends RepoRequest {
@@ -946,6 +973,14 @@ export interface ResponseLoadConfig extends ResponseWithErrorInfo {
 	readonly command: 'loadConfig';
 	readonly repo: string;
 	readonly config: GitRepoConfig | null;
+}
+
+export interface RequestLoadWorktreeCleanup extends RepoRequest {
+	readonly command: 'loadWorktreeCleanup';
+}
+export interface ResponseLoadWorktreeCleanup extends ResponseWithErrorInfo {
+	readonly command: 'loadWorktreeCleanup';
+	readonly merged: string[]; // The paths of the worktrees whose branch is fully merged into HEAD
 }
 
 export interface RequestLoadRepoInfo extends RepoRequest {
@@ -1028,12 +1063,31 @@ export interface ResponseOpenFile extends ResponseWithErrorInfo {
 	readonly command: 'openFile';
 }
 
+export interface RequestMoveWorktreeBranch extends RepoRequest {
+	readonly command: 'moveWorktreeBranch';
+	readonly worktree: string;
+	readonly branchName: string;
+	readonly stashChanges: boolean;
+}
+export interface ResponseMoveWorktreeBranch extends ResponseWithErrorInfo {
+	readonly command: 'moveWorktreeBranch';
+}
+
 export interface RequestOpenTerminal extends RepoRequest {
 	readonly command: 'openTerminal';
 	readonly name: string;
 }
 export interface ResponseOpenTerminal extends ResponseWithErrorInfo {
 	readonly command: 'openTerminal';
+}
+
+export interface RequestOpenWorktree extends RepoRequest {
+	readonly command: 'openWorktree';
+	readonly worktree: string;
+	readonly method: 'window' | 'swap'; // window => open in a new window, swap => replace the repository's workspace folder with the worktree
+}
+export interface ResponseOpenWorktree extends ResponseWithErrorInfo {
+	readonly command: 'openWorktree';
 }
 
 export interface RequestPopStash extends RepoRequest {
@@ -1120,6 +1174,17 @@ export interface ResponseRebase extends ResponseWithErrorInfo {
 
 export interface ResponseRefresh extends BaseMessage {
 	readonly command: 'refresh';
+}
+
+export interface RequestRemoveWorktrees extends RepoRequest {
+	readonly command: 'removeWorktrees';
+	readonly worktrees: string[];
+	readonly force: boolean;
+	readonly deleteBranches: string[];
+	readonly prune: boolean;
+}
+export interface ResponseRemoveWorktrees extends ResponseWithMultiErrorInfo {
+	readonly command: 'removeWorktrees';
 }
 
 export interface RequestRenameBranch extends RepoRequest {
@@ -1280,6 +1345,7 @@ export type RequestMessage =
 	| RequestCreateArchive
 	| RequestCreateBranch
 	| RequestCreatePullRequest
+	| RequestCreateWorktree
 	| RequestDeleteBranch
 	| RequestDeleteRemote
 	| RequestDeleteRemoteBranch
@@ -1299,12 +1365,15 @@ export type RequestMessage =
 	| RequestLoadConfig
 	| RequestLoadRepoInfo
 	| RequestLoadRepos
+	| RequestLoadWorktreeCleanup
 	| RequestMerge
+	| RequestMoveWorktreeBranch
 	| RequestOpenExtensionSettings
 	| RequestOpenExternalDirDiff
 	| RequestOpenExternalUrl
 	| RequestOpenFile
 	| RequestOpenTerminal
+	| RequestOpenWorktree
 	| RequestPopStash
 	| RequestPruneRemote
 	| RequestPullBranch
@@ -1312,6 +1381,7 @@ export type RequestMessage =
 	| RequestPushStash
 	| RequestPushTag
 	| RequestRebase
+	| RequestRemoveWorktrees
 	| RequestRenameBranch
 	| RequestRescanForRepos
 	| RequestResetFileToRevision
@@ -1346,6 +1416,7 @@ export type ResponseMessage =
 	| ResponseCreateArchive
 	| ResponseCreateBranch
 	| ResponseCreatePullRequest
+	| ResponseCreateWorktree
 	| ResponseDeleteBranch
 	| ResponseDeleteRemote
 	| ResponseDeleteRemoteBranch
@@ -1364,12 +1435,15 @@ export type ResponseMessage =
 	| ResponseLoadConfig
 	| ResponseLoadRepoInfo
 	| ResponseLoadRepos
+	| ResponseLoadWorktreeCleanup
 	| ResponseMerge
+	| ResponseMoveWorktreeBranch
 	| ResponseOpenExtensionSettings
 	| ResponseOpenExternalDirDiff
 	| ResponseOpenExternalUrl
 	| ResponseOpenFile
 	| ResponseOpenTerminal
+	| ResponseOpenWorktree
 	| ResponsePopStash
 	| ResponsePruneRemote
 	| ResponsePullBranch
@@ -1378,6 +1452,7 @@ export type ResponseMessage =
 	| ResponsePushTag
 	| ResponseRebase
 	| ResponseRefresh
+	| ResponseRemoveWorktrees
 	| ResponseRenameBranch
 	| ResponseResetFileToRevision
 	| ResponseResetToCommit

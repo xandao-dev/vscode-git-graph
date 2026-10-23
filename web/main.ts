@@ -35,6 +35,7 @@ import {
 	CLASS_REF_STASH,
 	CLASS_REF_TAG,
 	CLASS_TAG_LABELS_RIGHT_ALIGNED,
+	CLASS_WORKTREES_PANEL_OPEN,
 	COLUMN_AUTO,
 	COLUMN_HIDDEN,
 	COLUMN_LEFT_RIGHT_PADDING,
@@ -53,6 +54,7 @@ import {
 	SVG_ICONS,
 	TargetType,
 	UNCOMMITTED,
+	UNCOMMITTED_WORKTREE_PREFIX,
 	VSCODE_API,
 	addListenerToClass,
 	alterClass,
@@ -78,6 +80,9 @@ import {
 	updateGlobalViewState
 } from './utils';
 
+const BRANCH_IN_OTHER_WORKTREE_REGEX = /'(.+?)' is already (?:checked out|used by worktree) at /;
+const WORKTREE_FOLDER_NAME_INVALID_REGEX = /[\\/:*?"<>|\s]+/g;
+
 export class GitGraphView {
 	private gitRepos: GG.GitRepoSet;
 	private gitBranches: ReadonlyArray<string> = [];
@@ -89,6 +94,9 @@ export class GitGraphView {
 	private commits: GG.GitCommit[] = [];
 	private commitHead: string | null = null;
 	private commitLookup: { [hash: string]: number } = {};
+	private worktrees: GG.GitWorktree[] = [];
+	private worktreesPanelOpen: boolean = false;
+	private selectedWorktree: string | null = null;
 	private onlyFollowFirstParent: boolean = false;
 	private avatars: AvatarImageCollection = {};
 	private currentBranches: string[] | null = null;
@@ -131,6 +139,8 @@ export class GitGraphView {
 	private readonly tableElem: HTMLElement;
 	private readonly footerElem: HTMLElement;
 	private readonly showRemoteBranchesElem: HTMLInputElement;
+	private readonly worktreesCheckboxElem: HTMLInputElement;
+	private readonly worktreesPanelElem: HTMLElement;
 	private readonly refreshBtnElem: HTMLElement;
 	private readonly scrollShadowElem: HTMLElement;
 
@@ -154,6 +164,8 @@ export class GitGraphView {
 		this.tableElem = document.getElementById('commitTable')!;
 		this.footerElem = document.getElementById('footer')!;
 		this.scrollShadowElem = <HTMLInputElement>document.getElementById('scrollShadow')!;
+		this.worktreesCheckboxElem = <HTMLInputElement>document.getElementById('worktreesCheckbox')!;
+		this.worktreesPanelElem = document.getElementById('worktreesPanel')!;
 
 		viewElem.focus();
 
@@ -197,6 +209,7 @@ export class GitGraphView {
 		this.observeKeyboardEvents();
 		this.observeUrls();
 		this.observeTableEvents();
+		this.observeWorktreesPanel();
 
 		if (prevState && !prevState.currentRepoLoading && typeof this.gitRepos[prevState.currentRepo] !== 'undefined') {
 			this.currentRepo = prevState.currentRepo;
@@ -205,8 +218,9 @@ export class GitGraphView {
 			this.expandedCommit = prevState.expandedCommit;
 			this.avatars = prevState.avatars;
 			this.gitConfig = prevState.gitConfig;
+			this.worktreesPanelOpen = prevState.worktreesPanelOpen === true;
 			this.loadRepoInfo(prevState.gitBranches, prevState.gitBranchHead, prevState.gitRemotes, prevState.gitStashes, true);
-			this.loadCommits(prevState.commits, prevState.commitHead, prevState.gitTags, prevState.moreCommitsAvailable, prevState.onlyFollowFirstParent);
+			this.loadCommits(prevState.commits, prevState.commitHead, prevState.gitTags, prevState.moreCommitsAvailable, prevState.onlyFollowFirstParent, prevState.worktrees || []);
 			this.findWidget.restoreState(prevState.findWidget);
 			this.settingsWidget.restoreState(prevState.settingsWidget);
 			this.showRemoteBranchesElem.checked = getShowRemoteBranches(this.gitRepos[prevState.currentRepo].showRemoteBranchesV2);
@@ -379,7 +393,7 @@ export class GitGraphView {
 		}
 	}
 
-	private loadCommits(commits: GG.GitCommit[], commitHead: string | null, tags: ReadonlyArray<string>, moreAvailable: boolean, onlyFollowFirstParent: boolean) {
+	private loadCommits(commits: GG.GitCommit[], commitHead: string | null, tags: ReadonlyArray<string>, moreAvailable: boolean, onlyFollowFirstParent: boolean, worktrees: GG.GitWorktree[]) {
 		// This list of tags is just used to provide additional information in the dialogs. Tag information included in commits is used for all other purposes (e.g. rendering, context menus)
 		const tagsChanged = !arraysStrictlyEqual(this.gitTags, tags);
 		this.gitTags = tags;
@@ -402,6 +416,7 @@ export class GitGraphView {
 					arraysStrictlyEqual(a.parents, b.parents) &&
 					((a.stash === null && b.stash === null) || (a.stash !== null && b.stash !== null && a.stash.selector === b.stash.selector))
 			) &&
+			arraysEqual(this.worktrees, worktrees, areWorktreesEqual) &&
 			this.renderedGitBranchHead === this.gitBranchHead
 		) {
 			if (this.commits[0].hash === UNCOMMITTED) {
@@ -435,6 +450,8 @@ export class GitGraphView {
 		this.commits = commits;
 		this.commitHead = commitHead;
 		this.commitLookup = {};
+		this.worktrees = worktrees;
+		if (this.selectedWorktree !== null && this.getWorktree(this.selectedWorktree) === null) this.selectedWorktree = null;
 
 		let i: number,
 			expandedCommitVisible = false,
@@ -549,6 +566,8 @@ export class GitGraphView {
 		this.commits = [];
 		this.commitHead = null;
 		this.commitLookup = {};
+		this.worktrees = [];
+		this.selectedWorktree = null;
 		this.renderedGitBranchHead = null;
 		this.closeCommitDetails(false);
 		this.saveState();
@@ -556,6 +575,7 @@ export class GitGraphView {
 		this.tableElem.innerHTML = '';
 		this.footerElem.innerHTML = '';
 		this.renderGraph();
+		this.renderWorktreesPanel();
 		this.findWidget.refresh();
 	}
 
@@ -574,7 +594,7 @@ export class GitGraphView {
 		if (msg.error === null) {
 			const refreshState = this.currentRepoRefreshState;
 			if (refreshState.inProgress && refreshState.loadCommitsRefreshId === msg.refreshId) {
-				this.loadCommits(msg.commits, msg.head, msg.tags, msg.moreCommitsAvailable, msg.onlyFollowFirstParent);
+				this.loadCommits(msg.commits, msg.head, msg.tags, msg.moreCommitsAvailable, msg.onlyFollowFirstParent, msg.worktrees);
 			}
 		} else {
 			const error = this.gitBranches.length === 0 && msg.error.indexOf("bad revision 'HEAD'") > -1 ? 'There are no commits in this repository.' : msg.error;
@@ -616,6 +636,14 @@ export class GitGraphView {
 	}
 
 	/* Getters */
+
+	private getWorktree(path: string) {
+		return this.worktrees.find((worktree) => worktree.path === path) || null;
+	}
+
+	private getWorktreeOfBranch(branch: string) {
+		return this.worktrees.find((worktree) => worktree.branch === branch) || null;
+	}
 
 	public getBranches(): ReadonlyArray<string> {
 		return this.gitBranches;
@@ -823,7 +851,9 @@ export class GitGraphView {
 			expandedCommit: expandedCommit,
 			scrollTop: this.scrollTop,
 			findWidget: this.findWidget.getState(),
-			settingsWidget: this.settingsWidget.getState()
+			settingsWidget: this.settingsWidget.getState(),
+			worktrees: this.worktrees,
+			worktreesPanelOpen: this.worktreesPanelOpen
 		});
 	}
 
@@ -874,6 +904,7 @@ export class GitGraphView {
 	private render() {
 		this.renderTable();
 		this.renderGraph();
+		this.renderWorktreesPanel();
 	}
 
 	private renderGraph() {
@@ -905,6 +936,7 @@ export class GitGraphView {
 		const vertexColours = this.graph.getVertexColours();
 		const widthsAtVertices = this.config.referenceLabels.branchLabelsAlignedToGraph ? this.graph.getWidthsAtVertices() : [];
 		const mutedCommits = this.graph.getMutedCommits(currentHash);
+		const worktreesShown = this.worktrees.length > 1;
 		const textFormatter = new TextFormatter(this.commits, this.gitRepos[this.currentRepo].issueLinkingConfig, {
 			emoji: true,
 			issueLinking: true,
@@ -959,6 +991,8 @@ export class GitGraphView {
 						remoteName +
 						'</span>';
 				}
+				const worktree = worktreesShown ? this.getWorktreeOfBranch(branchLabels.heads[j].name) : null;
+				if (worktree !== null) refHtml += getWorktreeSegmentHtml(worktree);
 				refHtml += '</span>';
 				refBranches = refActive ? refHtml + refBranches : refBranches + refHtml;
 				if (refActive) branchCheckedOutAtCommit = this.gitBranchHead;
@@ -1010,6 +1044,17 @@ export class GitGraphView {
 					refBranches;
 			}
 
+			const uncommittedWorktree = commit.hash.startsWith(UNCOMMITTED_WORKTREE_PREFIX) ? this.getWorktree(commit.hash.substring(UNCOMMITTED_WORKTREE_PREFIX.length)) : null;
+			if (uncommittedWorktree !== null) {
+				refBranches = getWorktreeRefHtml(uncommittedWorktree) + refBranches;
+			} else if (worktreesShown) {
+				refBranches =
+					this.worktrees
+						.filter((worktree) => worktree.branch === null && worktree.head === commit.hash)
+						.map(getWorktreeRefHtml)
+						.join('') + refBranches;
+			}
+
 			const commitDot =
 				commit.hash === this.commitHead
 					? '<span class="commitHeadDot" title="' +
@@ -1050,7 +1095,7 @@ export class GitGraphView {
 						escapeHtml(commit.author) +
 						'</td>'
 					: '') +
-				(colVisibility.commit ? '<td class="text" title="' + escapeHtml(commit.hash) + '">' + abbrevCommit(commit.hash) + '</td>' : '') +
+				(colVisibility.commit ? '<td class="text" title="' + escapeHtml(commit.hash) + '">' + (uncommittedWorktree !== null ? UNCOMMITTED : abbrevCommit(commit.hash)) + '</td>' : '') +
 				'</tr>';
 		}
 		this.tableElem.innerHTML = '<table>' + html + '</table>';
@@ -1203,6 +1248,74 @@ export class GitGraphView {
 		this.repoDropdown.setOptions(getRepoDropdownOptions(this.gitRepos), [repo || this.currentRepo]);
 	}
 
+	private renderWorktreesPanel() {
+		this.worktreesCheckboxElem.checked = this.worktreesPanelOpen;
+		alterClass(document.body, CLASS_WORKTREES_PANEL_OPEN, this.worktreesPanelOpen);
+		if (!this.worktreesPanelOpen) {
+			this.worktreesPanelElem.innerHTML = '';
+			return;
+		}
+
+		const vertexColours = this.graph.getVertexColours();
+		const worktrees = this.worktrees.filter((worktree) => !worktree.isPrunable);
+		const numPrunable = this.worktrees.length - worktrees.length;
+		let html =
+			'<div id="worktreesPanelHeader"><span id="worktreesPanelTitle">Worktrees</span><span class="worktreesPanelCount">' +
+			worktrees.length +
+			'</span>' +
+			(this.commitHead !== null ? '<div id="worktreesNewBtn" class="roundedBtn">New' + ELLIPSIS + '</div>' : '') +
+			(this.worktrees.some((worktree) => !worktree.isMain && !worktree.isCurrent) ? '<div id="worktreesCleanUpBtn" class="roundedBtn">Clean up' + ELLIPSIS + '</div>' : '') +
+			'</div>';
+
+		for (const worktree of worktrees) {
+			const selected = worktree.path === this.selectedWorktree;
+			const index = worktree.head !== null ? this.commitLookup[worktree.head] : undefined;
+			const tags = [worktree.isMain ? 'main' : null, worktree.isCurrent ? 'current' : null, worktree.agent, worktree.isLocked ? 'locked' : null].filter((tag) => tag !== null);
+			html +=
+				'<div class="worktreesPanelItem' +
+				(selected ? ' selected' : '') +
+				'" data-path="' +
+				escapeHtml(worktree.path) +
+				'"' +
+				(typeof index === 'number' ? ' data-color="' + vertexColours[index] + '"' : '') +
+				' title="' +
+				escapeHtml(worktree.path) +
+				'"><div class="worktreeTitle"><span class="worktreeIcon">' +
+				SVG_ICONS.folder +
+				'</span><span class="worktreeName">' +
+				escapeHtml(getRepoName(worktree.path)) +
+				'</span>' +
+				tags.map((tag) => '<span class="worktreeTag">' + escapeHtml(tag!) + '</span>').join('') +
+				'<span class="worktreeChanges' +
+				(worktree.uncommittedChanges > 0 ? ' changed' : '') +
+				'">' +
+				(worktree.uncommittedChanges > 0 ? worktree.uncommittedChanges + ' changed' : 'clean') +
+				'</span></div><div class="worktreeBranch">' +
+				(worktree.branch !== null ? escapeHtml(worktree.branch) : worktree.head !== null ? 'Detached at ' + abbrevCommit(worktree.head) : 'No commits') +
+				'</div>';
+			if (selected) {
+				html +=
+					'<div class="worktreePath">' +
+					escapeHtml(worktree.path) +
+					'</div><div class="worktreeActions">' +
+					this.getWorktreePanelActions(worktree)
+						.map((action, actionIndex) => '<div class="roundedBtn" data-worktree-action="' + actionIndex + '">' + action.title + '</div>')
+						.join('') +
+					'</div>';
+			}
+			html += '</div>';
+		}
+
+		if (numPrunable > 0) {
+			html +=
+				'<div id="worktreesPrune"><span>' +
+				numPrunable +
+				(numPrunable === 1 ? ' worktree no longer exists.' : ' worktrees no longer exist.') +
+				'</span><div id="worktreesPruneBtn" class="roundedBtn">Prune</div></div>';
+		}
+		this.worktreesPanelElem.innerHTML = html;
+	}
+
 	/* Context Menu Generation */
 
 	private getBranchContextMenuActions(target: DialogTarget & RefTarget): ContextMenuActions {
@@ -1212,9 +1325,14 @@ export class GitGraphView {
 		return [
 			[
 				{
-					title: 'Checkout Branch',
+					title: 'Checkout Branch' + (this.getWorktreeOfBranch(refName) !== null ? ELLIPSIS : ''),
 					visible: visibility.checkout && this.gitBranchHead !== refName,
 					onClick: () => this.checkoutBranchAction(refName, null, null, target)
+				},
+				{
+					title: 'Create Worktree' + ELLIPSIS,
+					visible: this.gitBranchHead !== refName && this.getWorktreeOfBranch(refName) === null,
+					onClick: () => this.createWorktreeAction(refName, true, target)
 				},
 				{
 					title: 'Rename Branch' + ELLIPSIS,
@@ -1415,6 +1533,11 @@ export class GitGraphView {
 					title: 'Create Branch' + ELLIPSIS,
 					visible: visibility.createBranch,
 					onClick: () => this.createBranchAction(hash, '', this.config.dialogDefaults.createBranch.checkout, target)
+				},
+				{
+					title: 'Create Worktree' + ELLIPSIS,
+					visible: true,
+					onClick: () => this.createWorktreeAction(hash, false, target)
 				}
 			],
 			[
@@ -2046,6 +2169,42 @@ export class GitGraphView {
 		];
 	}
 
+	private getWorktreeContextMenuActions(worktree: GG.GitWorktree, target: DialogTarget | null): ContextMenuActions {
+		const isElsewhere = !worktree.isCurrent && !worktree.isPrunable;
+		return [
+			[
+				{
+					title: 'Check out here' + ELLIPSIS,
+					visible: isElsewhere,
+					onClick: () => this.checkOutWorktreeHereAction(worktree, target)
+				},
+				{
+					title: 'Open in New Window',
+					visible: isElsewhere,
+					onClick: () => runAction({ command: 'openWorktree', repo: this.currentRepo, worktree: worktree.path, method: 'window' }, 'Opening Worktree')
+				},
+				{
+					title: 'Open Terminal',
+					visible: !worktree.isPrunable,
+					onClick: () => runAction({ command: 'openTerminal', repo: worktree.path, name: getRepoName(worktree.path) }, 'Opening Terminal')
+				}
+			],
+			[
+				{
+					title: 'Remove Worktree' + ELLIPSIS,
+					visible: !worktree.isMain && !worktree.isCurrent,
+					onClick: () => this.removeWorktreeAction(worktree, target)
+				}
+			]
+		];
+	}
+
+	private getWorktreePanelActions(worktree: GG.GitWorktree) {
+		return this.getWorktreeContextMenuActions(worktree, null)
+			.flat()
+			.filter((action) => action.visible);
+	}
+
 	private getViewIssueAction(refName: string, visible: boolean, target: DialogTarget & RefTarget): ContextMenuAction {
 		const issueLinks: { url: string; displayText: string }[] = [];
 
@@ -2237,7 +2396,12 @@ export class GitGraphView {
 				target
 			);
 		} else {
-			runAction({ command: 'checkoutBranch', repo: this.currentRepo, branchName: refName, remoteBranch: null, pullAfterwards: null }, 'Checking out Branch');
+			const worktree = this.getWorktreeOfBranch(refName);
+			if (worktree !== null && !worktree.isCurrent) {
+				this.checkOutWorktreeHereAction(worktree, target);
+			} else {
+				runAction({ command: 'checkoutBranch', repo: this.currentRepo, branchName: refName, remoteBranch: null, pullAfterwards: null }, 'Checking out Branch');
+			}
 		}
 	}
 
@@ -2338,6 +2502,223 @@ export class GitGraphView {
 				);
 			},
 			target
+		);
+	}
+
+	private createWorktreeAction(ref: string, isBranch: boolean, target: DialogTarget | null) {
+		const mainWorktree = this.worktrees.find((worktree) => worktree.isMain);
+		const worktreesFolder = (mainWorktree ? mainWorktree.path : this.currentRepo) + '.worktrees/';
+		// Relative paths are resolved from the repository, so show the shorter relative form when the repository is the main worktree
+		const displayedWorktreesFolder = mainWorktree && mainWorktree.path === this.currentRepo ? '../' + getRepoName(mainWorktree.path) + '.worktrees/' : worktreesFolder;
+		const inputs: DialogInput[] = [];
+		if (!isBranch) {
+			inputs.push({ type: DialogInputType.TextRef, name: 'Branch', default: 'worktree-' + abbrevCommit(ref), info: 'The new branch to create at this commit, and check out in the worktree.' });
+			inputs.push({ type: DialogInputType.Checkbox, name: 'Detached HEAD', value: false, info: "Don't create a branch, check out the commit as a detached HEAD." });
+		}
+		inputs.push({
+			type: DialogInputType.Text,
+			name: 'Location',
+			default: '',
+			placeholder: displayedWorktreesFolder + '<name>',
+			info: 'Leave blank to create the worktree in ' + displayedWorktreesFolder
+		});
+		inputs.push({
+			type: DialogInputType.Checkbox,
+			name: 'Copy ignored files and link node_modules',
+			value: true,
+			info: "Copies this checkout's ignored files that match its .worktreeinclude file (or its .env* files if it doesn't have one), and links its node_modules folder, so you can build and run tests in the worktree."
+		});
+		inputs.push({
+			type: DialogInputType.Select,
+			name: 'Then',
+			default: 'window',
+			options: [
+				{ name: 'Open it in a new window', value: 'window' },
+				{ name: 'Open a terminal in it', value: 'terminal' },
+				{ name: 'Do nothing', value: 'none' }
+			]
+		});
+
+		dialog.showForm(
+			'Create a worktree from ' + (isBranch ? 'branch' : 'commit') + ' <b><i>' + escapeHtml(isBranch ? ref : abbrevCommit(ref)) + '</i></b>:',
+			inputs,
+			'Create Worktree',
+			(values) => {
+				const newBranch = !isBranch && !(<boolean>values[1]) ? <string>values[0] : null;
+				const location = <string>values[values.length - 3];
+				const name = newBranch !== null ? newBranch : isBranch ? ref : abbrevCommit(ref);
+				runAction(
+					{
+						command: 'createWorktree',
+						repo: this.currentRepo,
+						path: location.trim() !== '' ? location.trim() : worktreesFolder + name.replace(WORKTREE_FOLDER_NAME_INVALID_REGEX, '-'),
+						ref: ref,
+						newBranch: newBranch,
+						setUp: <boolean>values[values.length - 2],
+						openAfter: <GG.WorktreeOpenAfter>values[values.length - 1]
+					},
+					'Creating Worktree'
+				);
+			},
+			target
+		);
+	}
+
+	public checkOutWorktreeHereAction(worktree: GG.GitWorktree, target: DialogTarget | null) {
+		const options = [{ name: 'Swap this workspace folder for the worktree', value: 'swap' }];
+		if (worktree.branch !== null) {
+			options.push({ name: 'Move the branch into this checkout', value: 'move' });
+		}
+		options.push({ name: 'Open the worktree in a new window', value: 'window' });
+
+		dialog.showForm(
+			(worktree.branch !== null ? 'The branch <b><i>' + escapeHtml(worktree.branch) + '</i></b> is checked out in the worktree ' : 'The worktree ') +
+				'<b><i>' +
+				escapeHtml(getRepoName(worktree.path)) +
+				'</i></b>' +
+				(worktree.branch !== null ? '' : ' has a detached HEAD') +
+				'. How do you want to check it out here?<br><br>Swapping changes nothing in Git.' +
+				(worktree.branch !== null ? " Moving brings the worktree's uncommitted changes along." : '') +
+				(worktree.agent !== null ? '<br><br>' + escapeHtml(worktree.agent) + " created this worktree. Moving its branch will break the agent's session if it's still running." : ''),
+			[{ type: DialogInputType.Radio, name: 'Method', options: options, default: 'swap' }],
+			'Check Out',
+			(values) => {
+				const method = <string>values[0];
+				if (method === 'move') {
+					const branchName = worktree.branch!;
+					const move = (stashChanges: boolean) =>
+						runAction({ command: 'moveWorktreeBranch', repo: this.currentRepo, worktree: worktree.path, branchName: branchName, stashChanges: stashChanges }, 'Moving Branch');
+					const current = this.worktrees.find((other) => other.isCurrent);
+					if (current && current.uncommittedChanges > 0) {
+						dialog.showConfirmation(
+							'This checkout has uncommitted changes. Stash them and move the branch <b><i>' +
+								escapeHtml(branchName) +
+								'</i></b> here?<br><br>They\'re kept in the stash "Git Graph: Before moving ' +
+								escapeHtml(branchName) +
+								' here", and untracked files stay where they are.',
+							'Yes, stash and move',
+							() => move(true),
+							target
+						);
+					} else {
+						move(false);
+					}
+				} else {
+					runAction(
+						{ command: 'openWorktree', repo: this.currentRepo, worktree: worktree.path, method: method === 'swap' ? 'swap' : 'window' },
+						method === 'swap' ? 'Swapping Workspace Folder' : 'Opening Worktree'
+					);
+				}
+			},
+			target
+		);
+	}
+
+	/**
+	 * Show the Check Out Worktree dialog if a branch couldn't be checked out because it's checked out in another worktree.
+	 * @param errors The errors from checking out the branch.
+	 * @returns TRUE => The dialog was shown, FALSE => The errors weren't caused by another worktree.
+	 */
+	public checkOutWorktreeHereOnError(errors: ReadonlyArray<GG.ErrorInfo>) {
+		for (const error of errors) {
+			const match = error !== null ? error.match(BRANCH_IN_OTHER_WORKTREE_REGEX) : null;
+			const worktree = match !== null ? this.getWorktreeOfBranch(match[1]) : null;
+			if (worktree !== null && !worktree.isCurrent) {
+				this.checkOutWorktreeHereAction(worktree, null);
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private removeWorktreeAction(worktree: GG.GitWorktree, target: DialogTarget | null) {
+		const message = 'Are you sure you want to remove the worktree <b><i>' + escapeHtml(getRepoName(worktree.path)) + '</i></b>?';
+		const remove = (deleteBranch: boolean, force: boolean) =>
+			runAction(
+				{ command: 'removeWorktrees', repo: this.currentRepo, worktrees: [worktree.path], force: force, deleteBranches: deleteBranch ? [worktree.branch!] : [], prune: false },
+				'Removing Worktree'
+			);
+
+		const inputs: DialogInput[] = [];
+		if (worktree.branch !== null) {
+			inputs.push({ type: DialogInputType.Checkbox, name: 'Also delete the branch <b><i>' + escapeHtml(worktree.branch) + '</i></b>', value: false });
+		}
+		if (worktree.uncommittedChanges > 0) {
+			inputs.push({
+				type: DialogInputType.Checkbox,
+				name: 'Discard its ' + worktree.uncommittedChanges + ' uncommitted change' + (worktree.uncommittedChanges === 1 ? '' : 's'),
+				value: false
+			});
+		}
+
+		if (inputs.length === 0) {
+			dialog.showConfirmation(message, 'Yes, remove', () => remove(false, false), target);
+		} else {
+			dialog.showForm(
+				message,
+				inputs,
+				'Yes, remove',
+				(values) => remove(worktree.branch !== null && <boolean>values[0], worktree.uncommittedChanges > 0 && <boolean>values[values.length - 1]),
+				target
+			);
+		}
+	}
+
+	private cleanUpWorktreesAction() {
+		runAction({ command: 'loadWorktreeCleanup', repo: this.currentRepo }, 'Checking Worktrees');
+	}
+
+	public showCleanUpWorktreesDialog(merged: ReadonlyArray<string>) {
+		const candidates = this.worktrees.filter((worktree) => !worktree.isMain && !worktree.isCurrent);
+		const removable = candidates.filter((worktree) => worktree.isPrunable || worktree.uncommittedChanges === 0);
+		const skipped = candidates.filter((worktree) => !removable.includes(worktree));
+		const skippedMessage =
+			skipped.length > 0
+				? '<br><br>Skipping ' +
+					formatCommaSeparatedList(skipped.map((worktree) => '<b><i>' + escapeHtml(getRepoName(worktree.path)) + '</i></b>')) +
+					', which ' +
+					(skipped.length === 1 ? 'has' : 'have') +
+					' uncommitted changes.'
+				: '';
+		if (removable.length === 0) {
+			dialog.showMessage('There are no worktrees to clean up.' + skippedMessage);
+			return;
+		}
+
+		const intoBranch = this.gitBranchHead !== null ? escapeHtml(this.gitBranchHead) : 'HEAD';
+		const inputs: DialogInput[] = removable.map((worktree) => ({
+			type: DialogInputType.Checkbox,
+			name:
+				'<b>' +
+				escapeHtml(getRepoName(worktree.path)) +
+				'</b>' +
+				(worktree.agent !== null ? ' (' + escapeHtml(worktree.agent) + ')' : '') +
+				': ' +
+				(worktree.isPrunable ? 'folder missing' : worktree.branch === null ? 'detached HEAD' : escapeHtml(worktree.branch) + (merged.includes(worktree.path) ? ', merged' : ', not merged')),
+			value: !worktree.isLocked && (worktree.isPrunable || merged.includes(worktree.path))
+		}));
+		inputs.push({ type: DialogInputType.Checkbox, name: 'Also delete the merged branches', value: true });
+
+		dialog.showForm(
+			'Select the worktrees to remove. Merged means merged into <b><i>' + intoBranch + '</i></b>.' + skippedMessage,
+			inputs,
+			'Clean Up',
+			(values) => {
+				const selected = removable.filter((_, index) => <boolean>values[index]);
+				const deleteBranches = <boolean>values[values.length - 1];
+				runAction(
+					{
+						command: 'removeWorktrees',
+						repo: this.currentRepo,
+						worktrees: selected.filter((worktree) => !worktree.isPrunable).map((worktree) => worktree.path),
+						force: false,
+						deleteBranches: deleteBranches ? selected.filter((worktree) => worktree.branch !== null && merged.includes(worktree.path)).map((worktree) => worktree.branch!) : [],
+						prune: selected.some((worktree) => worktree.isPrunable)
+					},
+					'Cleaning Up Worktrees'
+				);
+			},
+			null
 		);
 	}
 
@@ -2719,12 +3100,11 @@ export class GitGraphView {
 						}
 					}
 				} else {
-					// Up / Down navigates according to the order of commits in the table
-					if (e.key === 'ArrowUp' && curHashIndex > 0) {
-						newHashIndex = curHashIndex - 1;
-					} else if (e.key === 'ArrowDown' && curHashIndex < this.commits.length - 1) {
-						newHashIndex = curHashIndex + 1;
-					}
+					// Up / Down navigates according to the order of commits in the table (skipping the uncommitted changes of other worktrees)
+					const step = e.key === 'ArrowUp' ? -1 : 1;
+					let index = curHashIndex + step;
+					while (index >= 0 && index < this.commits.length && this.commits[index].hash.startsWith(UNCOMMITTED_WORKTREE_PREFIX)) index += step;
+					if (index >= 0 && index < this.commits.length) newHashIndex = index;
 				}
 
 				if (newHashIndex > -1) {
@@ -2951,7 +3331,23 @@ export class GitGraphView {
 			if (isUrlElem(eventTarget)) return;
 			let eventElem: HTMLElement | null;
 
-			if ((eventElem = eventTarget.closest('.gitRef')) !== null) {
+			if ((eventElem = eventTarget.closest('.gitRefWorktree, .gitRef.worktree')) !== null) {
+				// A worktree label was right clicked
+				handledEvent(e);
+				const commitElem = <HTMLElement>eventElem.closest('.commit')!;
+				const commit = this.getCommitOfElem(commitElem);
+				const worktree = this.getWorktree(eventElem.dataset.worktree!);
+				if (commit === null || worktree === null) return;
+
+				const target: ContextMenuTarget & DialogTarget & RefTarget = {
+					type: TargetType.Ref,
+					hash: commit.hash,
+					index: parseInt(commitElem.dataset.id!),
+					ref: worktree.path,
+					elem: eventElem
+				};
+				contextMenu.show(this.getWorktreeContextMenuActions(worktree, target), false, target, <MouseEvent>e, this.viewElem);
+			} else if ((eventElem = eventTarget.closest('.gitRef')) !== null) {
 				// .gitRef was right clicked
 				handledEvent(e);
 				const commitElem = <HTMLElement>eventElem.closest('.commit')!;
@@ -3004,6 +3400,10 @@ export class GitGraphView {
 				let actions: ContextMenuActions;
 				if (commit.hash === UNCOMMITTED) {
 					actions = this.getUncommittedChangesContextMenuActions(target);
+				} else if (commit.hash.startsWith(UNCOMMITTED_WORKTREE_PREFIX)) {
+					const worktree = this.getWorktree(commit.hash.substring(UNCOMMITTED_WORKTREE_PREFIX.length));
+					if (worktree === null) return;
+					actions = this.getWorktreeContextMenuActions(worktree, target);
 				} else if (commit.stash !== null) {
 					target.ref = commit.stash.selector;
 					actions = this.getStashContextMenuActions(<RefTarget>target);
@@ -3016,11 +3416,49 @@ export class GitGraphView {
 		});
 	}
 
+	private observeWorktreesPanel() {
+		this.worktreesCheckboxElem.addEventListener('change', () => {
+			this.worktreesPanelOpen = this.worktreesCheckboxElem.checked;
+			this.saveState();
+			this.renderWorktreesPanel();
+		});
+
+		this.worktreesPanelElem.addEventListener('click', (e: MouseEvent) => {
+			if (e.target === null) return;
+			const eventTarget = <Element>e.target;
+			let eventElem: HTMLElement | null;
+
+			if (eventTarget.closest('#worktreesNewBtn') !== null) {
+				if (this.commitHead !== null) this.createWorktreeAction(this.commitHead, false, null);
+			} else if (eventTarget.closest('#worktreesCleanUpBtn') !== null) {
+				this.cleanUpWorktreesAction();
+			} else if (eventTarget.closest('#worktreesPruneBtn') !== null) {
+				runAction({ command: 'removeWorktrees', repo: this.currentRepo, worktrees: [], force: false, deleteBranches: [], prune: true }, 'Pruning Worktrees');
+			} else if ((eventElem = eventTarget.closest('.worktreesPanelItem')) !== null) {
+				const worktree = this.getWorktree(eventElem.dataset.path!);
+				if (worktree === null) return;
+
+				const actionElem = <HTMLElement | null>eventTarget.closest('[data-worktree-action]');
+				if (actionElem !== null) {
+					const action = this.getWorktreePanelActions(worktree)[parseInt(actionElem.dataset.worktreeAction!)];
+					if (action) action.onClick();
+					return;
+				}
+
+				this.selectedWorktree = this.selectedWorktree === worktree.path ? null : worktree.path;
+				this.renderWorktreesPanel();
+				if (this.selectedWorktree !== null && worktree.head !== null && typeof this.commitLookup[worktree.head] === 'number') {
+					this.scrollToCommit(worktree.head, true, true);
+				}
+			}
+		});
+	}
+
 	/* Commit Details View */
 
 	public loadCommitDetails(commitElem: HTMLElement) {
 		const commit = this.getCommitOfElem(commitElem);
-		if (commit === null) return;
+		if (commit === null || commit.hash.startsWith(UNCOMMITTED_WORKTREE_PREFIX)) return;
 
 		this.closeCommitDetails(false);
 		this.saveExpandedCommitLoading(parseInt(commitElem.dataset.id!), commit.hash, commitElem, null, null);
@@ -3125,7 +3563,7 @@ export class GitGraphView {
 		const commit = this.getCommitOfElem(commitElem);
 		const compareWithCommit = this.getCommitOfElem(compareWithElem);
 
-		if (commit !== null && compareWithCommit !== null) {
+		if (commit !== null && compareWithCommit !== null && !compareWithCommit.hash.startsWith(UNCOMMITTED_WORKTREE_PREFIX)) {
 			if (this.expandedCommit !== null) {
 				if (this.expandedCommit.commitHash !== commit.hash) {
 					this.closeCommitDetails(false);
@@ -3994,7 +4432,9 @@ window.addEventListener('load', () => {
 				refreshOrDisplayError(msg.error, 'Unable to Create Branch from Stash');
 				break;
 			case 'checkoutBranch':
-				refreshAndDisplayErrors(msg.errors, 'Unable to Checkout Branch' + (msg.pullAfterwards !== null ? ' & Pull Changes' : ''));
+				if (!gitGraph.checkOutWorktreeHereOnError(msg.errors)) {
+					refreshAndDisplayErrors(msg.errors, 'Unable to Checkout Branch' + (msg.pullAfterwards !== null ? ' & Pull Changes' : ''));
+				}
 				break;
 			case 'checkoutCommit':
 				refreshOrDisplayError(msg.error, 'Unable to Checkout Commit');
@@ -4067,6 +4507,9 @@ window.addEventListener('load', () => {
 					true
 				);
 				break;
+			case 'createWorktree':
+				refreshOrDisplayError(msg.error, 'Unable to Create Worktree');
+				break;
 			case 'deleteBranch':
 				handleResponseDeleteBranch(msg);
 				break;
@@ -4123,8 +4566,18 @@ window.addEventListener('load', () => {
 			case 'loadRepos':
 				gitGraph.loadRepos(msg.repos, msg.lastActiveRepo, msg.loadViewTo);
 				break;
+			case 'loadWorktreeCleanup':
+				if (msg.error === null) {
+					gitGraph.showCleanUpWorktreesDialog(msg.merged);
+				} else {
+					dialog.showError('Unable to Check Worktrees', msg.error, null, null);
+				}
+				break;
 			case 'merge':
 				refreshOrDisplayError(msg.error, 'Unable to Merge ' + msg.actionOn);
+				break;
+			case 'moveWorktreeBranch':
+				refreshOrDisplayError(msg.error, 'Unable to Move Branch');
 				break;
 			case 'openExtensionSettings':
 				finishOrDisplayError(msg.error, 'Unable to Open Extension Settings');
@@ -4140,6 +4593,9 @@ window.addEventListener('load', () => {
 				break;
 			case 'openTerminal':
 				finishOrDisplayError(msg.error, 'Unable to Open Terminal', true);
+				break;
+			case 'openWorktree':
+				finishOrDisplayError(msg.error, 'Unable to Open Worktree', true);
 				break;
 			case 'popStash':
 				refreshOrDisplayError(msg.error, 'Unable to Pop Stash');
@@ -4176,6 +4632,9 @@ window.addEventListener('load', () => {
 				break;
 			case 'refresh':
 				gitGraph.refresh(false);
+				break;
+			case 'removeWorktrees':
+				refreshAndDisplayErrors(msg.errors, 'Unable to Remove Worktree(s)');
 				break;
 			case 'renameBranch':
 				refreshOrDisplayError(msg.error, 'Unable to Rename Branch');
@@ -4751,6 +5210,57 @@ function haveFilesChanged(oldFiles: ReadonlyArray<GG.GitFileChange> | null, newF
 
 export function abbrevCommit(commitHash: string) {
 	return commitHash.substring(0, 8);
+}
+
+function areWorktreesEqual(a: GG.GitWorktree, b: GG.GitWorktree) {
+	return (
+		a.path === b.path &&
+		a.head === b.head &&
+		a.branch === b.branch &&
+		a.isCurrent === b.isCurrent &&
+		a.isLocked === b.isLocked &&
+		a.isPrunable === b.isPrunable &&
+		a.uncommittedChanges === b.uncommittedChanges
+	);
+}
+
+function getWorktreeTitle(worktree: GG.GitWorktree) {
+	return 'Worktree: ' + worktree.path + (worktree.agent !== null ? ' (created by ' + worktree.agent + ')' : '');
+}
+
+/**
+ * Get the HTML of the segment appended to a branch label, when the branch is checked out in a worktree.
+ */
+function getWorktreeSegmentHtml(worktree: GG.GitWorktree) {
+	return (
+		'<span class="gitRefWorktree" data-worktree="' +
+		escapeHtml(worktree.path) +
+		'" title="' +
+		escapeHtml(getWorktreeTitle(worktree)) +
+		'">' +
+		SVG_ICONS.folder +
+		escapeHtml(getRepoName(worktree.path)) +
+		'</span>'
+	);
+}
+
+/**
+ * Get the HTML of the label for a worktree that isn't on a branch (detached HEAD or uncommitted changes).
+ */
+function getWorktreeRefHtml(worktree: GG.GitWorktree) {
+	return (
+		'<span class="gitRef worktree" data-worktree="' +
+		escapeHtml(worktree.path) +
+		'" title="' +
+		escapeHtml(getWorktreeTitle(worktree)) +
+		'">' +
+		SVG_ICONS.folder +
+		'<span class="gitRefName">' +
+		escapeHtml(getRepoName(worktree.path)) +
+		'</span>' +
+		(worktree.agent !== null ? '<span class="gitRefAgent">' + escapeHtml(worktree.agent) + '</span>' : '') +
+		'</span>'
+	);
 }
 
 function getRepoDropdownOptions(repos: Readonly<GG.GitRepoSet>) {

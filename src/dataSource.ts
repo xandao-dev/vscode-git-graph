@@ -26,6 +26,7 @@ import {
 	GitSignatureStatus,
 	GitStash,
 	GitTagDetails,
+	GitWorktree,
 	MergeActionOn,
 	RebaseActionOn,
 	SquashMessageFormat,
@@ -56,6 +57,8 @@ const EOL_REGEX = /\r\n|\r|\n/g;
 const INVALID_BRANCH_REGEXP = /^\(.* .*\)$/;
 const REMOTE_HEAD_BRANCH_REGEXP = /^remotes\/.*\/HEAD$/;
 const GIT_LOG_SEPARATOR = 'XX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPb';
+const NULL_HASH_REGEX = /^0+$/;
+const WORKTREE_AGENT_FOLDERS = [{ folder: '/.claude/worktrees/', agent: 'Claude Code' }];
 
 export const enum GitConfigKey {
 	DiffGuiTool = 'diff.guitool',
@@ -689,6 +692,51 @@ export class DataSource extends Disposable {
 				resolve(submodules);
 			});
 		});
+	}
+
+	/**
+	 * Get the worktrees of a repository.
+	 * @param repo The path of the repository.
+	 * @returns The worktrees (an empty array if they can't be listed).
+	 */
+	public getWorktrees(repo: string): Promise<GitWorktree[]> {
+		return this.spawnGit(['worktree', 'list', '--porcelain'], repo, (stdout) => parseWorktreeList(stdout))
+			.then(async (records) => {
+				const repoRealPath = await realpath(repo);
+				return Promise.all(
+					records.map(async (record) => {
+						const isCurrent = record.path === repo || record.path === repoRealPath;
+						const worktreePath = isCurrent ? repo : record.path;
+						return {
+							path: worktreePath,
+							head: record.head,
+							branch: record.branch,
+							isMain: record.isMain,
+							isCurrent: isCurrent,
+							isLocked: record.isLocked,
+							isPrunable: record.isPrunable,
+							agent: getWorktreeAgent(worktreePath),
+							uncommittedChanges: record.isPrunable ? 0 : await this.getUncommittedChanges(worktreePath).catch(() => 0)
+						};
+					})
+				);
+			})
+			.catch(() => []);
+	}
+
+	/**
+	 * Get the worktrees whose branch is fully merged into HEAD.
+	 * @param repo The path of the repository.
+	 * @returns The paths of the merged worktrees.
+	 */
+	public async getMergedWorktrees(repo: string) {
+		const merged: string[] = [];
+		for (const worktree of await this.getWorktrees(repo)) {
+			if (worktree.isMain || worktree.isCurrent || worktree.branch === null) continue;
+			const isMerged = await this.spawnGit(['merge-base', '--is-ancestor', 'refs/heads/' + worktree.branch, 'HEAD'], repo, () => true).catch(() => false);
+			if (isMerged) merged.push(worktree.path);
+		}
+		return merged;
 	}
 
 	/* Repository Info Methods */
@@ -1424,6 +1472,143 @@ export class DataSource extends Disposable {
 		return this.runGitCommand(args, repo);
 	}
 
+	/* Git Action Methods - Worktrees */
+
+	/**
+	 * Create a worktree.
+	 * @param repo The path of the repository.
+	 * @param worktreePath The path of the new worktree.
+	 * @param ref The branch or commit to check out in the worktree.
+	 * @param newBranch The name of a new branch to create at `ref` and check out, or NULL to check out `ref`.
+	 * @returns The ErrorInfo from the executed command.
+	 */
+	public createWorktree(repo: string, worktreePath: string, ref: string, newBranch: string | null) {
+		const args = ['worktree', 'add'];
+		if (newBranch !== null) args.push('-b', newBranch);
+		args.push(worktreePath, ref);
+		return this.runGitCommand(args, repo);
+	}
+
+	/**
+	 * Set up a new worktree to run like the repository. Copies the ignored files that match the repository's `.worktreeinclude` file (or its `.env*` files if it doesn't have one), and links its `node_modules` folder.
+	 * @param repo The path of the repository to copy from.
+	 * @param worktree The path of the worktree.
+	 * @returns The ErrorInfo of the action.
+	 */
+	public async setUpWorktree(repo: string, worktree: string): Promise<ErrorInfo> {
+		const listUntracked = (args: string[]) => this.spawnGit(['ls-files', '-z', '--others'].concat(args), repo, (stdout) => stdout.split('\0').filter((file) => file !== ''));
+		try {
+			const includeFile = path.join(repo, '.worktreeinclude');
+			const matching = await listUntracked(['--ignored', fs.existsSync(includeFile) ? '--exclude-from=' + includeFile : '--exclude=.env*']);
+			// Only copy the matching files that are ignored, so files that Git shows as untracked aren't duplicated
+			const notIgnored = matching.length > 0 ? await listUntracked(['--exclude-standard']) : [];
+			for (const file of matching) {
+				if (notIgnored.includes(file)) continue;
+				const destination = path.join(worktree, file);
+				await fs.promises.mkdir(path.dirname(destination), { recursive: true });
+				await fs.promises.copyFile(path.join(repo, file), destination);
+			}
+
+			const nodeModules = path.join(repo, 'node_modules');
+			const link = path.join(worktree, 'node_modules');
+			if (fs.existsSync(nodeModules) && fs.statSync(nodeModules).isDirectory() && !fs.existsSync(link)) {
+				await fs.promises.symlink(await fs.promises.realpath(nodeModules), link, 'junction');
+				// A "node_modules/" pattern only matches directories, not links, so exclude the link to keep the worktree clean (info/exclude is shared by all worktrees)
+				const isIgnored = await this.spawnGit(['check-ignore', '-q', 'node_modules'], worktree, () => true).catch(() => false);
+				if (!isIgnored) {
+					const commonDir = await this.spawnGit(['rev-parse', '--git-common-dir'], worktree, (stdout) => path.resolve(worktree, stdout.trim()));
+					const excludeFile = path.join(commonDir, 'info', 'exclude');
+					const exclude = fs.existsSync(excludeFile) ? await fs.promises.readFile(excludeFile, 'utf8') : '';
+					await fs.promises.mkdir(path.dirname(excludeFile), { recursive: true });
+					await fs.promises.appendFile(excludeFile, (exclude === '' || exclude.endsWith('\n') ? '' : '\n') + '/node_modules\n');
+				}
+			}
+			return null;
+		} catch (error) {
+			return "The worktree was created, but it couldn't be set up: " + (error instanceof Error ? error.message : <string>error);
+		}
+	}
+
+	/**
+	 * Remove worktrees, and optionally delete their branches and prune stale worktree entries.
+	 * @param repo The path of the repository.
+	 * @param worktrees The paths of the worktrees to remove.
+	 * @param force Remove the worktrees even if they have uncommitted changes.
+	 * @param deleteBranches The branches to delete once the worktrees are removed.
+	 * @param prune Prune the entries of worktrees whose directory no longer exists.
+	 * @returns The ErrorInfo's from the executed commands.
+	 */
+	public async removeWorktrees(repo: string, worktrees: ReadonlyArray<string>, force: boolean, deleteBranches: ReadonlyArray<string>, prune: boolean) {
+		const errors: ErrorInfo[] = [];
+		for (const worktree of worktrees) {
+			errors.push(await this.runGitCommand(force ? ['worktree', 'remove', '--force', worktree] : ['worktree', 'remove', worktree], repo));
+		}
+		if (prune) {
+			errors.push(await this.runGitCommand(['worktree', 'prune'], repo));
+		}
+		for (const branch of deleteBranches) {
+			errors.push(await this.deleteBranch(repo, branch, false));
+		}
+		return errors;
+	}
+
+	/**
+	 * Move a branch from a worktree into the repository, along with the worktree's uncommitted changes. The worktree is left with a detached HEAD.
+	 * @param repo The path of the repository to move the branch into.
+	 * @param worktree The path of the worktree the branch is checked out in.
+	 * @param branchName The name of the branch.
+	 * @param stashChanges Stash the repository's uncommitted changes first, instead of refusing to move the branch.
+	 * @returns The ErrorInfo of the action.
+	 */
+	public async moveWorktreeBranch(repo: string, worktree: string, branchName: string, stashChanges: boolean): Promise<ErrorInfo> {
+		const hasChanges = (cwd: string, untracked: boolean) => this.spawnGit(['status', '--porcelain', '--untracked-files=' + (untracked ? 'all' : 'no')], cwd, (stdout) => stdout.trim() !== '');
+
+		try {
+			const stashRepo = await hasChanges(repo, false);
+			if (stashRepo && !stashChanges) {
+				return 'This checkout has uncommitted changes. Commit or stash them before moving the branch "' + branchName + '" here.';
+			}
+			const stash = await hasChanges(worktree, true);
+			const undoRepoStash = async () => {
+				if (stashRepo) await this.runGitCommand(['stash', 'pop'], repo);
+			};
+			let error: ErrorInfo;
+
+			// Stashes are shared by all worktrees, so this checkout's stash is pushed first and popped last
+			if (stashRepo && (error = await this.runGitCommand(['stash', 'push', '-m', 'Git Graph: Before moving ' + branchName + ' here'], repo)) !== null) {
+				return error;
+			}
+			if (stash && (error = await this.runGitCommand(['stash', 'push', '--include-untracked', '-m', 'Git Graph: Moving ' + branchName], worktree)) !== null) {
+				await undoRepoStash();
+				return error;
+			}
+			if ((error = await this.runGitCommand(['checkout', '--detach'], worktree)) !== null) {
+				if (stash) await this.runGitCommand(['stash', 'pop'], worktree);
+				await undoRepoStash();
+				return error;
+			}
+			if ((error = await this.runGitCommand(['checkout', branchName], repo)) !== null) {
+				await this.runGitCommand(['checkout', branchName], worktree);
+				if (stash) await this.runGitCommand(['stash', 'pop'], worktree);
+				await undoRepoStash();
+				return error;
+			}
+			if (stash && (error = await this.runGitCommand(['stash', 'pop'], repo)) !== null) {
+				return (
+					'The branch "' +
+					branchName +
+					'" was moved here, but the uncommitted changes from the worktree couldn\'t be applied. They\'re kept in the stash "Git Graph: Moving ' +
+					branchName +
+					'".\n' +
+					error
+				);
+			}
+			return null;
+		} catch (errorMessage) {
+			return <string>errorMessage;
+		}
+	}
+
 	/* Public Utils */
 
 	/**
@@ -1894,10 +2079,9 @@ export class DataSource extends Disposable {
 	 * @returns The number of uncommitted changes.
 	 */
 	private getUncommittedChanges(repo: string) {
-		return this.spawnGit(['status', '--untracked-files=' + (getConfig().showUntrackedFiles ? 'all' : 'no'), '--porcelain'], repo, (stdout) => {
-			const numLines = stdout.split(EOL_REGEX).length;
-			return numLines > 1 ? numLines - 1 : 0;
-		});
+		return this.spawnGit(['status', '--untracked-files=' + (getConfig().showUntrackedFiles ? 'all' : 'no'), '--porcelain'], repo, (stdout) =>
+			stdout.split(EOL_REGEX).filter((line) => line !== '')
+		).then(async (lines) => (await removeNestedWorktrees(repo, lines, (line) => (line.startsWith('?? ') ? line.substring(3) : null))).length);
 	}
 
 	/**
@@ -1929,7 +2113,7 @@ export class DataSource extends Disposable {
 				}
 			}
 			return status;
-		});
+		}).then(async (status) => ({ deleted: status.deleted, untracked: await removeNestedWorktrees(repo, status.untracked, (path) => path) }));
 	}
 
 	/* Private Utils */
@@ -2112,6 +2296,83 @@ function getErrorMessage(error: Error | null, stdoutBuffer: Buffer, stderr: stri
 		lines = [];
 	}
 	return lines.join('\n');
+}
+
+/**
+ * Get the coding agent that created a worktree, based on where the worktree is located.
+ * @param worktreePath The path of the worktree.
+ * @returns The name of the agent, or NULL if it isn't known.
+ */
+function getWorktreeAgent(worktreePath: string) {
+	const match = WORKTREE_AGENT_FOLDERS.find((entry) => worktreePath.includes(entry.folder));
+	return match ? match.agent : null;
+}
+
+/**
+ * Parse the output of `git worktree list --porcelain`. Bare repositories are excluded.
+ * @param stdout The output of the command.
+ * @returns The worktree records.
+ */
+function parseWorktreeList(stdout: string) {
+	const records: { path: string; head: string | null; branch: string | null; isMain: boolean; isBare: boolean; isLocked: boolean; isPrunable: boolean }[] = [];
+	for (const line of stdout.split(EOL_REGEX)) {
+		if (line.startsWith('worktree ')) {
+			records.push({
+				path: getPathFromUri(vscode.Uri.file(path.normalize(line.substring(9)))),
+				head: null,
+				branch: null,
+				isMain: records.length === 0,
+				isBare: false,
+				isLocked: false,
+				isPrunable: false
+			});
+			continue;
+		}
+		const record = records[records.length - 1];
+		if (typeof record === 'undefined') continue;
+		if (line.startsWith('HEAD ')) {
+			const head = line.substring(5);
+			record.head = NULL_HASH_REGEX.test(head) ? null : head;
+		} else if (line.startsWith('branch ')) {
+			record.branch = line.substring(7).replace(/^refs\/heads\//, '');
+		} else if (line === 'bare') {
+			record.isBare = true;
+		} else if (line === 'locked' || line.startsWith('locked ')) {
+			record.isLocked = true;
+		} else if (line === 'prunable' || line.startsWith('prunable ')) {
+			record.isPrunable = true;
+		}
+	}
+	return records.filter((record) => !record.isBare);
+}
+
+/**
+ * Remove untracked entries that are linked worktrees nested inside a repository (their directory contains a `.git` file).
+ * @param repo The path of the repository.
+ * @param entries The entries to filter.
+ * @param getUntrackedPath A callback returning the path of an entry if it's untracked, otherwise NULL.
+ * @returns The entries that aren't nested worktrees.
+ */
+async function removeNestedWorktrees<T>(repo: string, entries: ReadonlyArray<T>, getUntrackedPath: (entry: T) => string | null) {
+	const result: T[] = [];
+	for (const entry of entries) {
+		const untrackedPath = getUntrackedPath(entry);
+		if (untrackedPath === null || !untrackedPath.endsWith('/') || !(await isFile(repo + '/' + untrackedPath + '.git'))) {
+			result.push(entry);
+		}
+	}
+	return result;
+}
+
+/**
+ * Check if the specified path is a file.
+ * @param filePath The path to check.
+ * @returns TRUE => File, FALSE => Not a file.
+ */
+function isFile(filePath: string) {
+	return new Promise<boolean>((resolve) => {
+		fs.stat(filePath, (err, stats) => resolve(err ? false : stats.isFile()));
+	});
 }
 
 /**

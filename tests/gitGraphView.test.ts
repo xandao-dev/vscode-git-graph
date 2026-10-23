@@ -29,6 +29,7 @@ import {
 	PullRequestProvider,
 	RebaseActionOn,
 	RequestMessage,
+	ResponseLoadCommits,
 	ResponseMessage,
 	TagType
 } from '../src/types';
@@ -1320,6 +1321,112 @@ describe('GitGraphView', () => {
 			});
 		});
 
+		describe('createWorktree', () => {
+			it('Should create a worktree, and open it in a new window', async () => {
+				// Setup
+				const spyOnCreateWorktree = vi.spyOn(dataSource, 'createWorktree');
+				spyOnCreateWorktree.mockResolvedValueOnce(null);
+				const spyOnOpenWorktreeInNewWindow = vi.spyOn(utils, 'openWorktreeInNewWindow');
+				spyOnOpenWorktreeInNewWindow.mockResolvedValueOnce(null);
+
+				// Run
+				onDidReceiveMessage({
+					command: 'createWorktree',
+					repo: '/path/to/repo',
+					path: '/path/to/repo.worktrees/feature',
+					ref: '1a2b3c4d',
+					newBranch: 'feature',
+					setUp: false,
+					openAfter: 'window'
+				});
+
+				// Assert
+				await waitForExpect(() => {
+					expect(spyOnCreateWorktree).toHaveBeenCalledWith('/path/to/repo', '/path/to/repo.worktrees/feature', '1a2b3c4d', 'feature');
+					expect(spyOnOpenWorktreeInNewWindow).toHaveBeenCalledWith('/path/to/repo.worktrees/feature');
+					expect(messages).toStrictEqual([{ command: 'createWorktree', error: null }]);
+				});
+			});
+
+			it('Should create a worktree at a path relative to the repository, and open a terminal in it', async () => {
+				// Setup
+				const spyOnCreateWorktree = vi.spyOn(dataSource, 'createWorktree');
+				spyOnCreateWorktree.mockResolvedValueOnce(null);
+				const spyOnOpenGitTerminal = vi.spyOn(dataSource, 'openGitTerminal');
+				spyOnOpenGitTerminal.mockResolvedValueOnce(null);
+
+				// Run
+				onDidReceiveMessage({
+					command: 'createWorktree',
+					repo: '/path/to/repo',
+					path: '../develop',
+					ref: 'develop',
+					newBranch: null,
+					setUp: false,
+					openAfter: 'terminal'
+				});
+
+				// Assert
+				await waitForExpect(() => {
+					expect(spyOnCreateWorktree).toHaveBeenCalledWith('/path/to/repo', '/path/to/develop', 'develop', null);
+					expect(spyOnOpenGitTerminal).toHaveBeenCalledWith('/path/to/develop', null, 'develop');
+					expect(messages).toStrictEqual([{ command: 'createWorktree', error: null }]);
+				});
+			});
+
+			it("Should set up the worktree, and still open it when it can't be set up", async () => {
+				// Setup
+				const spyOnCreateWorktree = vi.spyOn(dataSource, 'createWorktree');
+				spyOnCreateWorktree.mockResolvedValueOnce(null);
+				const spyOnSetUpWorktree = vi.spyOn(dataSource, 'setUpWorktree');
+				spyOnSetUpWorktree.mockResolvedValueOnce('setup error');
+				const spyOnOpenWorktreeInNewWindow = vi.spyOn(utils, 'openWorktreeInNewWindow');
+				spyOnOpenWorktreeInNewWindow.mockResolvedValueOnce(null);
+
+				// Run
+				onDidReceiveMessage({
+					command: 'createWorktree',
+					repo: '/path/to/repo',
+					path: '/path/to/repo.worktrees/feature',
+					ref: 'feature',
+					newBranch: null,
+					setUp: true,
+					openAfter: 'window'
+				});
+
+				// Assert
+				await waitForExpect(() => {
+					expect(spyOnSetUpWorktree).toHaveBeenCalledWith('/path/to/repo', '/path/to/repo.worktrees/feature');
+					expect(spyOnOpenWorktreeInNewWindow).toHaveBeenCalledWith('/path/to/repo.worktrees/feature');
+					expect(messages).toStrictEqual([{ command: 'createWorktree', error: 'setup error' }]);
+				});
+			});
+
+			it("Should return the error, and not open the worktree, when it can't be created", async () => {
+				// Setup
+				const spyOnCreateWorktree = vi.spyOn(dataSource, 'createWorktree');
+				spyOnCreateWorktree.mockResolvedValueOnce('error message');
+				const spyOnOpenWorktreeInNewWindow = vi.spyOn(utils, 'openWorktreeInNewWindow');
+
+				// Run
+				onDidReceiveMessage({
+					command: 'createWorktree',
+					repo: '/path/to/repo',
+					path: '/path/to/repo.worktrees/feature',
+					ref: 'feature',
+					newBranch: null,
+					setUp: false,
+					openAfter: 'window'
+				});
+
+				// Assert
+				await waitForExpect(() => {
+					expect(messages).toStrictEqual([{ command: 'createWorktree', error: 'error message' }]);
+				});
+				expect(spyOnOpenWorktreeInNewWindow).not.toHaveBeenCalled();
+			});
+		});
+
 		describe('createPullRequest', () => {
 			it('Should create a pull request', async () => {
 				// Setup
@@ -2228,10 +2335,60 @@ describe('GitGraphView', () => {
 				error: null
 			};
 
+			it('Should get commits, including the uncommitted changes of other worktrees', async () => {
+				// Setup
+				const spyOnGetCommits = vi.spyOn(dataSource, 'getCommits');
+				spyOnGetCommits.mockResolvedValueOnce(getCommitsResolvedValue);
+				const worktrees = [
+					{
+						path: '/path/to/worktree',
+						head: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
+						branch: null,
+						isMain: false,
+						isCurrent: false,
+						isLocked: false,
+						isPrunable: false,
+						agent: null,
+						uncommittedChanges: 3
+					}
+				];
+				const spyOnGetWorktrees = vi.spyOn(dataSource, 'getWorktrees');
+				spyOnGetWorktrees.mockResolvedValueOnce(worktrees);
+				vscode.mockExtensionSettingReturnValue('repository.showUncommittedChanges', true);
+
+				// Run
+				onDidReceiveMessage({
+					command: 'loadCommits',
+					repo: '/path/to/repo',
+					refreshId: 2,
+					branches: null,
+					maxCommits: 300,
+					showTags: true,
+					showRemoteBranches: false,
+					includeCommitsMentionedByReflogs: false,
+					onlyFollowFirstParent: false,
+					commitOrdering: CommitOrdering.Date,
+					remotes: ['origin'],
+					hideRemotes: [],
+					stashes: []
+				});
+
+				// Assert
+				await waitForExpect(() => {
+					expect(messages.length).toBe(1);
+					const message = <ResponseLoadCommits>messages[0];
+					expect(message.worktrees).toStrictEqual(worktrees);
+					expect(message.commits.map((commit) => commit.hash)).toStrictEqual([utils.UNCOMMITTED_WORKTREE_PREFIX + '/path/to/worktree', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b']);
+					expect(message.commits[0].message).toBe('Uncommitted Changes (3)');
+				});
+			});
+
 			it('Should get commits (show tags)', async () => {
 				// Setup
 				const spyOnGetCommits = vi.spyOn(dataSource, 'getCommits');
 				spyOnGetCommits.mockResolvedValueOnce(getCommitsResolvedValue);
+				const spyOnGetWorktrees = vi.spyOn(dataSource, 'getWorktrees');
+				spyOnGetWorktrees.mockResolvedValueOnce([]);
 
 				// Run
 				onDidReceiveMessage({
@@ -2252,6 +2409,7 @@ describe('GitGraphView', () => {
 
 				// Assert
 				await waitForExpect(() => {
+					expect(spyOnGetWorktrees).toHaveBeenCalledWith('/path/to/repo');
 					expect(spyOnGetCommits).toHaveBeenCalledWith('/path/to/repo', null, 300, true, false, false, false, CommitOrdering.Date, ['origin', 'upstream'], ['upstream'], []);
 					expect(messages).toStrictEqual([
 						{
@@ -2262,7 +2420,8 @@ describe('GitGraphView', () => {
 							tags: getCommitsResolvedValue.tags,
 							moreCommitsAvailable: getCommitsResolvedValue.moreCommitsAvailable,
 							onlyFollowFirstParent: false,
-							error: getCommitsResolvedValue.error
+							error: getCommitsResolvedValue.error,
+							worktrees: []
 						}
 					]);
 					expect(GitGraphView.currentPanel!['loadCommitsRefreshId']).toBe(2);
@@ -2273,6 +2432,8 @@ describe('GitGraphView', () => {
 				// Setup
 				const spyOnGetCommits = vi.spyOn(dataSource, 'getCommits');
 				spyOnGetCommits.mockResolvedValueOnce(getCommitsResolvedValue);
+				const spyOnGetWorktrees = vi.spyOn(dataSource, 'getWorktrees');
+				spyOnGetWorktrees.mockResolvedValueOnce([]);
 
 				// Run
 				onDidReceiveMessage({
@@ -2293,6 +2454,7 @@ describe('GitGraphView', () => {
 
 				// Assert
 				await waitForExpect(() => {
+					expect(spyOnGetWorktrees).toHaveBeenCalledWith('/path/to/repo');
 					expect(spyOnGetCommits).toHaveBeenCalledWith('/path/to/repo', null, 300, false, true, false, false, CommitOrdering.Date, ['origin', 'upstream'], ['upstream'], []);
 					expect(messages).toStrictEqual([
 						{
@@ -2303,7 +2465,8 @@ describe('GitGraphView', () => {
 							tags: getCommitsResolvedValue.tags,
 							moreCommitsAvailable: getCommitsResolvedValue.moreCommitsAvailable,
 							onlyFollowFirstParent: false,
-							error: getCommitsResolvedValue.error
+							error: getCommitsResolvedValue.error,
+							worktrees: []
 						}
 					]);
 					expect(GitGraphView.currentPanel!['loadCommitsRefreshId']).toBe(2);
@@ -2314,6 +2477,8 @@ describe('GitGraphView', () => {
 				// Setup
 				const spyOnGetCommits = vi.spyOn(dataSource, 'getCommits');
 				spyOnGetCommits.mockResolvedValueOnce(getCommitsResolvedValue);
+				const spyOnGetWorktrees = vi.spyOn(dataSource, 'getWorktrees');
+				spyOnGetWorktrees.mockResolvedValueOnce([]);
 
 				// Run
 				onDidReceiveMessage({
@@ -2334,6 +2499,7 @@ describe('GitGraphView', () => {
 
 				// Assert
 				await waitForExpect(() => {
+					expect(spyOnGetWorktrees).toHaveBeenCalledWith('/path/to/repo');
 					expect(spyOnGetCommits).toHaveBeenCalledWith('/path/to/repo', null, 300, false, false, true, false, CommitOrdering.Date, ['origin', 'upstream'], ['upstream'], []);
 					expect(messages).toStrictEqual([
 						{
@@ -2344,7 +2510,8 @@ describe('GitGraphView', () => {
 							tags: getCommitsResolvedValue.tags,
 							moreCommitsAvailable: getCommitsResolvedValue.moreCommitsAvailable,
 							onlyFollowFirstParent: false,
-							error: getCommitsResolvedValue.error
+							error: getCommitsResolvedValue.error,
+							worktrees: []
 						}
 					]);
 					expect(GitGraphView.currentPanel!['loadCommitsRefreshId']).toBe(2);
@@ -2355,6 +2522,8 @@ describe('GitGraphView', () => {
 				// Setup
 				const spyOnGetCommits = vi.spyOn(dataSource, 'getCommits');
 				spyOnGetCommits.mockResolvedValueOnce(getCommitsResolvedValue);
+				const spyOnGetWorktrees = vi.spyOn(dataSource, 'getWorktrees');
+				spyOnGetWorktrees.mockResolvedValueOnce([]);
 
 				// Run
 				onDidReceiveMessage({
@@ -2375,6 +2544,7 @@ describe('GitGraphView', () => {
 
 				// Assert
 				await waitForExpect(() => {
+					expect(spyOnGetWorktrees).toHaveBeenCalledWith('/path/to/repo');
 					expect(spyOnGetCommits).toHaveBeenCalledWith('/path/to/repo', null, 300, false, false, false, true, CommitOrdering.Date, ['origin', 'upstream'], ['upstream'], []);
 					expect(messages).toStrictEqual([
 						{
@@ -2385,7 +2555,8 @@ describe('GitGraphView', () => {
 							tags: getCommitsResolvedValue.tags,
 							moreCommitsAvailable: getCommitsResolvedValue.moreCommitsAvailable,
 							onlyFollowFirstParent: true,
-							error: getCommitsResolvedValue.error
+							error: getCommitsResolvedValue.error,
+							worktrees: []
 						}
 					]);
 					expect(GitGraphView.currentPanel!['loadCommitsRefreshId']).toBe(2);
@@ -2590,6 +2761,23 @@ describe('GitGraphView', () => {
 					]);
 					expect(GitGraphView.currentPanel!['currentRepo']).toBe('/path/to/repo');
 					expect(GitGraphView.currentPanel!['loadRepoInfoRefreshId']).toBe(3);
+				});
+			});
+		});
+
+		describe('loadWorktreeCleanup', () => {
+			it('Should return the worktrees that are merged into HEAD', async () => {
+				// Setup
+				const spyOnGetMergedWorktrees = vi.spyOn(dataSource, 'getMergedWorktrees');
+				spyOnGetMergedWorktrees.mockResolvedValueOnce(['/path/to/merged']);
+
+				// Run
+				onDidReceiveMessage({ command: 'loadWorktreeCleanup', repo: '/path/to/repo' });
+
+				// Assert
+				await waitForExpect(() => {
+					expect(spyOnGetMergedWorktrees).toHaveBeenCalledWith('/path/to/repo');
+					expect(messages).toStrictEqual([{ command: 'loadWorktreeCleanup', merged: ['/path/to/merged'], error: null }]);
 				});
 			});
 		});
@@ -2919,6 +3107,75 @@ describe('GitGraphView', () => {
 			});
 		});
 
+		describe('moveWorktreeBranch', () => {
+			it('Should move the branch from the worktree into the repository', async () => {
+				// Setup
+				const spyOnMoveWorktreeBranch = vi.spyOn(dataSource, 'moveWorktreeBranch');
+				spyOnMoveWorktreeBranch.mockResolvedValueOnce(null);
+
+				// Run
+				onDidReceiveMessage({ command: 'moveWorktreeBranch', repo: '/path/to/repo', worktree: '/path/to/worktree', branchName: 'feature', stashChanges: true });
+
+				// Assert
+				await waitForExpect(() => {
+					expect(spyOnMoveWorktreeBranch).toHaveBeenCalledWith('/path/to/repo', '/path/to/worktree', 'feature', true);
+					expect(messages).toStrictEqual([{ command: 'moveWorktreeBranch', error: null }]);
+				});
+			});
+		});
+
+		describe('openWorktree', () => {
+			it('Should open the worktree in a new window', async () => {
+				// Setup
+				const spyOnOpenWorktreeInNewWindow = vi.spyOn(utils, 'openWorktreeInNewWindow');
+				spyOnOpenWorktreeInNewWindow.mockResolvedValueOnce(null);
+
+				// Run
+				onDidReceiveMessage({ command: 'openWorktree', repo: '/path/to/repo', worktree: '/path/to/worktree', method: 'window' });
+
+				// Assert
+				await waitForExpect(() => {
+					expect(spyOnOpenWorktreeInNewWindow).toHaveBeenCalledWith('/path/to/worktree');
+					expect(messages).toStrictEqual([{ command: 'openWorktree', error: null }]);
+				});
+			});
+
+			it('Should swap the workspace folder for the worktree, and load the worktree next', async () => {
+				// Setup
+				const spyOnSwapWorkspaceFolderForWorktree = vi.spyOn(utils, 'swapWorkspaceFolderForWorktree');
+				spyOnSwapWorkspaceFolderForWorktree.mockReturnValueOnce(null);
+				const spyOnSetLastActiveRepo = vi.spyOn(extensionState, 'setLastActiveRepo');
+
+				// Run
+				onDidReceiveMessage({ command: 'openWorktree', repo: '/path/to/repo', worktree: '/path/to/worktree', method: 'swap' });
+
+				// Assert
+				await waitForExpect(() => {
+					expect(spyOnSwapWorkspaceFolderForWorktree).toHaveBeenCalledWith('/path/to/repo', '/path/to/worktree');
+					expect(spyOnSetLastActiveRepo).toHaveBeenCalledTimes(1);
+					expect(spyOnSetLastActiveRepo).toHaveBeenCalledWith('/path/to/worktree');
+					expect(messages).toStrictEqual([{ command: 'openWorktree', error: null }]);
+				});
+			});
+
+			it("Should keep the repository as the last active repository when the workspace folder can't be swapped", async () => {
+				// Setup
+				const spyOnSwapWorkspaceFolderForWorktree = vi.spyOn(utils, 'swapWorkspaceFolderForWorktree');
+				spyOnSwapWorkspaceFolderForWorktree.mockReturnValueOnce('error message');
+				const spyOnSetLastActiveRepo = vi.spyOn(extensionState, 'setLastActiveRepo');
+
+				// Run
+				onDidReceiveMessage({ command: 'openWorktree', repo: '/path/to/repo', worktree: '/path/to/worktree', method: 'swap' });
+
+				// Assert
+				await waitForExpect(() => {
+					expect(spyOnSetLastActiveRepo).toHaveBeenNthCalledWith(1, '/path/to/worktree');
+					expect(spyOnSetLastActiveRepo).toHaveBeenNthCalledWith(2, '/path/to/repo');
+					expect(messages).toStrictEqual([{ command: 'openWorktree', error: 'error message' }]);
+				});
+			});
+		});
+
 		describe('popStash', () => {
 			it('Should pop a stash', async () => {
 				// Setup
@@ -3126,6 +3383,23 @@ describe('GitGraphView', () => {
 							error: rebaseResolvedValue
 						}
 					]);
+				});
+			});
+		});
+
+		describe('removeWorktrees', () => {
+			it('Should remove the worktrees', async () => {
+				// Setup
+				const spyOnRemoveWorktrees = vi.spyOn(dataSource, 'removeWorktrees');
+				spyOnRemoveWorktrees.mockResolvedValueOnce([null, null]);
+
+				// Run
+				onDidReceiveMessage({ command: 'removeWorktrees', repo: '/path/to/repo', worktrees: ['/path/to/worktree'], force: false, deleteBranches: ['feature'], prune: false });
+
+				// Assert
+				await waitForExpect(() => {
+					expect(spyOnRemoveWorktrees).toHaveBeenCalledWith('/path/to/repo', ['/path/to/worktree'], false, ['feature'], false);
+					expect(messages).toStrictEqual([{ command: 'removeWorktrees', errors: [null, null] }]);
 				});
 			});
 		});

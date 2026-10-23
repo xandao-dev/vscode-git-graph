@@ -1,6 +1,6 @@
 import * as GG from '../src/types';
 import { abbrevCommit, closeDialogAndContextMenu, findCommitElemWithId, getBranchLabels } from './main';
-import { ELLIPSIS, SVG_NAMESPACE, UNCOMMITTED, escapeHtml, getCommitElems } from './utils';
+import { ELLIPSIS, SVG_NAMESPACE, UNCOMMITTED, UNCOMMITTED_WORKTREE_PREFIX, escapeHtml, getCommitElems } from './utils';
 
 const CLASS_GRAPH_VERTEX_ACTIVE = 'graphVertexActive';
 const NULL_VERTEX_ID = -1;
@@ -433,8 +433,10 @@ export class Graph {
 			}
 		}
 
-		if (commits[0].hash === UNCOMMITTED) {
-			this.vertices[0].setNotCommitted();
+		for (i = 0; i < commits.length; i++) {
+			if (commits[i].hash === UNCOMMITTED || commits[i].hash.startsWith(UNCOMMITTED_WORKTREE_PREFIX)) {
+				this.vertices[i].setNotCommitted();
+			}
 		}
 
 		if (commits[0].hash === UNCOMMITTED && this.config.uncommittedChanges === GG.GraphUncommittedChangesStyle.OpenCircleAtTheUncommittedChanges) {
@@ -803,7 +805,7 @@ export class Graph {
 		const commitElem = findCommitElemWithId(getCommitElems(), id);
 		if (commitElem !== null) commitElem.classList.add(CLASS_GRAPH_VERTEX_ACTIVE);
 
-		if (id < this.commits.length && this.commits[id].hash !== UNCOMMITTED) {
+		if (id < this.commits.length && this.commits[id].hash !== UNCOMMITTED && !this.commits[id].hash.startsWith(UNCOMMITTED_WORKTREE_PREFIX)) {
 			// Only show tooltip for commits (not the uncommitted changes)
 			this.tooltipTimeout = setTimeout(() => {
 				this.tooltipTimeout = null;

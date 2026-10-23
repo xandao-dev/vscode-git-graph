@@ -6,9 +6,10 @@ import { getConfig } from './config';
 import { DataSource } from './dataSource';
 import { DiffSide, encodeDiffDocUri } from './diffDocProvider';
 import { ExtensionState } from './extensionState';
-import { ErrorInfo, GitFileStatus, GitRepoSet, PullRequestConfig, PullRequestProvider, RepoDropdownOrder } from './types';
+import { ErrorInfo, GitCommit, GitFileStatus, GitRepoSet, GitWorktree, PullRequestConfig, PullRequestProvider, RepoDropdownOrder } from './types';
 
 export const UNCOMMITTED = '*';
+export const UNCOMMITTED_WORKTREE_PREFIX = '*:'; // Prefixes the path of a worktree to form the hash of its uncommitted changes
 export const UNABLE_TO_FIND_GIT_MSG =
 	'Unable to find a Git executable. Either: Set the Visual Studio Code Setting "git.path" to the path and filename of an existing Git executable, or install Git and restart Visual Studio Code.';
 
@@ -219,6 +220,34 @@ export function getRepoName(path: string) {
 		const p = path.endsWith('/') ? path.substring(0, path.length - 1) : path; // Remove trailing slash if it exists
 		return p.substring(p.lastIndexOf('/') + 1);
 	}
+}
+
+/**
+ * Insert a row for the uncommitted changes of each worktree (other than the repository being viewed), directly above the commit checked out in the worktree.
+ * @param commits The commits of the repository.
+ * @param worktrees The worktrees of the repository.
+ * @returns The commits, including the uncommitted changes of the worktrees.
+ */
+export function insertWorktreeUncommittedChanges(commits: ReadonlyArray<GitCommit>, worktrees: ReadonlyArray<GitWorktree>) {
+	const result = commits.slice();
+	for (const worktree of worktrees) {
+		if (worktree.isCurrent || worktree.head === null || worktree.uncommittedChanges === 0) continue;
+		const index = result.findIndex((commit) => commit.hash === worktree.head);
+		if (index === -1) continue;
+		result.splice(index, 0, {
+			hash: UNCOMMITTED_WORKTREE_PREFIX + worktree.path,
+			parents: [worktree.head],
+			author: '*',
+			email: '',
+			date: Math.round(new Date().getTime() / 1000),
+			message: 'Uncommitted Changes (' + worktree.uncommittedChanges + ')',
+			heads: [],
+			tags: [],
+			remotes: [],
+			stash: null
+		});
+	}
+	return result;
 }
 
 /**
@@ -499,6 +528,35 @@ export function viewFileAtRevision(repo: string, hash: string, filePath: string)
 			() => null,
 			() => 'Visual Studio Code was unable to open ' + filePath + ' at commit ' + abbrevCommit(hash) + '.'
 		);
+}
+
+/**
+ * Open a worktree in a new Visual Studio Code window.
+ * @param worktree The path of the worktree.
+ * @returns A promise resolving to the ErrorInfo of the executed command.
+ */
+export function openWorktreeInNewWindow(worktree: string): Thenable<ErrorInfo> {
+	return vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(worktree), { forceNewWindow: true }).then(
+		() => null,
+		() => 'Visual Studio Code was unable to open the worktree "' + worktree + '" in a new window.'
+	);
+}
+
+/**
+ * Replace the workspace folder of a repository with one of its worktrees.
+ * @param repo The path of the repository, which must be a workspace folder.
+ * @param worktree The path of the worktree.
+ * @returns The ErrorInfo of the action.
+ */
+export function swapWorkspaceFolderForWorktree(repo: string, worktree: string): ErrorInfo {
+	const workspaceFolders = vscode.workspace.workspaceFolders || [];
+	const index = workspaceFolders.findIndex((folder) => getPathFromUri(folder.uri) === repo);
+	if (index === -1) {
+		return 'The repository "' + repo + "\" isn't a folder of this workspace, so it can't be swapped for the worktree. Open the worktree in a new window instead.";
+	}
+	return vscode.workspace.updateWorkspaceFolders(index, 1, { uri: vscode.Uri.file(worktree) })
+		? null
+		: 'Visual Studio Code was unable to replace the workspace folder "' + repo + '" with the worktree.';
 }
 
 /**

@@ -67,6 +67,8 @@ declare global {
 		readonly scrollTop: number;
 		readonly findWidget: FindWidgetState;
 		readonly settingsWidget: SettingsWidgetState;
+		readonly worktrees?: GG.GitWorktree[]; // Optional, as the state could have been saved by a version of Git Graph without worktree support
+		readonly worktreesPanelOpen?: boolean;
 	}
 
 	/* Commit Details / Comparison View File Tree Types */
