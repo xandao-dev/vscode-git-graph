@@ -1,6 +1,6 @@
 import * as GG from '../src/types';
 import { abbrevCommit, closeDialogAndContextMenu, findCommitElemWithId, getBranchLabels } from './main';
-import { ELLIPSIS, SVG_NAMESPACE, UNCOMMITTED, escapeHtml, getCommitElems } from './utils';
+import { ELLIPSIS, SVG_NAMESPACE, UNCOMMITTED, escapeHtml, getCommitElems, getStickyHeaderHeight } from './utils';
 
 const CLASS_GRAPH_VERTEX_ACTIVE = 'graphVertexActive';
 const NULL_VERTEX_ID = -1;
@@ -815,8 +815,8 @@ export class Graph {
 			this.tooltipTimeout = setTimeout(() => {
 				this.tooltipTimeout = null;
 				let vertexScreenY = vertexElem.getBoundingClientRect().top + 4; // Get center of the circle
-				if (vertexScreenY >= 5 && vertexScreenY <= this.viewElem.clientHeight - 5) {
-					// Vertex is completely visible on the screen (not partially off)
+				if (vertexScreenY >= getStickyHeaderHeight() + 5 && vertexScreenY <= this.viewElem.clientHeight - 5) {
+					// Vertex is completely visible on the screen (not partially off, or behind the sticky header)
 					this.tooltipVertex = vertexElem;
 					closeDialogAndContextMenu();
 					this.showTooltip(id, vertexScreenY);
@@ -912,9 +912,10 @@ export class Graph {
 			// Not enough height below the vertex to fit the vertex, shift it up.
 			relativeOffset = this.viewElem.clientHeight - vertexScreenY - 4 - tooltipRect.height;
 		}
-		if (vertexScreenY + relativeOffset < 4) {
-			// Not enough height above the vertex to fit the tooltip, shift it down.
-			relativeOffset = -vertexScreenY + 4;
+		const stickyHeaderHeight = getStickyHeaderHeight();
+		if (vertexScreenY + relativeOffset < stickyHeaderHeight + 4) {
+			// Not enough height above the vertex to fit the tooltip (below the sticky header), shift it down.
+			relativeOffset = stickyHeaderHeight - vertexScreenY + 4;
 		}
 		pointer.style.top = -relativeOffset + 'px';
 		anchor.style.top = pixel.y + relativeOffset + 'px';

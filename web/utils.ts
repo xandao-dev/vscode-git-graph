@@ -119,6 +119,7 @@ export const CLASS_REF_REMOTE = 'remote';
 export const CLASS_REF_STASH = 'stash';
 export const CLASS_REF_TAG = 'tag';
 export const CLASS_SELECTED = 'selected';
+export const CLASS_STICKY_HEADER = 'stickyHeader';
 export const CLASS_TAG_LABELS_RIGHT_ALIGNED = 'tagLabelsRightAligned';
 export const CLASS_TRANSITION = 'transition';
 
@@ -129,6 +130,7 @@ export const CSS_PROP_EDITOR_FONT_FAMILY = '--vscode-editor-font-family';
 export const CSS_PROP_FIND_MATCH_HIGHLIGHT_BACKGROUND = '--vscode-editor-findMatchHighlightBackground';
 export const CSS_PROP_SELECTION_BACKGROUND = '--vscode-selection-background';
 export const CSS_PROP_LIMIT_GRAPH_WIDTH = '--limitGraphWidth';
+export const CSS_PROP_CONTROLS_HEIGHT = '--controlsHeight';
 
 export const ATTR_ERROR = 'data-error';
 
@@ -531,6 +533,16 @@ export function observeElemScroll(id: string, initialScrollTop: number, onScroll
  */
 export function getCommitElems() {
 	return <HTMLCollectionOf<HTMLElement>>document.getElementsByClassName('commit');
+}
+
+/**
+ * Get the height of the sticky header (the Control Bar and the column headers), which covers the top of the Git Graph View when it is scrolled.
+ * @returns The height of the sticky header, or zero if the header isn't sticky.
+ */
+export function getStickyHeaderHeight() {
+	if (!document.body.classList.contains(CLASS_STICKY_HEADER)) return 0;
+	const colHeadersElem = document.getElementById('tableColHeaders');
+	return document.getElementById('controls')!.offsetHeight + (colHeadersElem !== null ? colHeadersElem.offsetHeight : 0);
 }
 
 /**

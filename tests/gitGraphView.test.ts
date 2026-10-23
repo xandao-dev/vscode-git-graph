@@ -4195,6 +4195,27 @@ describe('GitGraphView', () => {
 			expect(mockedWebviewPanel.panel.webview.html).toContain('"showPathFilter":false');
 		});
 
+		it('Should get HTML when repositories exist (sticky header enabled)', () => {
+			// Run
+			GitGraphView.createOrShow('/path/to/extension', dataSource, extensionState, avatarManager, repoManager, logger, null);
+
+			// Assert
+			const mockedWebviewPanel = vscode.getMockedWebviewPanel(0);
+			expect(mockedWebviewPanel.panel.webview.html).toContain('"stickyHeader":true');
+		});
+
+		it('Should get HTML when repositories exist (sticky header disabled)', () => {
+			// Setup
+			vscode.mockExtensionSettingReturnValue('stickyHeader', false);
+
+			// Run
+			GitGraphView.createOrShow('/path/to/extension', dataSource, extensionState, avatarManager, repoManager, logger, null);
+
+			// Assert
+			const mockedWebviewPanel = vscode.getMockedWebviewPanel(0);
+			expect(mockedWebviewPanel.panel.webview.html).toContain('"stickyHeader":false');
+		});
+
 		it('Should get HTML when repositories exist (fetch avatars enabled)', () => {
 			// Setup
 			const spyOnIsAvatarStorageAvailable = vi.spyOn(extensionState, 'isAvatarStorageAvailable');

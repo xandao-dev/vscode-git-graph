@@ -143,6 +143,7 @@ A summary of the Git Graph extension settings are:
 * **Show Path Filter**: Show the Paths dropdown on the Git Graph View's Control Bar, to only show the commits that modified specific files or folders. When disabled, any path filter previously applied to a repository is ignored.
 * **Show Status Bar Item**: Show a Status Bar Item that opens the Git Graph View when clicked.
 * **Source Code Provider Integration Location**: Specifies where the "View Git Graph" action appears on the title of SCM Providers.
+* **Sticky Header**: Keep the Control Bar and the column headers of the Git Graph View visible while the view is scrolled.
 * **Tab Icon Colour Theme**: Specifies the colour theme of the icon displayed on the Git Graph tab.
 
 This extension consumes the following settings:

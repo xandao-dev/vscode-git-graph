@@ -36,11 +36,13 @@ import {
 	CLASS_REF_REMOTE,
 	CLASS_REF_STASH,
 	CLASS_REF_TAG,
+	CLASS_STICKY_HEADER,
 	CLASS_TAG_LABELS_RIGHT_ALIGNED,
 	COLUMN_AUTO,
 	COLUMN_HIDDEN,
 	COLUMN_LEFT_RIGHT_PADDING,
 	COLUMN_MIN_WIDTH,
+	CSS_PROP_CONTROLS_HEIGHT,
 	CSS_PROP_EDITOR_FONT_FAMILY,
 	CSS_PROP_FIND_MATCH_HIGHLIGHT_BACKGROUND,
 	CSS_PROP_FONT_FAMILY,
@@ -68,6 +70,7 @@ import {
 	getCommitElems,
 	getRepoName,
 	getSortedRepositoryPaths,
+	getStickyHeaderHeight,
 	getVSCodeStyle,
 	handledEvent,
 	insertAfter,
@@ -212,8 +215,10 @@ export class GitGraphView {
 
 		alterClass(document.body, CLASS_BRANCH_LABELS_ALIGNED_TO_GRAPH, this.config.referenceLabels.branchLabelsAlignedToGraph);
 		alterClass(document.body, CLASS_TAG_LABELS_RIGHT_ALIGNED, this.config.referenceLabels.tagLabelsOnRight);
+		alterClass(document.body, CLASS_STICKY_HEADER, this.config.stickyHeader);
 
 		this.observeWindowSizeChanges();
+		this.observeStickyHeaderSize();
 		this.observeWebviewStyleChanges();
 		this.observeViewScroll();
 		this.observeKeyboardEvents();
@@ -2927,9 +2932,10 @@ export class GitGraphView {
 		const elem = findCommitElemWithId(getCommitElems(), this.getCommitId(hash));
 		if (elem === null) return;
 
-		let elemTop = this.controlsElem.clientHeight + elem.offsetTop;
-		if (alwaysCenterCommit || elemTop - 8 < this.viewElem.scrollTop || elemTop + 32 - this.viewElem.clientHeight > this.viewElem.scrollTop) {
-			this.viewElem.scroll(0, this.controlsElem.clientHeight + elem.offsetTop + 12 - this.viewElem.clientHeight / 2);
+		let elemTop = this.controlsElem.clientHeight + elem.offsetTop,
+			stickyHeaderHeight = getStickyHeaderHeight();
+		if (alwaysCenterCommit || elemTop - 8 - stickyHeaderHeight < this.viewElem.scrollTop || elemTop + 32 - this.viewElem.clientHeight > this.viewElem.scrollTop) {
+			this.viewElem.scroll(0, this.controlsElem.clientHeight + elem.offsetTop + 12 - (this.viewElem.clientHeight + stickyHeaderHeight) / 2);
 		}
 
 		if (flash && !elem.classList.contains('flash')) {
@@ -2960,6 +2966,19 @@ export class GitGraphView {
 				windowHeight = window.outerHeight;
 			}
 		});
+	}
+
+	private observeStickyHeaderSize() {
+		if (!this.config.stickyHeader) return;
+
+		// The column headers stick beneath the Control Bar, whose height changes when its controls wrap onto multiple lines
+		const observer = new ResizeObserver(() => {
+			document.body.style.setProperty(CSS_PROP_CONTROLS_HEIGHT, this.controlsElem.offsetHeight + 'px');
+			this.scrollShadowElem.style.top = getStickyHeaderHeight() + 'px';
+			this.scrollShadowElem.style.width = this.controlsElem.offsetWidth + 'px';
+		});
+		observer.observe(this.controlsElem);
+		observer.observe(this.tableElem);
 	}
 
 	private observeWebviewStyleChanges() {
@@ -3794,25 +3813,27 @@ export class GitGraphView {
 
 		if (!refresh && this.config.commitDetailsView.autoScroll) {
 			if (isDocked) {
-				let elemTop = this.controlsElem.clientHeight + expandedCommit.commitElem.offsetTop;
-				if (elemTop - 8 < this.viewElem.scrollTop) {
+				let elemTop = this.controlsElem.clientHeight + expandedCommit.commitElem.offsetTop,
+					stickyHeaderHeight = getStickyHeaderHeight();
+				if (elemTop - 8 - stickyHeaderHeight < this.viewElem.scrollTop) {
 					// Commit is above what is visible on screen
-					this.viewElem.scroll(0, elemTop - 8);
+					this.viewElem.scroll(0, elemTop - 8 - stickyHeaderHeight);
 				} else if (elemTop - this.viewElem.clientHeight + 32 > this.viewElem.scrollTop) {
 					// Commit is below what is visible on screen
 					this.viewElem.scroll(0, elemTop - this.viewElem.clientHeight + 32);
 				}
 			} else {
 				let elemTop = this.controlsElem.clientHeight + elem.offsetTop,
-					cdvHeight = this.gitRepos[this.currentRepo].cdvHeight;
+					cdvHeight = this.gitRepos[this.currentRepo].cdvHeight,
+					stickyHeaderHeight = getStickyHeaderHeight();
 				if (this.config.commitDetailsView.autoCenter) {
 					// Center Commit Detail View setting is enabled
-					// elemTop - commit height [24px] + (commit details view height + commit height [24px]) / 2 - (view height) / 2
-					this.viewElem.scroll(0, elemTop - 12 + (cdvHeight - this.viewElem.clientHeight) / 2);
-				} else if (elemTop - 32 < this.viewElem.scrollTop) {
+					// elemTop - commit height [24px] + (commit details view height + commit height [24px]) / 2 - (view height + sticky header height) / 2
+					this.viewElem.scroll(0, elemTop - 12 + (cdvHeight - this.viewElem.clientHeight - stickyHeaderHeight) / 2);
+				} else if (elemTop - 32 - stickyHeaderHeight < this.viewElem.scrollTop) {
 					// Commit Detail View is opening above what is visible on screen
-					// elemTop - commit height [24px] - desired gap from top [8px] < view scroll offset
-					this.viewElem.scroll(0, elemTop - 32);
+					// elemTop - commit height [24px] - desired gap from top [8px] - sticky header height < view scroll offset
+					this.viewElem.scroll(0, elemTop - 32 - stickyHeaderHeight);
 				} else if (elemTop + cdvHeight - this.viewElem.clientHeight + 8 > this.viewElem.scrollTop) {
 					// Commit Detail View is opening below what is visible on screen
 					// elemTop + commit details view height + desired gap from bottom [8px] - view height > view scroll offset

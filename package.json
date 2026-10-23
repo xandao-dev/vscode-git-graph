@@ -1206,6 +1206,11 @@
 					"default": "Inline",
 					"description": "Specifies where the \"View Git Graph\" action appears on the title of SCM Providers."
 				},
+				"git-graph.stickyHeader": {
+					"type": "boolean",
+					"default": true,
+					"description": "Keep the Control Bar and the column headers of the Git Graph View visible while the view is scrolled."
+				},
 				"git-graph.tabIconColourTheme": {
 					"type": "string",
 					"enum": [

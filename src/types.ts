@@ -265,6 +265,7 @@ export interface GitGraphViewConfig {
 	readonly showStashes: boolean;
 	readonly showTags: boolean;
 	readonly simplifyByDecoration: boolean;
+	readonly stickyHeader: boolean;
 }
 
 export interface GitGraphViewGlobalState {
