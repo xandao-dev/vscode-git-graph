@@ -297,6 +297,7 @@ describe('Config', () => {
 					revert: true,
 					drop: true,
 					edit: true,
+					fixup: true,
 					merge: true,
 					rebase: true,
 					reset: true,
@@ -380,6 +381,7 @@ describe('Config', () => {
 					revert: true,
 					drop: true,
 					edit: true,
+					fixup: true,
 					merge: true,
 					rebase: true,
 					reset: true,
@@ -481,6 +483,7 @@ describe('Config', () => {
 					revert: true,
 					drop: true,
 					edit: true,
+					fixup: true,
 					merge: true,
 					rebase: true,
 					reset: true,
@@ -872,6 +875,7 @@ describe('Config', () => {
 				'dialog.popStash.reinstateIndex',
 				'dialog.pullBranch.noFastForward',
 				'dialog.pullBranch.squashCommits',
+				'dialog.rebase.autosquash',
 				'dialog.rebase.ignoreDate',
 				'dialog.rebase.launchInteractiveRebase',
 				'dialog.stashUncommittedChanges.includeUntracked'
@@ -899,6 +903,7 @@ describe('Config', () => {
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.popStash.reinstateIndex', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.pullBranch.noFastForward', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.pullBranch.squashCommits', false);
+			expect(workspaceConfiguration.get).toBeCalledWith('dialog.rebase.autosquash', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.rebase.ignoreDate', true);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.rebase.launchInteractiveRebase', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.resetCurrentBranchToCommit.mode', 'Mixed');
@@ -946,6 +951,7 @@ describe('Config', () => {
 					squash: true
 				},
 				rebase: {
+					autosquash: true,
 					ignoreDate: true,
 					interactive: true
 				},
@@ -980,6 +986,7 @@ describe('Config', () => {
 				'dialog.popStash.reinstateIndex',
 				'dialog.pullBranch.noFastForward',
 				'dialog.pullBranch.squashCommits',
+				'dialog.rebase.autosquash',
 				'dialog.rebase.ignoreDate',
 				'dialog.rebase.launchInteractiveRebase',
 				'dialog.stashUncommittedChanges.includeUntracked'
@@ -1007,6 +1014,7 @@ describe('Config', () => {
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.popStash.reinstateIndex', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.pullBranch.noFastForward', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.pullBranch.squashCommits', false);
+			expect(workspaceConfiguration.get).toBeCalledWith('dialog.rebase.autosquash', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.rebase.ignoreDate', true);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.rebase.launchInteractiveRebase', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.resetCurrentBranchToCommit.mode', 'Mixed');
@@ -1054,6 +1062,7 @@ describe('Config', () => {
 					squash: false
 				},
 				rebase: {
+					autosquash: false,
 					ignoreDate: false,
 					interactive: false
 				},
@@ -1088,6 +1097,7 @@ describe('Config', () => {
 				'dialog.popStash.reinstateIndex',
 				'dialog.pullBranch.noFastForward',
 				'dialog.pullBranch.squashCommits',
+				'dialog.rebase.autosquash',
 				'dialog.rebase.ignoreDate',
 				'dialog.rebase.launchInteractiveRebase',
 				'dialog.stashUncommittedChanges.includeUntracked'
@@ -1115,6 +1125,7 @@ describe('Config', () => {
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.popStash.reinstateIndex', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.pullBranch.noFastForward', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.pullBranch.squashCommits', false);
+			expect(workspaceConfiguration.get).toBeCalledWith('dialog.rebase.autosquash', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.rebase.ignoreDate', true);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.rebase.launchInteractiveRebase', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.resetCurrentBranchToCommit.mode', 'Mixed');
@@ -1162,6 +1173,7 @@ describe('Config', () => {
 					squash: true
 				},
 				rebase: {
+					autosquash: true,
 					ignoreDate: true,
 					interactive: true
 				},
@@ -1196,6 +1208,7 @@ describe('Config', () => {
 				'dialog.popStash.reinstateIndex',
 				'dialog.pullBranch.noFastForward',
 				'dialog.pullBranch.squashCommits',
+				'dialog.rebase.autosquash',
 				'dialog.rebase.ignoreDate',
 				'dialog.rebase.launchInteractiveRebase',
 				'dialog.stashUncommittedChanges.includeUntracked'
@@ -1223,6 +1236,7 @@ describe('Config', () => {
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.popStash.reinstateIndex', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.pullBranch.noFastForward', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.pullBranch.squashCommits', false);
+			expect(workspaceConfiguration.get).toBeCalledWith('dialog.rebase.autosquash', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.rebase.ignoreDate', true);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.rebase.launchInteractiveRebase', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.resetCurrentBranchToCommit.mode', 'Mixed');
@@ -1270,6 +1284,7 @@ describe('Config', () => {
 					squash: false
 				},
 				rebase: {
+					autosquash: false,
 					ignoreDate: false,
 					interactive: false
 				},
@@ -1311,6 +1326,7 @@ describe('Config', () => {
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.popStash.reinstateIndex', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.pullBranch.noFastForward', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.pullBranch.squashCommits', false);
+			expect(workspaceConfiguration.get).toBeCalledWith('dialog.rebase.autosquash', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.rebase.ignoreDate', true);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.rebase.launchInteractiveRebase', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.resetCurrentBranchToCommit.mode', 'Mixed');
@@ -1358,6 +1374,7 @@ describe('Config', () => {
 					squash: false
 				},
 				rebase: {
+					autosquash: false,
 					ignoreDate: true,
 					interactive: false
 				},
@@ -1396,6 +1413,7 @@ describe('Config', () => {
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.popStash.reinstateIndex', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.pullBranch.noFastForward', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.pullBranch.squashCommits', false);
+			expect(workspaceConfiguration.get).toBeCalledWith('dialog.rebase.autosquash', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.rebase.ignoreDate', true);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.rebase.launchInteractiveRebase', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.resetCurrentBranchToCommit.mode', 'Mixed');
@@ -1443,6 +1461,7 @@ describe('Config', () => {
 					squash: false
 				},
 				rebase: {
+					autosquash: false,
 					ignoreDate: true,
 					interactive: false
 				},

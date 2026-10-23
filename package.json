@@ -226,6 +226,10 @@
 									"type": "boolean",
 									"title": "Edit..."
 								},
+								"fixup": {
+									"type": "boolean",
+									"title": "Fixup this Commit"
+								},
 								"merge": {
 									"type": "boolean",
 									"title": "Merge into current branch..."
@@ -675,6 +679,11 @@
 					],
 					"default": "Default",
 					"description": "Specifies the message format used for the squashed commit (when the \"Squash Commits\" option is selected)."
+				},
+				"git-graph.dialog.rebase.autosquash": {
+					"type": "boolean",
+					"default": false,
+					"description": "Default state of the \"Auto-squash (interactive rebase only)\" checkbox."
 				},
 				"git-graph.dialog.rebase.ignoreDate": {
 					"type": "boolean",

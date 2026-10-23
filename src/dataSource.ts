@@ -1138,13 +1138,14 @@ export class DataSource extends Disposable {
 	 * @param actionOn Is the rebase on a branch or commit.
 	 * @param ignoreDate Is `--ignore-date` enabled.
 	 * @param interactive Should the rebase be performed interactively.
+	 * @param autosquash Is `--autosquash` enabled (only applicable to an interactive rebase).
 	 * @returns The ErrorInfo from the executed command.
 	 */
-	public rebase(repo: string, obj: string, actionOn: RebaseActionOn, ignoreDate: boolean, interactive: boolean) {
+	public rebase(repo: string, obj: string, actionOn: RebaseActionOn, ignoreDate: boolean, interactive: boolean, autosquash: boolean) {
 		if (interactive) {
 			return this.openGitTerminal(
 				repo,
-				'rebase --interactive ' + (getConfig().signCommits ? '-S ' : '') + (actionOn === RebaseActionOn.Branch ? obj.replace(/'/g, '"\'"') : obj),
+				'rebase --interactive ' + (autosquash ? '--autosquash ' : '') + (getConfig().signCommits ? '-S ' : '') + (actionOn === RebaseActionOn.Branch ? obj.replace(/'/g, '"\'"') : obj),
 				'Rebase on "' + (actionOn === RebaseActionOn.Branch ? obj : abbrevCommit(obj)) + '"'
 			);
 		} else {
@@ -1278,6 +1279,20 @@ export class DataSource extends Disposable {
 			}
 		}
 		return null;
+	}
+
+	/**
+	 * Commit the staged changes as a fixup of a commit (to be squashed into it by `git rebase --autosquash`).
+	 * @param repo The path of the repository.
+	 * @param commitHash The hash of the commit to fixup.
+	 * @returns The ErrorInfo from the executed command.
+	 */
+	public fixupCommit(repo: string, commitHash: string) {
+		const args = ['commit', '--fixup=' + commitHash];
+		if (getConfig().signCommits) {
+			args.push('-S');
+		}
+		return this.runGitCommand(args, repo);
 	}
 
 	/**

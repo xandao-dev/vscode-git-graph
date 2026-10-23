@@ -1556,6 +1556,13 @@ export class GitGraphView {
 					onClick: () => {
 						runAction({ command: 'commitMessage', repo: this.currentRepo, commitHash: hash }, 'Retrieving Commit Message');
 					}
+				},
+				{
+					title: 'Fixup this Commit',
+					visible: visibility.fixup,
+					onClick: () => {
+						runAction({ command: 'fixupCommit', repo: this.currentRepo, commitHash: hash }, 'Committing Fixup');
+					}
 				}
 			],
 			[
@@ -2368,13 +2375,14 @@ export class GitGraphView {
 				'</i></b>?',
 			[
 				{ type: DialogInputType.Checkbox, name: 'Launch Interactive Rebase in new Terminal', value: this.config.dialogDefaults.rebase.interactive },
+				{ type: DialogInputType.Checkbox, name: 'Auto-squash', value: this.config.dialogDefaults.rebase.autosquash, info: 'Only applicable to an interactive rebase.' },
 				{ type: DialogInputType.Checkbox, name: 'Ignore Date', value: this.config.dialogDefaults.rebase.ignoreDate, info: 'Only applicable to a non-interactive rebase.' }
 			],
 			'Yes, rebase',
 			(values) => {
 				let interactive = <boolean>values[0];
 				runAction(
-					{ command: 'rebase', repo: this.currentRepo, obj: obj, actionOn: actionOn, ignoreDate: <boolean>values[1], interactive: interactive },
+					{ command: 'rebase', repo: this.currentRepo, obj: obj, actionOn: actionOn, ignoreDate: <boolean>values[2], interactive: interactive, autosquash: <boolean>values[1] },
 					interactive ? 'Launching Interactive Rebase' : 'Rebasing on ' + actionOn
 				);
 			},
@@ -4153,6 +4161,9 @@ window.addEventListener('load', () => {
 				break;
 			case 'fetchIntoLocalBranch':
 				refreshOrDisplayError(msg.error, 'Unable to Fetch into Local Branch');
+				break;
+			case 'fixupCommit':
+				refreshOrDisplayError(msg.error, 'Unable to Fixup Commit');
 				break;
 			case 'loadCommits':
 				gitGraph.processLoadCommitsResponse(msg);

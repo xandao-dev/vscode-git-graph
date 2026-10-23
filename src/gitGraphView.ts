@@ -449,6 +449,12 @@ export class GitGraphView extends Disposable {
 					error: await this.dataSource.fetchIntoLocalBranch(msg.repo, msg.remote, msg.remoteBranch, msg.localBranch, msg.force)
 				});
 				break;
+			case 'fixupCommit':
+				this.sendMessage({
+					command: 'fixupCommit',
+					error: await this.dataSource.fixupCommit(msg.repo, msg.commitHash)
+				});
+				break;
 			case 'loadCommits':
 				this.loadCommitsRefreshId = msg.refreshId;
 				this.sendMessage({
@@ -587,7 +593,7 @@ export class GitGraphView extends Disposable {
 					command: 'rebase',
 					actionOn: msg.actionOn,
 					interactive: msg.interactive,
-					error: await this.dataSource.rebase(msg.repo, msg.obj, msg.actionOn, msg.ignoreDate, msg.interactive)
+					error: await this.dataSource.rebase(msg.repo, msg.obj, msg.actionOn, msg.ignoreDate, msg.interactive, msg.autosquash)
 				});
 				break;
 			case 'renameBranch':

@@ -94,7 +94,21 @@ class Config {
 				unselectInBranchesDropdown: true,
 				copyName: true
 			},
-			commit: { addTag: true, createBranch: true, checkout: true, cherrypick: true, revert: true, drop: true, edit: true, merge: true, rebase: true, reset: true, copyHash: true, copySubject: true },
+			commit: {
+				addTag: true,
+				createBranch: true,
+				checkout: true,
+				cherrypick: true,
+				revert: true,
+				drop: true,
+				edit: true,
+				fixup: true,
+				merge: true,
+				rebase: true,
+				reset: true,
+				copyHash: true,
+				copySubject: true
+			},
 			commitDetailsViewFile: {
 				viewDiff: true,
 				viewFileAtThisRevision: true,
@@ -250,6 +264,7 @@ class Config {
 				squash: !!this.config.get('dialog.pullBranch.squashCommits', false)
 			},
 			rebase: {
+				autosquash: !!this.config.get('dialog.rebase.autosquash', false),
 				ignoreDate: !!this.config.get('dialog.rebase.ignoreDate', true),
 				interactive: !!this.config.get('dialog.rebase.launchInteractiveRebase', false)
 			},

@@ -6694,7 +6694,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
 
 			// Run
-			const result = await dataSource.rebase('/path/to/repo', 'develop', RebaseActionOn.Branch, false, false);
+			const result = await dataSource.rebase('/path/to/repo', 'develop', RebaseActionOn.Branch, false, false, false);
 
 			// Assert
 			expect(result).toBe(null);
@@ -6707,7 +6707,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
 
 			// Run
-			const result = await dataSource.rebase('/path/to/repo', 'develop', RebaseActionOn.Branch, true, false);
+			const result = await dataSource.rebase('/path/to/repo', 'develop', RebaseActionOn.Branch, true, false, false);
 
 			// Assert
 			expect(result).toBe(null);
@@ -6720,7 +6720,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('repository.sign.commits', true);
 
 			// Run
-			const result = await dataSource.rebase('/path/to/repo', 'develop', RebaseActionOn.Branch, false, false);
+			const result = await dataSource.rebase('/path/to/repo', 'develop', RebaseActionOn.Branch, false, false, false);
 
 			// Assert
 			expect(result).toBe(null);
@@ -6733,7 +6733,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
 
 			// Run
-			const result = await dataSource.rebase('/path/to/repo', 'develop', RebaseActionOn.Branch, false, false);
+			const result = await dataSource.rebase('/path/to/repo', 'develop', RebaseActionOn.Branch, false, false, false);
 
 			// Assert
 			expect(result).toBe('error message');
@@ -6748,7 +6748,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
 
 			// Run
-			const resultPromise = dataSource.rebase('/path/to/repo', 'develop', RebaseActionOn.Branch, false, true);
+			const resultPromise = dataSource.rebase('/path/to/repo', 'develop', RebaseActionOn.Branch, false, true, false);
 
 			// Assert
 			expect(setTimeout).toHaveBeenCalledWith(expect.anything(), 1000);
@@ -6772,7 +6772,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
 
 			// Run
-			const resultPromise = dataSource.rebase('/path/to/repo', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', RebaseActionOn.Commit, false, true);
+			const resultPromise = dataSource.rebase('/path/to/repo', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', RebaseActionOn.Commit, false, true, false);
 
 			// Assert
 			expect(setTimeout).toHaveBeenCalledWith(expect.anything(), 1000);
@@ -6796,7 +6796,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('repository.sign.commits', true);
 
 			// Run
-			const resultPromise = dataSource.rebase('/path/to/repo', 'develop', RebaseActionOn.Branch, false, true);
+			const resultPromise = dataSource.rebase('/path/to/repo', 'develop', RebaseActionOn.Branch, false, true, false);
 
 			// Assert
 			expect(setTimeout).toHaveBeenCalledWith(expect.anything(), 1000);
@@ -6811,6 +6811,30 @@ describe('DataSource', () => {
 			expect(spyOnOpenGitTerminal).toBeCalledWith('/path/to/repo', '/path/to/git', 'rebase --interactive -S develop', 'Rebase on "develop"');
 		});
 
+		it('Should launch the interactive rebase of the current branch on a branch in a terminal (autosquashing)', async () => {
+			// Setup
+			vi.useFakeTimers();
+			vi.spyOn(globalThis, 'setTimeout');
+			const spyOnOpenGitTerminal = vi.spyOn(utils, 'openGitTerminal');
+			spyOnOpenGitTerminal.mockReturnValueOnce();
+			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
+
+			// Run
+			const resultPromise = dataSource.rebase('/path/to/repo', 'develop', RebaseActionOn.Branch, false, true, true);
+
+			// Assert
+			expect(setTimeout).toHaveBeenCalledWith(expect.anything(), 1000);
+
+			// Run
+			vi.runOnlyPendingTimers();
+			vi.useRealTimers();
+			const result = await resultPromise;
+
+			// Assert
+			expect(result).toBe(null);
+			expect(spyOnOpenGitTerminal).toBeCalledWith('/path/to/repo', '/path/to/git', 'rebase --interactive --autosquash develop', 'Rebase on "develop"');
+		});
+
 		it('Should return the "Unable to Find Git" error message when no git executable is known', async () => {
 			// Setup
 			dataSource.dispose();
@@ -6818,7 +6842,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
 
 			// Run
-			const result = await dataSource.rebase('/path/to/repo', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', RebaseActionOn.Commit, false, true);
+			const result = await dataSource.rebase('/path/to/repo', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', RebaseActionOn.Commit, false, true, false);
 
 			// Assert
 			expect(result).toBe(
@@ -7208,6 +7232,46 @@ describe('DataSource', () => {
 				// Assert
 				expect(result).toMatch(/^Unable to update ".*message", so the commit will keep its original message\.$/);
 			});
+		});
+	});
+
+	describe('fixupCommit', () => {
+		it('Should commit the staged changes as a fixup of a commit', async () => {
+			// Setup
+			mockGitSuccessOnce();
+			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
+
+			// Run
+			const result = await dataSource.fixupCommit('/path/to/repo', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b');
+
+			// Assert
+			expect(result).toBe(null);
+			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['commit', '--fixup=1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b'], expect.objectContaining({ cwd: '/path/to/repo' }));
+		});
+
+		it('Should commit the staged changes as a fixup of a commit (signing the new commit)', async () => {
+			// Setup
+			mockGitSuccessOnce();
+			vscode.mockExtensionSettingReturnValue('repository.sign.commits', true);
+
+			// Run
+			const result = await dataSource.fixupCommit('/path/to/repo', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b');
+
+			// Assert
+			expect(result).toBe(null);
+			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['commit', '--fixup=1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', '-S'], expect.objectContaining({ cwd: '/path/to/repo' }));
+		});
+
+		it('Should return an error message thrown by git', async () => {
+			// Setup
+			mockGitThrowingErrorOnce();
+			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
+
+			// Run
+			const result = await dataSource.fixupCommit('/path/to/repo', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b');
+
+			// Assert
+			expect(result).toBe('error message');
 		});
 	});
 

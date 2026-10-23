@@ -2206,6 +2206,33 @@ describe('GitGraphView', () => {
 			});
 		});
 
+		describe('fixupCommit', () => {
+			it('Should commit the staged changes as a fixup of a commit', async () => {
+				// Setup
+				const fixupCommitResolvedValue = null;
+				const spyOnFixupCommit = vi.spyOn(dataSource, 'fixupCommit');
+				spyOnFixupCommit.mockResolvedValueOnce(fixupCommitResolvedValue);
+
+				// Run
+				onDidReceiveMessage({
+					command: 'fixupCommit',
+					repo: '/path/to/repo',
+					commitHash: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b'
+				});
+
+				// Assert
+				await waitForExpect(() => {
+					expect(spyOnFixupCommit).toHaveBeenCalledWith('/path/to/repo', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b');
+					expect(messages).toStrictEqual([
+						{
+							command: 'fixupCommit',
+							error: fixupCommitResolvedValue
+						}
+					]);
+				});
+			});
+		});
+
 		describe('loadCommits', () => {
 			const getCommitsResolvedValue = {
 				commits: [
@@ -3152,12 +3179,13 @@ describe('GitGraphView', () => {
 					obj: 'feature',
 					actionOn: RebaseActionOn.Branch,
 					ignoreDate: true,
-					interactive: false
+					interactive: false,
+					autosquash: false
 				});
 
 				// Assert
 				await waitForExpect(() => {
-					expect(spyOnRebase).toHaveBeenCalledWith('/path/to/repo', 'feature', RebaseActionOn.Branch, true, false);
+					expect(spyOnRebase).toHaveBeenCalledWith('/path/to/repo', 'feature', RebaseActionOn.Branch, true, false, false);
 					expect(messages).toStrictEqual([
 						{
 							command: 'rebase',

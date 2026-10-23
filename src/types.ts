@@ -361,6 +361,7 @@ export interface ContextMenuActionsVisibility {
 		readonly revert: boolean;
 		readonly drop: boolean;
 		readonly edit: boolean;
+		readonly fixup: boolean;
 		readonly merge: boolean;
 		readonly rebase: boolean;
 		readonly reset: boolean;
@@ -493,6 +494,7 @@ export interface DialogDefaults {
 		readonly squash: boolean;
 	};
 	readonly rebase: {
+		readonly autosquash: boolean;
 		readonly ignoreDate: boolean;
 		readonly interactive: boolean;
 	};
@@ -915,6 +917,14 @@ export interface ResponseFetchIntoLocalBranch extends ResponseWithErrorInfo {
 	readonly command: 'fetchIntoLocalBranch';
 }
 
+export interface RequestFixupCommit extends RepoRequest {
+	readonly command: 'fixupCommit';
+	readonly commitHash: string;
+}
+export interface ResponseFixupCommit extends ResponseWithErrorInfo {
+	readonly command: 'fixupCommit';
+}
+
 export interface RequestLoadCommits extends RepoRequest {
 	readonly command: 'loadCommits';
 	readonly refreshId: number;
@@ -1116,6 +1126,7 @@ export interface RequestRebase extends RepoRequest {
 	readonly actionOn: RebaseActionOn;
 	readonly ignoreDate: boolean;
 	readonly interactive: boolean;
+	readonly autosquash: boolean;
 }
 export interface ResponseRebase extends ResponseWithErrorInfo {
 	readonly command: 'rebase';
@@ -1300,6 +1311,7 @@ export type RequestMessage =
 	| RequestFetch
 	| RequestFetchAvatar
 	| RequestFetchIntoLocalBranch
+	| RequestFixupCommit
 	| RequestLoadCommits
 	| RequestLoadConfig
 	| RequestLoadRepoInfo
@@ -1365,6 +1377,7 @@ export type ResponseMessage =
 	| ResponseFetch
 	| ResponseFetchAvatar
 	| ResponseFetchIntoLocalBranch
+	| ResponseFixupCommit
 	| ResponseLoadCommits
 	| ResponseLoadConfig
 	| ResponseLoadRepoInfo
