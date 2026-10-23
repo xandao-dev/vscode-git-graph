@@ -291,15 +291,17 @@ export class GitGraphView extends Disposable {
 					msg.commitHash === UNCOMMITTED
 						? this.dataSource.getUncommittedDetails(msg.repo)
 						: msg.stash === null
-							? this.dataSource.getCommitDetails(msg.repo, msg.commitHash, msg.hasParents)
-							: this.dataSource.getStashDetails(msg.repo, msg.commitHash, msg.stash),
+							? this.dataSource.getCommitDetails(msg.repo, msg.commitHash, msg.hasParents, msg.parentIndex)
+							: this.dataSource.getStashDetails(msg.repo, msg.commitHash, msg.stash, msg.parentIndex),
 					msg.avatarEmail !== null ? this.avatarManager.getAvatarImage(msg.avatarEmail) : Promise.resolve(null)
 				]);
 				this.sendMessage({
 					command: 'commitDetails',
 					...data[0],
+					parentIndex: msg.parentIndex,
 					avatar: data[1],
-					codeReview: msg.commitHash !== UNCOMMITTED ? this.extensionState.getCodeReview(msg.repo, msg.commitHash) : null,
+					// Code Reviews of a commit are of its changes against the first parent
+					codeReview: msg.commitHash !== UNCOMMITTED && msg.parentIndex === 1 ? this.extensionState.getCodeReview(msg.repo, msg.commitHash) : null,
 					refresh: msg.refresh
 				});
 				break;

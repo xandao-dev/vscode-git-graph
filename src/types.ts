@@ -696,6 +696,7 @@ export interface RequestCommitDetails extends RepoRequest {
 	readonly command: 'commitDetails';
 	readonly commitHash: string;
 	readonly hasParents: boolean;
+	readonly parentIndex: number; // The (1-based) index of the parent that the commit's changes are diffed against
 	readonly stash: GitCommitStash | null; // null => request is for a commit, otherwise => request is for a stash
 	readonly avatarEmail: string | null; // string => fetch avatar with the given email, null => don't fetch avatar
 	readonly refresh: boolean;
@@ -703,6 +704,7 @@ export interface RequestCommitDetails extends RepoRequest {
 export interface ResponseCommitDetails extends ResponseWithErrorInfo {
 	readonly command: 'commitDetails';
 	readonly commitDetails: GitCommitDetails | null;
+	readonly parentIndex: number;
 	readonly avatar: string | null;
 	readonly codeReview: CodeReview | null;
 	readonly refresh: boolean;

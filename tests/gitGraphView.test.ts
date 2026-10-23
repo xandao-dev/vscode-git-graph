@@ -1049,6 +1049,7 @@ describe('GitGraphView', () => {
 					repo: '/path/to/repo',
 					commitHash: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
 					hasParents: true,
+					parentIndex: 1,
 					stash: null,
 					avatarEmail: 'user@mhutchie.com',
 					refresh: false
@@ -1056,15 +1057,53 @@ describe('GitGraphView', () => {
 
 				// Assert
 				await waitForExpect(() => {
-					expect(spyOnGetCommitDetails).toHaveBeenCalledWith('/path/to/repo', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', true);
+					expect(spyOnGetCommitDetails).toHaveBeenCalledWith('/path/to/repo', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', true, 1);
 					expect(spyOnGetAvatarImage).toHaveBeenCalledWith('user@mhutchie.com');
 					expect(spyOnGetCodeReview).toHaveBeenCalledWith('/path/to/repo', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b');
 					expect(messages).toStrictEqual([
 						{
 							command: 'commitDetails',
 							commitDetails: null,
+							parentIndex: 1,
 							avatar: getAvatarImageResolvedValue,
 							codeReview: getCodeReviewResolvedValue,
+							refresh: false,
+							error: null
+						}
+					]);
+				});
+			});
+
+			it('Should get the data for the Commit Details View (Alternate Parent)', async () => {
+				// Setup
+				const getCommitDetailsResolvedValue = { commitDetails: null, error: null };
+				const spyOnGetCommitDetails = vi.spyOn(dataSource, 'getCommitDetails');
+				const spyOnGetCodeReview = vi.spyOn(extensionState, 'getCodeReview');
+				spyOnGetCommitDetails.mockResolvedValueOnce(getCommitDetailsResolvedValue);
+
+				// Run
+				onDidReceiveMessage({
+					command: 'commitDetails',
+					repo: '/path/to/repo',
+					commitHash: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
+					hasParents: true,
+					parentIndex: 2,
+					stash: null,
+					avatarEmail: null,
+					refresh: false
+				});
+
+				// Assert
+				await waitForExpect(() => {
+					expect(spyOnGetCommitDetails).toHaveBeenCalledWith('/path/to/repo', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', true, 2);
+					expect(spyOnGetCodeReview).not.toHaveBeenCalled();
+					expect(messages).toStrictEqual([
+						{
+							command: 'commitDetails',
+							commitDetails: null,
+							parentIndex: 2,
+							avatar: null,
+							codeReview: null,
 							refresh: false,
 							error: null
 						}
@@ -1086,6 +1125,7 @@ describe('GitGraphView', () => {
 					repo: '/path/to/repo',
 					commitHash: utils.UNCOMMITTED,
 					hasParents: true,
+					parentIndex: 1,
 					stash: null,
 					avatarEmail: null,
 					refresh: false
@@ -1100,6 +1140,7 @@ describe('GitGraphView', () => {
 						{
 							command: 'commitDetails',
 							commitDetails: null,
+							parentIndex: 1,
 							avatar: null,
 							codeReview: null,
 							refresh: false,
@@ -1130,6 +1171,7 @@ describe('GitGraphView', () => {
 					repo: '/path/to/repo',
 					commitHash: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
 					hasParents: true,
+					parentIndex: 1,
 					stash: stash,
 					avatarEmail: null,
 					refresh: false
@@ -1137,13 +1179,14 @@ describe('GitGraphView', () => {
 
 				// Assert
 				await waitForExpect(() => {
-					expect(spyOnGetStashDetails).toHaveBeenCalledWith('/path/to/repo', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', stash);
+					expect(spyOnGetStashDetails).toHaveBeenCalledWith('/path/to/repo', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', stash, 1);
 					expect(spyOnGetAvatarImage).not.toHaveBeenCalled();
 					expect(spyOnGetCodeReview).toHaveBeenCalledWith('/path/to/repo', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b');
 					expect(messages).toStrictEqual([
 						{
 							command: 'commitDetails',
 							commitDetails: null,
+							parentIndex: 1,
 							avatar: null,
 							codeReview: getCodeReviewResolvedValue,
 							refresh: false,

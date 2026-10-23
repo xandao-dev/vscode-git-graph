@@ -455,7 +455,7 @@ export class GitGraphView {
 					if (this.expandedCommit.compareWithHash === null) {
 						// Commit Details View is open
 						if (this.expandedCommit.commitHash === UNCOMMITTED) {
-							this.requestCommitDetails(this.expandedCommit.commitHash, true);
+							this.requestCommitDetails(this.expandedCommit.commitHash, this.expandedCommit.parentIndex, true);
 						}
 					} else {
 						// Commit Comparison is open
@@ -801,13 +801,14 @@ export class GitGraphView {
 		this.settingsWidget.refresh();
 	}
 
-	public requestCommitDetails(hash: string, refresh: boolean) {
+	public requestCommitDetails(hash: string, parentIndex: number, refresh: boolean) {
 		let commit = this.commits[this.commitLookup[hash]];
 		sendMessage({
 			command: 'commitDetails',
 			repo: this.currentRepo,
 			commitHash: hash,
 			hasParents: commit.parents.length > 0,
+			parentIndex: parentIndex,
 			stash: commit.stash,
 			avatarEmail: this.config.fetchAvatars && hash !== UNCOMMITTED ? commit.email : null,
 			refresh: refresh
@@ -885,11 +886,12 @@ export class GitGraphView {
 		this.saveRepoState();
 	}
 
-	private saveExpandedCommitLoading(index: number, commitHash: string, commitElem: HTMLElement, compareWithHash: string | null, compareWithElem: HTMLElement | null) {
+	private saveExpandedCommitLoading(index: number, commitHash: string, commitElem: HTMLElement, compareWithHash: string | null, compareWithElem: HTMLElement | null, parentIndex: number = 1) {
 		this.expandedCommit = {
 			index: index,
 			commitHash: commitHash,
 			commitElem: commitElem,
+			parentIndex: parentIndex,
 			compareWithHash: compareWithHash,
 			compareWithElem: compareWithElem,
 			commitDetails: null,
@@ -1153,12 +1155,20 @@ export class GitGraphView {
 				if (expandedCommit.compareWithHash === null) {
 					// Commit Details View is open
 					if (!expandedCommit.loading && expandedCommit.commitDetails !== null && expandedCommit.fileTree !== null) {
-						this.showCommitDetails(expandedCommit.commitDetails, expandedCommit.fileTree, expandedCommit.avatar, expandedCommit.codeReview, expandedCommit.lastViewedFile, true);
+						this.showCommitDetails(
+							expandedCommit.commitDetails,
+							expandedCommit.parentIndex,
+							expandedCommit.fileTree,
+							expandedCommit.avatar,
+							expandedCommit.codeReview,
+							expandedCommit.lastViewedFile,
+							true
+						);
 						if (expandedCommit.commitHash === UNCOMMITTED) {
-							this.requestCommitDetails(expandedCommit.commitHash, true);
+							this.requestCommitDetails(expandedCommit.commitHash, expandedCommit.parentIndex, true);
 						}
 					} else {
-						this.loadCommitDetails(commitElem);
+						this.loadCommitDetails(commitElem, expandedCommit.parentIndex);
 					}
 				} else {
 					// Commit Comparison is open
@@ -3142,6 +3152,7 @@ export class GitGraphView {
 			const isExternalUrl = isExternalUrlElem(eventTarget),
 				isInternalUrl = isInternalUrlElem(eventTarget);
 			if (isExternalUrl || isInternalUrl) {
+				const parentIndex = typeof (<HTMLElement>eventTarget).dataset.parent === 'string' ? parseInt((<HTMLElement>eventTarget).dataset.parent!) : null;
 				const viewElem: HTMLElement | null = eventTarget.closest('#view');
 				let eventElem: HTMLElement | null;
 
@@ -3190,6 +3201,13 @@ export class GitGraphView {
 								title: 'Follow Internal Link',
 								visible: isInternalUrl,
 								onClick: () => followInternalLink(e)
+							},
+							{
+								title: 'View Changes with this Parent',
+								visible: parentIndex !== null && this.expandedCommit !== null && parentIndex !== this.expandedCommit.parentIndex,
+								onClick: () => {
+									if (this.expandedCommit !== null && this.expandedCommit.commitElem !== null) this.loadCommitDetails(this.expandedCommit.commitElem, parentIndex!);
+								}
 							},
 							{
 								title: 'Copy URL to Clipboard',
@@ -3438,15 +3456,15 @@ export class GitGraphView {
 
 	/* Commit Details View */
 
-	public loadCommitDetails(commitElem: HTMLElement) {
+	public loadCommitDetails(commitElem: HTMLElement, parentIndex: number = 1) {
 		const commit = this.getCommitOfElem(commitElem);
 		if (commit === null) return;
 
 		this.closeCommitDetails(false);
-		this.saveExpandedCommitLoading(parseInt(commitElem.dataset.id!), commit.hash, commitElem, null, null);
+		this.saveExpandedCommitLoading(parseInt(commitElem.dataset.id!), commit.hash, commitElem, null, null, parentIndex);
 		commitElem.classList.add(CLASS_COMMIT_DETAILS_OPEN);
 		this.renderCommitDetailsView(false);
-		this.requestCommitDetails(commit.hash, false);
+		this.requestCommitDetails(commit.hash, parentIndex, false);
 	}
 
 	public closeCommitDetails(saveAndRender: boolean) {
@@ -3477,9 +3495,24 @@ export class GitGraphView {
 		}
 	}
 
-	public showCommitDetails(commitDetails: GG.GitCommitDetails, fileTree: FileTreeFolder, avatar: string | null, codeReview: GG.CodeReview | null, lastViewedFile: string | null, refresh: boolean) {
+	public showCommitDetails(
+		commitDetails: GG.GitCommitDetails,
+		parentIndex: number,
+		fileTree: FileTreeFolder,
+		avatar: string | null,
+		codeReview: GG.CodeReview | null,
+		lastViewedFile: string | null,
+		refresh: boolean
+	) {
 		const expandedCommit = this.expandedCommit;
-		if (expandedCommit === null || expandedCommit.commitElem === null || expandedCommit.commitHash !== commitDetails.hash || expandedCommit.compareWithHash !== null) return;
+		if (
+			expandedCommit === null ||
+			expandedCommit.commitElem === null ||
+			expandedCommit.commitHash !== commitDetails.hash ||
+			expandedCommit.compareWithHash !== null ||
+			expandedCommit.parentIndex !== parentIndex
+		)
+			return;
 
 		if (!this.isCdvDocked()) {
 			const elem = document.getElementById('cdv');
@@ -3576,7 +3609,7 @@ export class GitGraphView {
 			if (expandedCommit.commitElem !== null) {
 				this.saveExpandedCommitLoading(expandedCommit.index, expandedCommit.commitHash, expandedCommit.commitElem, null, null);
 				this.renderCommitDetailsView(false);
-				this.requestCommitDetails(expandedCommit.commitHash, false);
+				this.requestCommitDetails(expandedCommit.commitHash, 1, false);
 			} else {
 				this.closeCommitDetails(true);
 			}
@@ -3629,8 +3662,9 @@ export class GitGraphView {
 			html = '<div id="cdvContent">',
 			isDocked = this.isCdvDocked();
 		const commitOrder = this.getCommitOrder(expandedCommit.commitHash, expandedCommit.compareWithHash === null ? expandedCommit.commitHash : expandedCommit.compareWithHash);
-		const codeReviewPossible = !expandedCommit.loading && commitOrder.to !== UNCOMMITTED;
+		const codeReviewPossible = !expandedCommit.loading && commitOrder.to !== UNCOMMITTED && expandedCommit.parentIndex === 1;
 		const externalDiffPossible = !expandedCommit.loading && (expandedCommit.compareWithHash !== null || this.commits[this.commitLookup[expandedCommit.commitHash]].parents.length > 0);
+		const diffParents = this.getCdvDiffParents(expandedCommit);
 
 		if (elem === null) {
 			elem = document.createElement(isDocked ? 'div' : 'tr');
@@ -3668,11 +3702,22 @@ export class GitGraphView {
 					const parents =
 						commitDetails.parents.length > 0
 							? commitDetails.parents
-									.map((parent) => {
+									.map((parent, i) => {
 										const escapedParent = escapeHtml(parent);
-										return typeof this.commitLookup[parent] === 'number'
-											? '<span class="' + CLASS_INTERNAL_URL + '" data-type="commit" data-value="' + escapedParent + '" tabindex="-1">' + escapedParent + '</span>'
-											: escapedParent;
+										const isDiffParent = diffParents.length > 1 && diffParents[i] === parent;
+										const parentHtml =
+											typeof this.commitLookup[parent] === 'number'
+												? '<span class="' +
+													CLASS_INTERNAL_URL +
+													'" data-type="commit" data-value="' +
+													escapedParent +
+													'"' +
+													(isDiffParent ? ' data-parent="' + (i + 1) + '"' : '') +
+													' tabindex="-1">' +
+													escapedParent +
+													'</span>'
+												: escapedParent;
+										return isDiffParent && i + 1 === expandedCommit.parentIndex ? '<b>' + parentHtml + '</b>' : parentHtml;
 									})
 									.join(', ')
 							: 'None';
@@ -3740,6 +3785,7 @@ export class GitGraphView {
 					'</div>'
 				: '') +
 			(externalDiffPossible ? '<div id="cdvExternalDiff" class="cdvControlBtn">' + SVG_ICONS.linkExternal + '</div>' : '') +
+			(diffParents.length > 1 ? '<div id="cdvChooseParent" class="cdvControlBtn" title="View Changes with an Alternate Parent' + ELLIPSIS + '">' + SVG_ICONS.merge + '</div>' : '') +
 			'</div><div class="cdvHeightResize"></div>';
 
 		elem.innerHTML = isDocked ? html : '<td><div class="cdvHeightResize"></div></td><td colspan="' + (this.getNumColumns() - 1) + '">' + html + '</td>';
@@ -3856,11 +3902,40 @@ export class GitGraphView {
 						{
 							command: 'openExternalDirDiff',
 							repo: this.currentRepo,
-							fromHash: commitOrder.from,
+							fromHash: expandedCommit.parentIndex > 1 ? expandedCommit.commitDetails!.parents[expandedCommit.parentIndex - 1] : commitOrder.from,
 							toHash: commitOrder.to,
 							isGui: this.gitConfig.guiDiffTool !== null
 						},
 						'Opening External Directory Diff'
+					);
+				});
+			}
+
+			if (diffParents.length > 1) {
+				document.getElementById('cdvChooseParent')!.addEventListener('click', (e) => {
+					const expandedCommit = this.expandedCommit;
+					if (expandedCommit === null || expandedCommit.commitElem === null) return;
+					handledEvent(e);
+
+					const target: ContextMenuTarget & CommitTarget = {
+						type: TargetType.CommitDetailsView,
+						hash: expandedCommit.commitHash,
+						index: this.commitLookup[expandedCommit.commitHash],
+						elem: <HTMLElement>e.currentTarget
+					};
+					contextMenu.show(
+						[
+							diffParents.map((parent, i) => ({
+								title: escapeHtml(abbrevCommit(parent) + (typeof this.commitLookup[parent] === 'number' ? ': ' + this.commits[this.commitLookup[parent]].message : '')),
+								visible: true,
+								checked: i + 1 === expandedCommit.parentIndex,
+								onClick: () => this.loadCommitDetails(expandedCommit.commitElem!, i + 1)
+							}))
+						],
+						true,
+						target,
+						e,
+						this.isCdvDocked() ? document.body : this.viewElem
 					);
 				});
 			}
@@ -4031,6 +4106,17 @@ export class GitGraphView {
 		}
 	}
 
+	/**
+	 * Get the parents of the commit open in the Commit Details View, that its changes can be viewed against.
+	 * @param expandedCommit The expanded commit.
+	 * @returns The hashes of the parents. A stash's untracked files commit is excluded, as its files are always listed as untracked files.
+	 */
+	private getCdvDiffParents(expandedCommit: ExpandedCommit) {
+		if (expandedCommit.compareWithHash !== null || expandedCommit.commitDetails === null) return [];
+		const stash = this.commits[this.commitLookup[expandedCommit.commitHash]].stash;
+		return expandedCommit.commitDetails.parents.filter((parent) => stash === null || parent !== stash.untrackedFilesHash);
+	}
+
 	private getFileViewType() {
 		return this.gitRepos[this.currentRepo].fileViewType === GG.FileViewType.Default ? this.config.commitDetailsView.fileViewType : this.gitRepos[this.currentRepo].fileViewType;
 	}
@@ -4094,9 +4180,13 @@ export class GitGraphView {
 					toHash = commit.stash.untrackedFilesHash!;
 					fileStatus = GG.GitFileStatus.Added;
 				} else {
-					fromHash = commit.stash.baseHash;
+					fromHash = expandedCommit.parentIndex > 1 ? expandedCommit.commitDetails!.parents[expandedCommit.parentIndex - 1] : commit.stash.baseHash;
 					toHash = expandedCommit.commitHash;
 				}
+			} else if (expandedCommit.parentIndex > 1) {
+				// Single Commit, viewed against an alternate parent
+				fromHash = expandedCommit.commitDetails!.parents[expandedCommit.parentIndex - 1];
+				toHash = expandedCommit.commitHash;
 			} else {
 				// Single Commit
 				fromHash = expandedCommit.commitHash;
@@ -4436,6 +4526,7 @@ window.addEventListener('load', () => {
 				if (msg.commitDetails !== null) {
 					gitGraph.showCommitDetails(
 						msg.commitDetails,
+						msg.parentIndex,
 						gitGraph.createFileTree(msg.commitDetails.fileChanges, msg.codeReview),
 						msg.avatar,
 						msg.codeReview,
