@@ -2294,6 +2294,12 @@ export class GitGraphView {
 				{ type: DialogInputType.Checkbox, name: 'Create a new commit even if fast-forward is possible', value: this.config.dialogDefaults.merge.noFastForward },
 				{
 					type: DialogInputType.Checkbox,
+					name: 'Allow unrelated histories',
+					value: this.config.dialogDefaults.merge.allowUnrelatedHistories,
+					info: 'Allow merging branches from two completely different repositories or branches.'
+				},
+				{
+					type: DialogInputType.Checkbox,
 					name: 'Squash Commits',
 					value: this.config.dialogDefaults.merge.squash,
 					info: 'Create a single commit on the current branch whose effect is the same as merging this ' + actionOn.toLowerCase() + '.'
@@ -2308,7 +2314,16 @@ export class GitGraphView {
 			'Yes, merge',
 			(values) => {
 				runAction(
-					{ command: 'merge', repo: this.currentRepo, obj: obj, actionOn: actionOn, createNewCommit: <boolean>values[0], squash: <boolean>values[1], noCommit: <boolean>values[2] },
+					{
+						command: 'merge',
+						repo: this.currentRepo,
+						obj: obj,
+						actionOn: actionOn,
+						createNewCommit: <boolean>values[0],
+						allowUnrelatedHistories: <boolean>values[1],
+						squash: <boolean>values[2],
+						noCommit: <boolean>values[3]
+					},
 					'Merging ' + actionOn
 				);
 			},

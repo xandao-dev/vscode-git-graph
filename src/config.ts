@@ -237,6 +237,7 @@ class Config {
 				referenceInputSpaceSubstitution: refInputSpaceSubstitution === 'Hyphen' ? '-' : refInputSpaceSubstitution === 'Underscore' ? '_' : null
 			},
 			merge: {
+				allowUnrelatedHistories: !!this.config.get('dialog.merge.allowUnrelatedHistories', false),
 				noCommit: !!this.config.get('dialog.merge.noCommit', false),
 				noFastForward: !!this.config.get('dialog.merge.noFastForward', true),
 				squash: !!this.config.get('dialog.merge.squashCommits', false)

@@ -865,6 +865,7 @@ describe('Config', () => {
 				'dialog.fetchIntoLocalBranch.forceFetch',
 				'dialog.fetchRemote.prune',
 				'dialog.fetchRemote.pruneTags',
+				'dialog.merge.allowUnrelatedHistories',
 				'dialog.merge.noCommit',
 				'dialog.merge.noFastForward',
 				'dialog.merge.squashCommits',
@@ -891,6 +892,7 @@ describe('Config', () => {
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.fetchRemote.prune', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.fetchRemote.pruneTags', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.general.referenceInputSpaceSubstitution', 'None');
+			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.allowUnrelatedHistories', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.noCommit', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.noFastForward', true);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.squashCommits', false);
@@ -931,6 +933,7 @@ describe('Config', () => {
 					referenceInputSpaceSubstitution: null
 				},
 				merge: {
+					allowUnrelatedHistories: true,
 					noCommit: true,
 					noFastForward: true,
 					squash: true
@@ -970,6 +973,7 @@ describe('Config', () => {
 				'dialog.fetchIntoLocalBranch.forceFetch',
 				'dialog.fetchRemote.prune',
 				'dialog.fetchRemote.pruneTags',
+				'dialog.merge.allowUnrelatedHistories',
 				'dialog.merge.noCommit',
 				'dialog.merge.noFastForward',
 				'dialog.merge.squashCommits',
@@ -996,6 +1000,7 @@ describe('Config', () => {
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.fetchRemote.prune', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.fetchRemote.pruneTags', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.general.referenceInputSpaceSubstitution', 'None');
+			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.allowUnrelatedHistories', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.noCommit', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.noFastForward', true);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.squashCommits', false);
@@ -1036,6 +1041,7 @@ describe('Config', () => {
 					referenceInputSpaceSubstitution: null
 				},
 				merge: {
+					allowUnrelatedHistories: false,
 					noCommit: false,
 					noFastForward: false,
 					squash: false
@@ -1075,6 +1081,7 @@ describe('Config', () => {
 				'dialog.fetchIntoLocalBranch.forceFetch',
 				'dialog.fetchRemote.prune',
 				'dialog.fetchRemote.pruneTags',
+				'dialog.merge.allowUnrelatedHistories',
 				'dialog.merge.noCommit',
 				'dialog.merge.noFastForward',
 				'dialog.merge.squashCommits',
@@ -1101,6 +1108,7 @@ describe('Config', () => {
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.fetchRemote.prune', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.fetchRemote.pruneTags', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.general.referenceInputSpaceSubstitution', 'None');
+			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.allowUnrelatedHistories', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.noCommit', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.noFastForward', true);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.squashCommits', false);
@@ -1141,6 +1149,7 @@ describe('Config', () => {
 					referenceInputSpaceSubstitution: null
 				},
 				merge: {
+					allowUnrelatedHistories: true,
 					noCommit: true,
 					noFastForward: true,
 					squash: true
@@ -1180,6 +1189,7 @@ describe('Config', () => {
 				'dialog.fetchIntoLocalBranch.forceFetch',
 				'dialog.fetchRemote.prune',
 				'dialog.fetchRemote.pruneTags',
+				'dialog.merge.allowUnrelatedHistories',
 				'dialog.merge.noCommit',
 				'dialog.merge.noFastForward',
 				'dialog.merge.squashCommits',
@@ -1206,6 +1216,7 @@ describe('Config', () => {
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.fetchRemote.prune', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.fetchRemote.pruneTags', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.general.referenceInputSpaceSubstitution', 'None');
+			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.allowUnrelatedHistories', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.noCommit', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.noFastForward', true);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.squashCommits', false);
@@ -1246,6 +1257,7 @@ describe('Config', () => {
 					referenceInputSpaceSubstitution: null
 				},
 				merge: {
+					allowUnrelatedHistories: false,
 					noCommit: false,
 					noFastForward: false,
 					squash: false
@@ -1292,6 +1304,7 @@ describe('Config', () => {
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.fetchRemote.prune', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.fetchRemote.pruneTags', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.general.referenceInputSpaceSubstitution', 'None');
+			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.allowUnrelatedHistories', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.noCommit', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.noFastForward', true);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.squashCommits', false);
@@ -1332,6 +1345,7 @@ describe('Config', () => {
 					referenceInputSpaceSubstitution: null
 				},
 				merge: {
+					allowUnrelatedHistories: false,
 					noCommit: false,
 					noFastForward: true,
 					squash: false
@@ -1375,6 +1389,7 @@ describe('Config', () => {
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.fetchRemote.prune', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.fetchRemote.pruneTags', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.general.referenceInputSpaceSubstitution', 'None');
+			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.allowUnrelatedHistories', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.noCommit', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.noFastForward', true);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.squashCommits', false);
@@ -1415,6 +1430,7 @@ describe('Config', () => {
 					referenceInputSpaceSubstitution: null
 				},
 				merge: {
+					allowUnrelatedHistories: false,
 					noCommit: false,
 					noFastForward: true,
 					squash: false

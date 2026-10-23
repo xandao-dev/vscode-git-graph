@@ -615,6 +615,11 @@
 					"default": "None",
 					"description": "Specifies a substitution that is automatically performed when space characters are entered or pasted into reference inputs on dialogs (e.g. Create Branch, Add Tag, etc.)."
 				},
+				"git-graph.dialog.merge.allowUnrelatedHistories": {
+					"type": "boolean",
+					"default": false,
+					"description": "Default state of the \"Allow unrelated histories\" checkbox."
+				},
 				"git-graph.dialog.merge.noCommit": {
 					"type": "boolean",
 					"default": false,

@@ -480,6 +480,7 @@ export interface DialogDefaults {
 		readonly referenceInputSpaceSubstitution: string | null;
 	};
 	readonly merge: {
+		readonly allowUnrelatedHistories: boolean;
 		readonly noCommit: boolean;
 		readonly noFastForward: boolean;
 		readonly squash: boolean;
@@ -986,6 +987,7 @@ export interface RequestMerge extends RepoRequest {
 	readonly obj: string;
 	readonly actionOn: MergeActionOn;
 	readonly createNewCommit: boolean;
+	readonly allowUnrelatedHistories: boolean;
 	readonly squash: boolean;
 	readonly noCommit: boolean;
 }

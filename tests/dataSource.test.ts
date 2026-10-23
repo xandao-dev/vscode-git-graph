@@ -6386,7 +6386,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
 
 			// Run
-			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, false, false, false);
+			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, false, false, false, false);
 
 			// Assert
 			expect(result).toBe(null);
@@ -6400,7 +6400,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
 
 			// Run
-			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, true, false, false);
+			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, true, false, false, false);
 
 			// Assert
 			expect(result).toBe(null);
@@ -6414,12 +6414,26 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('repository.sign.commits', true);
 
 			// Run
-			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, true, false, false);
+			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, true, false, false, false);
 
 			// Assert
 			expect(result).toBe(null);
 			expect(spyOnSpawn).toBeCalledTimes(1);
 			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['merge', 'develop', '--no-ff', '-S'], expect.objectContaining({ cwd: '/path/to/repo' }));
+		});
+
+		it('Should merge a branch into the current branch (allowing unrelated histories)', async () => {
+			// Setup
+			mockGitSuccessOnce();
+			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
+
+			// Run
+			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, false, true, false, false);
+
+			// Assert
+			expect(result).toBe(null);
+			expect(spyOnSpawn).toBeCalledTimes(1);
+			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['merge', 'develop', '--allow-unrelated-histories'], expect.objectContaining({ cwd: '/path/to/repo' }));
 		});
 
 		it('Should merge a branch into the current branch (squash and staged changes exist)', async () => {
@@ -6431,7 +6445,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('dialog.merge.squashMessageFormat', 'Default');
 
 			// Run
-			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, false, true, false);
+			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, false, false, true, false);
 
 			// Assert
 			expect(result).toBe(null);
@@ -6452,7 +6466,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('dialog.merge.squashMessageFormat', 'Default');
 
 			// Run
-			const result = await dataSource.merge('/path/to/repo', 'origin/develop', MergeActionOn.RemoteTrackingBranch, false, true, false);
+			const result = await dataSource.merge('/path/to/repo', 'origin/develop', MergeActionOn.RemoteTrackingBranch, false, false, true, false);
 
 			// Assert
 			expect(result).toBe(null);
@@ -6471,7 +6485,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('dialog.merge.squashMessageFormat', 'Default');
 
 			// Run
-			const result = await dataSource.merge('/path/to/repo', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', MergeActionOn.Commit, false, true, false);
+			const result = await dataSource.merge('/path/to/repo', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', MergeActionOn.Commit, false, false, true, false);
 
 			// Assert
 			expect(result).toBe(null);
@@ -6490,7 +6504,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('dialog.merge.squashMessageFormat', 'Default');
 
 			// Run
-			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, false, true, false);
+			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, false, false, true, false);
 
 			// Assert
 			expect(result).toBe(null);
@@ -6511,7 +6525,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('dialog.merge.squashMessageFormat', 'Git SQUASH_MSG');
 
 			// Run
-			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, false, true, false);
+			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, false, false, true, false);
 
 			// Assert
 			expect(result).toBe(null);
@@ -6528,7 +6542,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
 
 			// Run
-			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, false, true, false);
+			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, false, false, true, false);
 
 			// Assert
 			expect(result).toBe(null);
@@ -6543,7 +6557,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
 
 			// Run
-			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, false, false, true);
+			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, false, false, false, true);
 
 			// Assert
 			expect(result).toBe(null);
@@ -6557,7 +6571,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
 
 			// Run
-			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, false, true, true);
+			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, false, false, true, true);
 
 			// Assert
 			expect(result).toBe(null);
@@ -6571,7 +6585,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
 
 			// Run
-			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, true, true, true);
+			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, true, false, true, true);
 
 			// Assert
 			expect(result).toBe(null);
@@ -6585,7 +6599,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
 
 			// Run
-			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, false, true, false);
+			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, false, false, true, false);
 
 			// Assert
 			expect(result).toBe('error message');
@@ -6600,7 +6614,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
 
 			// Run
-			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, false, true, false);
+			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, false, false, true, false);
 
 			// Assert
 			expect(result).toBe('error message');

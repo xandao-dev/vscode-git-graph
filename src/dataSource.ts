@@ -1099,11 +1099,12 @@ export class DataSource extends Disposable {
 	 * @param obj The object to be merged into the current branch.
 	 * @param actionOn Is the merge on a branch, remote-tracking branch or commit.
 	 * @param createNewCommit Is `--no-ff` enabled.
+	 * @param allowUnrelatedHistories Is `--allow-unrelated-histories` enabled.
 	 * @param squash Is `--squash` enabled.
 	 * @param noCommit Is `--no-commit` enabled.
 	 * @returns The ErrorInfo from the executed command.
 	 */
-	public merge(repo: string, obj: string, actionOn: MergeActionOn, createNewCommit: boolean, squash: boolean, noCommit: boolean) {
+	public merge(repo: string, obj: string, actionOn: MergeActionOn, createNewCommit: boolean, allowUnrelatedHistories: boolean, squash: boolean, noCommit: boolean) {
 		const args = ['merge', obj],
 			config = getConfig();
 		if (squash) {
@@ -1116,6 +1117,9 @@ export class DataSource extends Disposable {
 		}
 		if (config.signCommits) {
 			args.push('-S');
+		}
+		if (allowUnrelatedHistories) {
+			args.push('--allow-unrelated-histories');
 		}
 		return this.runGitCommand(args, repo).then((mergeStatus) => {
 			return mergeStatus === null && squash && !noCommit ? this.commitSquashIfStagedChangesExist(repo, obj, actionOn, config.squashMergeMessageFormat, config.signCommits) : mergeStatus;
