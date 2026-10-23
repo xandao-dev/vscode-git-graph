@@ -472,7 +472,8 @@ export class GitGraphView extends Disposable {
 						msg.commitOrdering,
 						msg.remotes,
 						msg.hideRemotes,
-						msg.stashes
+						msg.stashes,
+						msg.simplifyByDecoration
 					))
 				});
 				break;
@@ -758,7 +759,8 @@ export class GitGraphView extends Disposable {
 				repoDropdownOrder: config.repoDropdownOrder,
 				showRemoteBranches: config.showRemoteBranches,
 				showStashes: config.showStashes,
-				showTags: config.showTags
+				showTags: config.showTags,
+				simplifyByDecoration: config.simplifyByDecoration
 			},
 			lastActiveRepo: this.extensionState.getLastActiveRepo(),
 			loadViewTo: this.loadViewTo,
@@ -790,6 +792,7 @@ export class GitGraphView extends Disposable {
 					<span id="repoControl"><span class="unselectable">Repo: </span><div id="repoDropdown" class="dropdown"></div></span>
 					<span id="branchControl"><span class="unselectable">Branches: </span><div id="branchDropdown" class="dropdown"></div></span>
 					<label id="showRemoteBranchesControl"><input type="checkbox" id="showRemoteBranchesCheckbox" tabindex="-1"><span class="customCheckbox"></span>Show Remote Branches</label>
+					<label id="simplifyByDecorationControl" title="Only show commits that are referenced by a branch or tag"><input type="checkbox" id="simplifyByDecorationCheckbox" tabindex="-1"><span class="customCheckbox"></span>Simplify</label>
 					<div id="findBtn" title="Find"></div>
 					<div id="terminalBtn" title="Open a Terminal for this Repository"></div>
 					<div id="settingsBtn" title="Repository Settings"></div>

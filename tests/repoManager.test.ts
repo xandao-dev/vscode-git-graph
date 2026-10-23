@@ -1204,6 +1204,7 @@ describe('RepoManager', () => {
 				showRemoteBranchesV2: BooleanOverride.Default,
 				showStashes: BooleanOverride.Default,
 				showTags: BooleanOverride.Default,
+				simplifyByDecoration: BooleanOverride.Default,
 				workspaceFolderIndex: 0
 			};
 
@@ -1876,6 +1877,7 @@ describe('RepoManager', () => {
 							showRemoteBranchesV2: BooleanOverride.Default,
 							showStashes: BooleanOverride.Default,
 							showTags: BooleanOverride.Default,
+							simplifyByDecoration: BooleanOverride.Default,
 							workspaceFolderIndex: 0
 						}
 					};
@@ -2463,6 +2465,7 @@ describe('RepoManager', () => {
 					showRemoteBranchesV2: BooleanOverride.Default,
 					showStashes: BooleanOverride.Default,
 					showTags: BooleanOverride.Default,
+					simplifyByDecoration: BooleanOverride.Default,
 					workspaceFolderIndex: 0
 				}
 			});
@@ -2545,6 +2548,7 @@ describe('RepoManager', () => {
 					showRemoteBranchesV2: BooleanOverride.Default,
 					showStashes: BooleanOverride.Default,
 					showTags: BooleanOverride.Default,
+					simplifyByDecoration: BooleanOverride.Default,
 					workspaceFolderIndex: 0
 				}
 			});

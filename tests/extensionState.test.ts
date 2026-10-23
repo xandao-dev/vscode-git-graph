@@ -75,6 +75,7 @@ describe('ExtensionState', () => {
 				showRemoteBranchesV2: BooleanOverride.Enabled,
 				showStashes: BooleanOverride.Enabled,
 				showTags: BooleanOverride.Enabled,
+				simplifyByDecoration: BooleanOverride.Default,
 				workspaceFolderIndex: 0
 			};
 			extensionContext.workspaceState.get.mockReturnValueOnce({
@@ -123,6 +124,7 @@ describe('ExtensionState', () => {
 					showRemoteBranchesV2: BooleanOverride.Default,
 					showStashes: BooleanOverride.Default,
 					showTags: BooleanOverride.Default,
+					simplifyByDecoration: BooleanOverride.Default,
 					workspaceFolderIndex: null
 				}
 			});
@@ -161,6 +163,7 @@ describe('ExtensionState', () => {
 					showRemoteBranchesV2: BooleanOverride.Default,
 					showStashes: BooleanOverride.Default,
 					showTags: BooleanOverride.Default,
+					simplifyByDecoration: BooleanOverride.Default,
 					workspaceFolderIndex: null
 				}
 			});
@@ -199,6 +202,7 @@ describe('ExtensionState', () => {
 					showRemoteBranchesV2: BooleanOverride.Disabled,
 					showStashes: BooleanOverride.Default,
 					showTags: BooleanOverride.Default,
+					simplifyByDecoration: BooleanOverride.Default,
 					workspaceFolderIndex: null
 				}
 			});
@@ -237,6 +241,7 @@ describe('ExtensionState', () => {
 					showRemoteBranchesV2: BooleanOverride.Default,
 					showStashes: BooleanOverride.Default,
 					showTags: BooleanOverride.Default,
+					simplifyByDecoration: BooleanOverride.Default,
 					workspaceFolderIndex: null
 				}
 			});
@@ -275,6 +280,7 @@ describe('ExtensionState', () => {
 					showRemoteBranchesV2: BooleanOverride.Enabled,
 					showStashes: BooleanOverride.Default,
 					showTags: BooleanOverride.Default,
+					simplifyByDecoration: BooleanOverride.Default,
 					workspaceFolderIndex: null
 				}
 			});
@@ -316,6 +322,7 @@ describe('ExtensionState', () => {
 					showRemoteBranchesV2: BooleanOverride.Default,
 					showStashes: BooleanOverride.Default,
 					showTags: BooleanOverride.Default,
+					simplifyByDecoration: BooleanOverride.Default,
 					workspaceFolderIndex: null
 				},
 				'/path/to/repo-2': {
@@ -337,6 +344,7 @@ describe('ExtensionState', () => {
 					showRemoteBranchesV2: BooleanOverride.Disabled,
 					showStashes: BooleanOverride.Default,
 					showTags: BooleanOverride.Default,
+					simplifyByDecoration: BooleanOverride.Default,
 					workspaceFolderIndex: null
 				}
 			});

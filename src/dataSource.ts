@@ -212,6 +212,7 @@ export class DataSource extends Disposable {
 	 * @param remotes An array of known remotes.
 	 * @param hideRemotes An array of hidden remotes.
 	 * @param stashes An array of all stashes in the repository.
+	 * @param simplifyByDecoration Only return commits that are referenced by a branch or tag.
 	 * @returns The commits in the repository.
 	 */
 	public getCommits(
@@ -225,7 +226,8 @@ export class DataSource extends Disposable {
 		commitOrdering: CommitOrdering,
 		remotes: ReadonlyArray<string>,
 		hideRemotes: ReadonlyArray<string>,
-		stashes: ReadonlyArray<GitStash>
+		stashes: ReadonlyArray<GitStash>,
+		simplifyByDecoration: boolean
 	): Promise<GitCommitData> {
 		const config = getConfig();
 		return Promise.all([
@@ -240,7 +242,8 @@ export class DataSource extends Disposable {
 				commitOrdering,
 				remotes,
 				hideRemotes,
-				stashes
+				stashes,
+				simplifyByDecoration
 			),
 			this.getRefs(repo, showRemoteBranches, config.showRemoteHeads, hideRemotes).then(
 				(refData: GitRefData) => refData,
@@ -1694,6 +1697,7 @@ export class DataSource extends Disposable {
 	 * @param remotes An array of the known remotes.
 	 * @param hideRemotes An array of hidden remotes.
 	 * @param stashes An array of all stashes in the repository.
+	 * @param simplifyByDecoration Only return commits that are referenced by a branch or tag.
 	 * @returns An array of commits.
 	 */
 	private getLog(
@@ -1707,9 +1711,13 @@ export class DataSource extends Disposable {
 		order: CommitOrdering,
 		remotes: ReadonlyArray<string>,
 		hideRemotes: ReadonlyArray<string>,
-		stashes: ReadonlyArray<GitStash>
+		stashes: ReadonlyArray<GitStash>,
+		simplifyByDecoration: boolean
 	) {
 		const args = ['-c', 'log.showSignature=false', 'log', '--max-count=' + num, '--format=' + this.gitFormatLog, '--' + order + '-order'];
+		if (simplifyByDecoration) {
+			args.push('--simplify-by-decoration');
+		}
 		if (onlyFollowFirstParent) {
 			args.push('--first-parent');
 		}
@@ -1721,6 +1729,7 @@ export class DataSource extends Disposable {
 			// Show All
 			args.push('--branches');
 			if (includeTags) args.push('--tags');
+			else if (simplifyByDecoration) args.push('--decorate-refs-exclude=refs/tags/'); // Commits only referenced by hidden tags aren't shown
 			if (includeCommitsMentionedByReflogs) args.push('--reflog');
 			if (includeRemotes) {
 				if (hideRemotes.length === 0) {

@@ -132,6 +132,7 @@ A summary of the Git Graph extension settings are:
     * **Sign**:
         * **Commits**: Enables commit signing with GPG or X.509.
         * **Tags**: Enables tag signing with GPG or X.509.
+    * **Simplify By Decoration**: Only show commits that are referenced by a branch or tag in Git Graph by default.
     * **Use Mailmap**: Respect [.mailmap](https://git-scm.com/docs/git-check-mailmap#_mapping_authors) files when displaying author & committer names and email addresses.
 * **Repository Dropdown Order**: Specifies the order that repositories are sorted in the repository dropdown on the Git Graph View (only visible when more than one repository exists in the current Visual Studio Code Workspace).
 * **Retain Context When Hidden**: Specifies if the Git Graph view Visual Studio Code context is kept when the panel is no longer visible (e.g. moved to background tab). Enabling this setting will make Git Graph load significantly faster when switching back to the Git Graph tab, however has a higher memory overhead.

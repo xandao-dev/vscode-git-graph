@@ -131,6 +131,7 @@ export class GitGraphView {
 	private readonly tableElem: HTMLElement;
 	private readonly footerElem: HTMLElement;
 	private readonly showRemoteBranchesElem: HTMLInputElement;
+	private readonly simplifyByDecorationElem: HTMLInputElement;
 	private readonly refreshBtnElem: HTMLElement;
 	private readonly scrollShadowElem: HTMLElement;
 
@@ -177,6 +178,12 @@ export class GitGraphView {
 			this.refresh(true);
 		});
 
+		this.simplifyByDecorationElem = <HTMLInputElement>document.getElementById('simplifyByDecorationCheckbox')!;
+		this.simplifyByDecorationElem.addEventListener('change', () => {
+			this.saveRepoStateValue(this.currentRepo, 'simplifyByDecoration', this.simplifyByDecorationElem.checked ? GG.BooleanOverride.Enabled : GG.BooleanOverride.Disabled);
+			this.refresh(true);
+		});
+
 		this.refreshBtnElem = document.getElementById('refreshBtn')!;
 		this.refreshBtnElem.addEventListener('click', () => {
 			if (!this.refreshBtnElem.classList.contains(CLASS_REFRESHING)) {
@@ -210,6 +217,7 @@ export class GitGraphView {
 			this.findWidget.restoreState(prevState.findWidget);
 			this.settingsWidget.restoreState(prevState.settingsWidget);
 			this.showRemoteBranchesElem.checked = getShowRemoteBranches(this.gitRepos[prevState.currentRepo].showRemoteBranchesV2);
+			this.simplifyByDecorationElem.checked = getSimplifyByDecoration(this.gitRepos[prevState.currentRepo].simplifyByDecoration);
 		}
 
 		let loadViewTo = initialState.loadViewTo;
@@ -291,6 +299,7 @@ export class GitGraphView {
 		this.currentRepo = repo;
 		this.currentRepoLoading = true;
 		this.showRemoteBranchesElem.checked = getShowRemoteBranches(this.gitRepos[this.currentRepo].showRemoteBranchesV2);
+		this.simplifyByDecorationElem.checked = getSimplifyByDecoration(this.gitRepos[this.currentRepo].simplifyByDecoration);
 		this.maxCommits = this.config.initialLoadCommits;
 		this.gitConfig = null;
 		this.gitRemotes = [];
@@ -710,7 +719,8 @@ export class GitGraphView {
 			commitOrdering: getCommitOrdering(repoState.commitOrdering),
 			remotes: this.gitRemotes,
 			hideRemotes: repoState.hideRemotes,
-			stashes: this.gitStashes
+			stashes: this.gitStashes,
+			simplifyByDecoration: getSimplifyByDecoration(repoState.simplifyByDecoration)
 		});
 	}
 
@@ -4770,6 +4780,10 @@ function getCommitOrdering(repoValue: GG.RepoCommitOrdering): GG.CommitOrdering 
 
 function getShowRemoteBranches(repoValue: GG.BooleanOverride) {
 	return repoValue === GG.BooleanOverride.Default ? initialState.config.showRemoteBranches : repoValue === GG.BooleanOverride.Enabled;
+}
+
+function getSimplifyByDecoration(repoValue: GG.BooleanOverride) {
+	return repoValue === GG.BooleanOverride.Default ? initialState.config.simplifyByDecoration : repoValue === GG.BooleanOverride.Enabled;
 }
 
 export function getShowStashes(repoValue: GG.BooleanOverride) {

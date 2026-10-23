@@ -1130,6 +1130,11 @@
 					"default": false,
 					"description": "Enables tag signing with GPG or X.509."
 				},
+				"git-graph.repository.simplifyByDecoration": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "Only show commits that are referenced by a branch or tag in Git Graph by default (see [--simplify-by-decoration](https://git-scm.com/docs/git-log#Documentation/git-log.txt---simplify-by-decoration)). This can be overridden per repository from the Git Graph View's Control Bar."
+				},
 				"git-graph.repository.useMailmap": {
 					"type": "boolean",
 					"default": false,

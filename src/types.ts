@@ -215,6 +215,7 @@ export interface GitRepoState {
 	showRemoteBranchesV2: BooleanOverride;
 	showStashes: BooleanOverride;
 	showTags: BooleanOverride;
+	simplifyByDecoration: BooleanOverride;
 	workspaceFolderIndex: number | null;
 }
 
@@ -258,6 +259,7 @@ export interface GitGraphViewConfig {
 	readonly showRemoteBranches: boolean;
 	readonly showStashes: boolean;
 	readonly showTags: boolean;
+	readonly simplifyByDecoration: boolean;
 }
 
 export interface GitGraphViewGlobalState {
@@ -938,6 +940,7 @@ export interface RequestLoadCommits extends RepoRequest {
 	readonly remotes: ReadonlyArray<string>;
 	readonly hideRemotes: ReadonlyArray<string>;
 	readonly stashes: ReadonlyArray<GitStash>;
+	readonly simplifyByDecoration: boolean;
 }
 export interface ResponseLoadCommits extends ResponseWithErrorInfo {
 	readonly command: 'loadCommits';
