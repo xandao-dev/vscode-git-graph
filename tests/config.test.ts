@@ -1,8 +1,20 @@
 import * as vscode from './mocks/vscode';
-jest.mock('vscode', () => vscode, { virtual: true });
 
 import { getConfig } from '../src/config';
-import { CommitDetailsViewLocation, CommitOrdering, DateFormatType, DateType, FileViewType, GitResetMode, GraphStyle, GraphUncommittedChangesStyle, RepoDropdownOrder, SquashMessageFormat, TabIconColourTheme, TagType } from '../src/types';
+import {
+	CommitDetailsViewLocation,
+	CommitOrdering,
+	DateFormatType,
+	DateType,
+	FileViewType,
+	GitResetMode,
+	GraphStyle,
+	GraphUncommittedChangesStyle,
+	RepoDropdownOrder,
+	SquashMessageFormat,
+	TabIconColourTheme,
+	TagType
+} from '../src/types';
 
 import { expectRenamedExtensionSettingToHaveBeenCalled } from './helpers/expectations';
 
@@ -284,6 +296,7 @@ describe('Config', () => {
 					cherrypick: true,
 					revert: true,
 					drop: true,
+					edit: true,
 					merge: true,
 					rebase: true,
 					reset: true,
@@ -366,6 +379,7 @@ describe('Config', () => {
 					cherrypick: true,
 					revert: true,
 					drop: true,
+					edit: true,
 					merge: true,
 					rebase: true,
 					reset: true,
@@ -466,6 +480,7 @@ describe('Config', () => {
 					cherrypick: true,
 					revert: true,
 					drop: true,
+					edit: true,
 					merge: true,
 					rebase: true,
 					reset: true,
@@ -524,12 +539,7 @@ describe('Config', () => {
 	describe('customBranchGlobPatterns', () => {
 		it('Should return a filtered array of glob patterns based on the configuration value', () => {
 			// Setup
-			vscode.mockExtensionSettingReturnValue('customBranchGlobPatterns', [
-				{ name: 'Name 1', glob: 'glob1' },
-				{ name: 'Name 2', glob: 'glob2' },
-				{ name: 'Name 3' },
-				{ name: 'Name 4', glob: 'glob4' }
-			]);
+			vscode.mockExtensionSettingReturnValue('customBranchGlobPatterns', [{ name: 'Name 1', glob: 'glob1' }, { name: 'Name 2', glob: 'glob2' }, { name: 'Name 3' }, { name: 'Name 4', glob: 'glob4' }]);
 
 			// Run
 			const value = config.customBranchGlobPatterns;
@@ -1265,11 +1275,7 @@ describe('Config', () => {
 
 		it('Should return the default values for text-based configuration values when they are invalid', () => {
 			// Setup
-			[
-				'dialog.addTag.type',
-				'dialog.resetCurrentBranchToCommit.mode',
-				'dialog.resetUncommittedChanges.mode'
-			].forEach((section) => vscode.mockExtensionSettingReturnValue(section, 'invalid'));
+			['dialog.addTag.type', 'dialog.resetCurrentBranchToCommit.mode', 'dialog.resetUncommittedChanges.mode'].forEach((section) => vscode.mockExtensionSettingReturnValue(section, 'invalid'));
 
 			// Run
 			const value = config.dialogDefaults;
@@ -2631,7 +2637,10 @@ describe('Config', () => {
 
 	describe('fetchAndPruneTags', testBooleanExtensionSetting('fetchAndPruneTags', 'repository.fetchAndPruneTags', false));
 
-	describe('includeCommitsMentionedByReflogs', testRenamedBooleanExtensionSetting('includeCommitsMentionedByReflogs', 'repository.includeCommitsMentionedByReflogs', 'includeCommitsMentionedByReflogs', false));
+	describe(
+		'includeCommitsMentionedByReflogs',
+		testRenamedBooleanExtensionSetting('includeCommitsMentionedByReflogs', 'repository.includeCommitsMentionedByReflogs', 'includeCommitsMentionedByReflogs', false)
+	);
 
 	describe('onRepoLoad', () => {
 		describe('scrollToHead', () => {
@@ -2802,7 +2811,10 @@ describe('Config', () => {
 
 	describe('onlyFollowFirstParent', testRenamedBooleanExtensionSetting('onlyFollowFirstParent', 'repository.onlyFollowFirstParent', 'onlyFollowFirstParent', false));
 
-	describe('showCommitsOnlyReferencedByTags', testRenamedBooleanExtensionSetting('showCommitsOnlyReferencedByTags', 'repository.showCommitsOnlyReferencedByTags', 'showCommitsOnlyReferencedByTags', true));
+	describe(
+		'showCommitsOnlyReferencedByTags',
+		testRenamedBooleanExtensionSetting('showCommitsOnlyReferencedByTags', 'repository.showCommitsOnlyReferencedByTags', 'showCommitsOnlyReferencedByTags', true)
+	);
 
 	describe('showSignatureStatus', testRenamedBooleanExtensionSetting('showSignatureStatus', 'repository.commits.showSignatureStatus', 'showSignatureStatus', false));
 

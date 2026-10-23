@@ -1,3 +1,20 @@
+import * as GG from '../src/types';
+import { closeDialogAndContextMenu, eventOverlay, findCommitElemWithId } from './main';
+import {
+	CLASS_FOCUSSED,
+	CLASS_SELECTED,
+	REF_INVALID_REGEX,
+	SVG_ICONS,
+	TargetType,
+	addListenerToCollectionElems,
+	alterClass,
+	alterClassOfCollection,
+	escapeHtml,
+	formatCommaSeparatedList,
+	getCommitElems,
+	handledEvent
+} from './utils';
+
 const CLASS_DIALOG_ACTIVE = 'dialogActive';
 const CLASS_DIALOG_INPUT_INVALID = 'inputInvalid';
 const CLASS_DIALOG_NO_INPUT = 'noInput';
@@ -8,12 +25,13 @@ const enum DialogType {
 	Message
 }
 
-const enum DialogInputType {
+export const enum DialogInputType {
 	Text,
 	TextRef,
 	Select,
 	Radio,
-	Checkbox
+	Checkbox,
+	TextArea
 }
 
 interface DialogTextInput {
@@ -24,6 +42,13 @@ interface DialogTextInput {
 	readonly info?: string;
 }
 
+interface DialogTextAreaInput {
+	readonly type: DialogInputType.TextArea;
+	readonly name: string;
+	readonly default: string;
+	readonly info?: string;
+}
+
 interface DialogTextRefInput {
 	readonly type: DialogInputType.TextRef;
 	readonly name: string;
@@ -31,21 +56,23 @@ interface DialogTextRefInput {
 	readonly info?: string;
 }
 
-type DialogSelectInput = {
-	readonly type: DialogInputType.Select;
-	readonly name: string;
-	readonly options: ReadonlyArray<DialogSelectInputOption>;
-	readonly default: string;
-	readonly multiple?: false;
-	readonly info?: string;
-} | {
-	readonly type: DialogInputType.Select;
-	readonly name: string;
-	readonly options: ReadonlyArray<DialogSelectInputOption>;
-	readonly defaults: ReadonlyArray<string>;
-	readonly multiple: true;
-	readonly info?: string;
-};
+type DialogSelectInput =
+	| {
+			readonly type: DialogInputType.Select;
+			readonly name: string;
+			readonly options: ReadonlyArray<DialogSelectInputOption>;
+			readonly default: string;
+			readonly multiple?: false;
+			readonly info?: string;
+	  }
+	| {
+			readonly type: DialogInputType.Select;
+			readonly name: string;
+			readonly options: ReadonlyArray<DialogSelectInputOption>;
+			readonly defaults: ReadonlyArray<string>;
+			readonly multiple: true;
+			readonly info?: string;
+	  };
 
 interface DialogRadioInput {
 	readonly type: DialogInputType.Radio;
@@ -61,7 +88,7 @@ interface DialogCheckboxInput {
 	readonly info?: string;
 }
 
-interface DialogSelectInputOption {
+export interface DialogSelectInputOption {
 	readonly name: string;
 	readonly value: string;
 }
@@ -71,20 +98,22 @@ interface DialogRadioInputOption {
 	readonly value: string;
 }
 
-type DialogInput = DialogTextInput | DialogTextRefInput | DialogSelectInput | DialogRadioInput | DialogCheckboxInput;
-type DialogInputValue = string | string[] | boolean;
+export type DialogInput = DialogTextInput | DialogTextAreaInput | DialogTextRefInput | DialogSelectInput | DialogRadioInput | DialogCheckboxInput;
+export type DialogInputValue = string | string[] | boolean;
 
-type DialogTarget = {
-	type: TargetType.Commit | TargetType.Ref | TargetType.CommitDetailsView;
-	elem: HTMLElement;
-	hash: string;
-	ref?: string;
-} | RepoTarget;
+export type DialogTarget =
+	| {
+			type: TargetType.Commit | TargetType.Ref | TargetType.CommitDetailsView;
+			elem: HTMLElement;
+			hash: string;
+			ref?: string;
+	  }
+	| RepoTarget;
 
 /**
  * Implements the Git Graph View's dialogs.
  */
-class Dialog {
+export class Dialog {
 	private elem: HTMLElement | null = null;
 	private target: DialogTarget | null = null;
 	private actioned: (() => void) | null = null;
@@ -101,10 +130,18 @@ class Dialog {
 	 * @param target The target that the dialog was triggered on.
 	 */
 	public showConfirmation(message: string, actionName: string, actioned: () => void, target: DialogTarget | null) {
-		this.show(DialogType.Form, message, actionName, 'Cancel', () => {
-			this.close();
-			actioned();
-		}, null, target);
+		this.show(
+			DialogType.Form,
+			message,
+			actionName,
+			'Cancel',
+			() => {
+				this.close();
+				actioned();
+			},
+			null,
+			target
+		);
 	}
 
 	/**
@@ -117,13 +154,21 @@ class Dialog {
 	 * @param target The target that the dialog was triggered on.
 	 */
 	public showTwoButtons(message: string, buttonLabel1: string, buttonAction1: () => void, buttonLabel2: string, buttonAction2: () => void, target: DialogTarget | null) {
-		this.show(DialogType.Form, message, buttonLabel1, buttonLabel2, () => {
-			this.close();
-			buttonAction1();
-		}, () => {
-			this.close();
-			buttonAction2();
-		}, target);
+		this.show(
+			DialogType.Form,
+			message,
+			buttonLabel1,
+			buttonLabel2,
+			() => {
+				this.close();
+				buttonAction1();
+			},
+			() => {
+				this.close();
+				buttonAction2();
+			},
+			target
+		);
 	}
 
 	/**
@@ -135,9 +180,7 @@ class Dialog {
 	 * @param target The target that the dialog was triggered on.
 	 */
 	public showRefInput(message: string, defaultValue: string, actionName: string, actioned: (value: string) => void, target: DialogTarget | null) {
-		this.showForm(message, [
-			{ type: DialogInputType.TextRef, name: '', default: defaultValue }
-		], actionName, (values) => actioned(<string>values[0]), target);
+		this.showForm(message, [{ type: DialogInputType.TextRef, name: '', default: defaultValue }], actionName, (values) => actioned(<string>values[0]), target);
 	}
 
 	/**
@@ -150,9 +193,7 @@ class Dialog {
 	 * @param target The target that the dialog was triggered on.
 	 */
 	public showCheckbox(message: string, checkboxLabel: string, checkboxValue: boolean, actionName: string, actioned: (value: boolean) => void, target: DialogTarget | null) {
-		this.showForm(message, [
-			{ type: DialogInputType.Checkbox, name: checkboxLabel, value: checkboxValue }
-		], actionName, (values) => actioned(<boolean>values[0]), target);
+		this.showForm(message, [{ type: DialogInputType.Checkbox, name: checkboxLabel, value: checkboxValue }], actionName, (values) => actioned(<boolean>values[0]), target);
 	}
 
 	/**
@@ -165,9 +206,7 @@ class Dialog {
 	 * @param target The target that the dialog was triggered on.
 	 */
 	public showSelect(message: string, defaultValue: string, options: ReadonlyArray<DialogSelectInputOption>, actionName: string, actioned: (value: string) => void, target: DialogTarget | null) {
-		this.showForm(message, [
-			{ type: DialogInputType.Select, name: '', options: options, default: defaultValue }
-		], actionName, (values) => actioned(<string>values[0]), target);
+		this.showForm(message, [{ type: DialogInputType.Select, name: '', options: options, default: defaultValue }], actionName, (values) => actioned(<string>values[0]), target);
 	}
 
 	/**
@@ -179,10 +218,15 @@ class Dialog {
 	 * @param actioned A callback to be invoked when the action is triggered (with the selected value(s) as the first argument).
 	 * @param target The target that the dialog was triggered on.
 	 */
-	public showMultiSelect(message: string, defaultValues: ReadonlyArray<string>, options: ReadonlyArray<DialogSelectInputOption>, actionName: string, actioned: (value: string[]) => void, target: DialogTarget | null) {
-		this.showForm(message, [
-			{ type: DialogInputType.Select, name: '', options: options, defaults: defaultValues, multiple: true }
-		], actionName, (values) => actioned(<string[]>values[0]), target);
+	public showMultiSelect(
+		message: string,
+		defaultValues: ReadonlyArray<string>,
+		options: ReadonlyArray<DialogSelectInputOption>,
+		actionName: string,
+		actioned: (value: string[]) => void,
+		target: DialogTarget | null
+	) {
+		this.showForm(message, [{ type: DialogInputType.Select, name: '', options: options, defaults: defaultValues, multiple: true }], actionName, (values) => actioned(<string[]>values[0]), target);
 	}
 
 	/**
@@ -196,66 +240,141 @@ class Dialog {
 	 * @param secondaryActioned An optional callback to be invoked when the secondary action is selected by the user.
 	 * @param includeLineBreak Should a line break be added between the message and form inputs.
 	 */
-	public showForm(message: string, inputs: ReadonlyArray<DialogInput>, actionName: string, actioned: (values: DialogInputValue[]) => void, target: DialogTarget | null, secondaryActionName: string = 'Cancel', secondaryActioned: ((values: DialogInputValue[]) => void) | null = null, includeLineBreak: boolean = true) {
+	public showForm(
+		message: string,
+		inputs: ReadonlyArray<DialogInput>,
+		actionName: string,
+		actioned: (values: DialogInputValue[]) => void,
+		target: DialogTarget | null,
+		secondaryActionName: string = 'Cancel',
+		secondaryActioned: ((values: DialogInputValue[]) => void) | null = null,
+		includeLineBreak: boolean = true
+	) {
 		const multiElement = inputs.length > 1;
 		const multiCheckbox = multiElement && inputs.every((input) => input.type === DialogInputType.Checkbox);
 		const infoColRequired = inputs.some((input) => input.type !== DialogInputType.Checkbox && input.type !== DialogInputType.Radio && input.info);
 		const inputRowsHtml = inputs.map((input, id) => {
 			let inputHtml;
 			if (input.type === DialogInputType.Radio) {
-				inputHtml = '<td class="inputCol"' + (infoColRequired ? ' colspan="2"' : '') + '><span class="dialogFormRadio">' +
-					input.options.map((option, optionId) => '<label><input type="radio" name="dialogInput' + id + '" value="' + optionId + '"' + (option.value === input.default ? ' checked' : '') + ' tabindex="' + (id + 1) + '"/><span class="customRadio"></span>' + escapeHtml(option.name) + '</label>').join('<br>') +
+				inputHtml =
+					'<td class="inputCol"' +
+					(infoColRequired ? ' colspan="2"' : '') +
+					'><span class="dialogFormRadio">' +
+					input.options
+						.map(
+							(option, optionId) =>
+								'<label><input type="radio" name="dialogInput' +
+								id +
+								'" value="' +
+								optionId +
+								'"' +
+								(option.value === input.default ? ' checked' : '') +
+								' tabindex="' +
+								(id + 1) +
+								'"/><span class="customRadio"></span>' +
+								escapeHtml(option.name) +
+								'</label>'
+						)
+						.join('<br>') +
 					'</span></td>';
 			} else {
 				const infoHtml = input.info ? '<span class="dialogInfo" title="' + escapeHtml(input.info) + '">' + SVG_ICONS.info + '</span>' : '';
 				if (input.type === DialogInputType.Select) {
 					inputHtml = '<td class="inputCol"><div id="dialogFormSelect' + id + '"></div></td>' + (infoColRequired ? '<td>' + infoHtml + '</td>' : '');
+				} else if (input.type === DialogInputType.TextArea) {
+					inputHtml =
+						'<td class="inputCol"><textarea id="dialogInput' +
+						id +
+						'" rows="8" tabindex="' +
+						(id + 1) +
+						'">' +
+						escapeHtml(input.default) +
+						'</textarea></td>' +
+						(infoColRequired ? '<td>' + infoHtml + '</td>' : '');
 				} else if (input.type === DialogInputType.Checkbox) {
-					inputHtml = '<td class="inputCol"' + (infoColRequired ? ' colspan="2"' : '') + '><span class="dialogFormCheckbox"><label><input id="dialogInput' + id + '" type="checkbox"' + (input.value ? ' checked' : '') + ' tabindex="' + (id + 1) + '"/><span class="customCheckbox"></span>' + (multiElement && !multiCheckbox ? '' : input.name) + infoHtml + '</label></span></td>';
+					inputHtml =
+						'<td class="inputCol"' +
+						(infoColRequired ? ' colspan="2"' : '') +
+						'><span class="dialogFormCheckbox"><label><input id="dialogInput' +
+						id +
+						'" type="checkbox"' +
+						(input.value ? ' checked' : '') +
+						' tabindex="' +
+						(id + 1) +
+						'"/><span class="customCheckbox"></span>' +
+						(multiElement && !multiCheckbox ? '' : input.name) +
+						infoHtml +
+						'</label></span></td>';
 				} else {
-					inputHtml = '<td class="inputCol"><input id="dialogInput' + id + '" type="text" value="' + escapeHtml(input.default) + '"' + (input.type === DialogInputType.Text && input.placeholder !== null ? ' placeholder="' + escapeHtml(input.placeholder) + '"' : '') + ' tabindex="' + (id + 1) + '"/></td>' + (infoColRequired ? '<td>' + infoHtml + '</td>' : '');
+					inputHtml =
+						'<td class="inputCol"><input id="dialogInput' +
+						id +
+						'" type="text" value="' +
+						escapeHtml(input.default) +
+						'"' +
+						(input.type === DialogInputType.Text && input.placeholder !== null ? ' placeholder="' + escapeHtml(input.placeholder) + '"' : '') +
+						' tabindex="' +
+						(id + 1) +
+						'"/></td>' +
+						(infoColRequired ? '<td>' + infoHtml + '</td>' : '');
 				}
 			}
-			return '<tr' + (input.type === DialogInputType.Radio ? ' class="mediumField"' : input.type !== DialogInputType.Checkbox ? ' class="largeField"' : '') + '>' + (multiElement && !multiCheckbox ? '<td>' + input.name + ': </td>' : '') + inputHtml + '</tr>';
+			return (
+				'<tr' +
+				(input.type === DialogInputType.Radio ? ' class="mediumField"' : input.type !== DialogInputType.Checkbox ? ' class="largeField"' : '') +
+				'>' +
+				(multiElement && !multiCheckbox ? '<td>' + input.name + ': </td>' : '') +
+				inputHtml +
+				'</tr>'
+			);
 		});
 
-		const html = message + (includeLineBreak ? '<br>' : '') +
-			'<table class="dialogForm ' + (multiElement ? multiCheckbox ? 'multiCheckbox' : 'multi' : 'single') + '">' +
-			inputRowsHtml.join('') +
-			'</table>';
+		const html =
+			message + (includeLineBreak ? '<br>' : '') + '<table class="dialogForm ' + (multiElement ? (multiCheckbox ? 'multiCheckbox' : 'multi') : 'single') + '">' + inputRowsHtml.join('') + '</table>';
 
 		const areFormValuesInvalid = () => this.elem === null || this.elem.classList.contains(CLASS_DIALOG_NO_INPUT) || this.elem.classList.contains(CLASS_DIALOG_INPUT_INVALID);
-		const getFormValues = () => inputs.map((input, index) => {
-			if (input.type === DialogInputType.Radio) {
-				// Iterate through all of the radio options to get the checked value
-				const elems = <NodeListOf<HTMLInputElement>>document.getElementsByName('dialogInput' + index);
-				for (let i = 0; i < elems.length; i++) {
-					if (elems[i].checked) {
-						return input.options[parseInt(elems[i].value)].value;
+		const getFormValues = () =>
+			inputs.map((input, index) => {
+				if (input.type === DialogInputType.Radio) {
+					// Iterate through all of the radio options to get the checked value
+					const elems = <NodeListOf<HTMLInputElement>>document.getElementsByName('dialogInput' + index);
+					for (let i = 0; i < elems.length; i++) {
+						if (elems[i].checked) {
+							return input.options[parseInt(elems[i].value)].value;
+						}
 					}
+					return input.default; // If no option is checked, return the default value
+				} else if (input.type === DialogInputType.Select) {
+					return this.customSelects[index.toString()].getValue();
+				} else {
+					const elem = <HTMLInputElement>document.getElementById('dialogInput' + index);
+					return input.type === DialogInputType.Checkbox
+						? elem.checked // Checkboxes return a boolean indicating if the value is checked
+						: elem.value; // All other fields return the value as a string
 				}
-				return input.default; // If no option is checked, return the default value
-			} else if (input.type === DialogInputType.Select) {
-				return this.customSelects[index.toString()].getValue();
-			} else {
-				const elem = <HTMLInputElement>document.getElementById('dialogInput' + index);
-				return input.type === DialogInputType.Checkbox
-					? elem.checked // Checkboxes return a boolean indicating if the value is checked
-					: elem.value; // All other fields return the value as a string
-			}
-		});
+			});
 
-		this.show(DialogType.Form, html, actionName, secondaryActionName, () => {
-			if (areFormValuesInvalid()) return;
-			const values = getFormValues();
-			this.close();
-			actioned(values);
-		}, secondaryActioned !== null ? () => {
-			if (areFormValuesInvalid()) return;
-			const values = getFormValues();
-			this.close();
-			secondaryActioned(values);
-		} : null, target);
+		this.show(
+			DialogType.Form,
+			html,
+			actionName,
+			secondaryActionName,
+			() => {
+				if (areFormValuesInvalid()) return;
+				const values = getFormValues();
+				this.close();
+				actioned(values);
+			},
+			secondaryActioned !== null
+				? () => {
+						if (areFormValuesInvalid()) return;
+						const values = getFormValues();
+						this.close();
+						secondaryActioned(values);
+					}
+				: null,
+			target
+		);
 
 		// Create custom select inputs
 		inputs.forEach((input, index) => {
@@ -267,17 +386,20 @@ class Dialog {
 		// If the dialog contains a TextRef input, attach event listeners for validation
 		const textRefInput = inputs.findIndex((input) => input.type === DialogInputType.TextRef);
 		if (textRefInput > -1) {
-			let dialogInput = <HTMLInputElement>document.getElementById('dialogInput' + textRefInput), dialogAction = document.getElementById('dialogAction')!;
+			let dialogInput = <HTMLInputElement>document.getElementById('dialogInput' + textRefInput),
+				dialogAction = document.getElementById('dialogAction')!;
 			if (dialogInput.value === '') this.elem!.classList.add(CLASS_DIALOG_NO_INPUT);
 			dialogInput.addEventListener('keyup', () => {
 				if (this.elem === null) return;
 				if (initialState.config.dialogDefaults.general.referenceInputSpaceSubstitution !== null) {
-					const selectionStart = dialogInput.selectionStart, selectionEnd = dialogInput.selectionEnd;
+					const selectionStart = dialogInput.selectionStart,
+						selectionEnd = dialogInput.selectionEnd;
 					dialogInput.value = dialogInput.value.replace(Dialog.WHITESPACE_REGEXP, initialState.config.dialogDefaults.general.referenceInputSpaceSubstitution);
 					dialogInput.selectionStart = selectionStart;
 					dialogInput.selectionEnd = selectionEnd;
 				}
-				const noInput = dialogInput.value === '', invalidInput = dialogInput.value.match(REF_INVALID_REGEX) !== null;
+				const noInput = dialogInput.value === '',
+					invalidInput = dialogInput.value.match(REF_INVALID_REGEX) !== null;
 				alterClass(this.elem, CLASS_DIALOG_NO_INPUT, noInput);
 				if (alterClass(this.elem, CLASS_DIALOG_INPUT_INVALID, !noInput && invalidInput)) {
 					dialogAction.title = invalidInput ? 'Unable to ' + actionName + ', one or more invalid characters entered.' : '';
@@ -285,7 +407,7 @@ class Dialog {
 			});
 		}
 
-		if (inputs.length > 0 && (inputs[0].type === DialogInputType.Text || inputs[0].type === DialogInputType.TextRef)) {
+		if (inputs.length > 0 && (inputs[0].type === DialogInputType.Text || inputs[0].type === DialogInputType.TextArea || inputs[0].type === DialogInputType.TextRef)) {
 			// If the first input is a text field, set focus to it.
 			(<HTMLInputElement>document.getElementById('dialogInput0')).focus();
 		}
@@ -307,10 +429,23 @@ class Dialog {
 	 * @param actioned An optional callback to be invoked when the primary action is triggered.
 	 */
 	public showError(message: string, reason: GG.ErrorInfo, actionName: string | null, actioned: (() => void) | null) {
-		this.show(DialogType.Message, '<span class="dialogAlert">' + SVG_ICONS.alert + 'Error: ' + message + '</span>' + (reason !== null ? '<br><span class="messageContent errorContent">' + escapeHtml(reason).split('\n').join('<br>') + '</span>' : ''), actionName, 'Dismiss', () => {
-			this.close();
-			if (actioned !== null) actioned();
-		}, null, null);
+		this.show(
+			DialogType.Message,
+			'<span class="dialogAlert">' +
+				SVG_ICONS.alert +
+				'Error: ' +
+				message +
+				'</span>' +
+				(reason !== null ? '<br><span class="messageContent errorContent">' + escapeHtml(reason).split('\n').join('<br>') + '</span>' : ''),
+			actionName,
+			'Dismiss',
+			() => {
+				this.close();
+				if (actioned !== null) actioned();
+			},
+			null,
+			null
+		);
 	}
 
 	/**
@@ -331,22 +466,38 @@ class Dialog {
 	 * @param secondaryActioned A callback to be invoked when the secondary action is selected by the user.
 	 * @param target The target that the dialog was triggered on.
 	 */
-	private show(type: DialogType, html: string, actionName: string | null, secondaryActionName: string, actioned: (() => void) | null, secondaryActioned: (() => void) | null, target: DialogTarget | null) {
+	private show(
+		type: DialogType,
+		html: string,
+		actionName: string | null,
+		secondaryActionName: string,
+		actioned: (() => void) | null,
+		secondaryActioned: (() => void) | null,
+		target: DialogTarget | null
+	) {
 		closeDialogAndContextMenu();
 
 		this.type = type;
 		this.target = target;
 		eventOverlay.create('dialogBacking', null, null);
 
-		const dialog = document.createElement('div'), dialogContent = document.createElement('div');
+		const dialog = document.createElement('div'),
+			dialogContent = document.createElement('div');
 		dialog.className = 'dialog';
 		dialogContent.className = 'dialogContent';
-		dialogContent.innerHTML = html + '<br>' + (actionName !== null ? '<div id="dialogAction" class="roundedBtn">' + actionName + '</div>' : '') + '<div id="dialogSecondaryAction" class="roundedBtn">' + secondaryActionName + '</div>';
+		dialogContent.innerHTML =
+			html +
+			'<br>' +
+			(actionName !== null ? '<div id="dialogAction" class="roundedBtn">' + actionName + '</div>' : '') +
+			'<div id="dialogSecondaryAction" class="roundedBtn">' +
+			secondaryActionName +
+			'</div>';
 		dialog.appendChild(dialogContent);
 		this.elem = dialog;
 		document.body.appendChild(dialog);
 
-		let docHeight = document.body.clientHeight, dialogHeight = dialog.clientHeight + 2;
+		let docHeight = document.body.clientHeight,
+			dialogHeight = dialog.clientHeight + 2;
 		if (type !== DialogType.Form && dialogHeight > 0.8 * docHeight) {
 			dialogContent.style.height = Math.round(0.8 * docHeight - 22) + 'px';
 			dialogHeight = Math.round(0.8 * docHeight);
@@ -658,16 +809,15 @@ class CustomSelect {
 					this.optionsElem.remove();
 				}
 				this.optionsElem = document.createElement('div');
-				const currentElemRect = this.currentElem.getBoundingClientRect(), dialogElemRect = this.dialogElem.getBoundingClientRect();
-				this.optionsElem.style.top = (currentElemRect.top - dialogElemRect.top + currentElemRect.height - 2) + 'px';
-				this.optionsElem.style.left = (currentElemRect.left - dialogElemRect.left - 1) + 'px';
+				const currentElemRect = this.currentElem.getBoundingClientRect(),
+					dialogElemRect = this.dialogElem.getBoundingClientRect();
+				this.optionsElem.style.top = currentElemRect.top - dialogElemRect.top + currentElemRect.height - 2 + 'px';
+				this.optionsElem.style.left = currentElemRect.left - dialogElemRect.left - 1 + 'px';
 				this.optionsElem.style.width = currentElemRect.width + 'px';
 				this.optionsElem.style.maxHeight = Math.max(document.body.clientHeight - currentElemRect.top - currentElemRect.height - 2, 50) + 'px';
 				this.optionsElem.className = 'customSelectOptions' + (this.data.multiple ? ' multiple' : '');
 				const icon = this.data.multiple ? '<div class="selectedIcon">' + SVG_ICONS.check + '</div>' : '';
-				this.optionsElem.innerHTML = this.data.options.map((option, index) =>
-					'<div class="customSelectOption" data-index="' + index + '">' + icon + escapeHtml(option.name) + '</div>'
-				).join('');
+				this.optionsElem.innerHTML = this.data.options.map((option, index) => '<div class="customSelectOption" data-index="' + index + '">' + icon + escapeHtml(option.name) + '</div>').join('');
 				addListenerToCollectionElems(this.optionsElem.children, 'mousemove', (e) => {
 					if (!e.target) return;
 					const elem = (<HTMLElement>e.target).closest('.customSelectOption');
@@ -706,7 +856,8 @@ class CustomSelect {
 	 */
 	private renderOptionsStates() {
 		if (this.optionsElem !== null) {
-			let optionElems = this.optionsElem.children, elemIndex: number;
+			let optionElems = this.optionsElem.children,
+				elemIndex: number;
 			for (let i = 0; i < optionElems.length; i++) {
 				elemIndex = parseInt((<HTMLElement>optionElems[i]).dataset.index!);
 				alterClass(<HTMLElement>optionElems[i], CLASS_SELECTED, this.selected[elemIndex]);
@@ -722,7 +873,8 @@ class CustomSelect {
 	 */
 	private getOptionElem(index: number) {
 		if (this.optionsElem !== null && index > -1) {
-			const optionElems = this.optionsElem.children, indexStr = index.toString();
+			const optionElems = this.optionsElem.children,
+				indexStr = index.toString();
 			for (let i = 0; i < optionElems.length; i++) {
 				if ((<HTMLElement>optionElems[i]).dataset.index === indexStr) {
 					return <HTMLElement>optionElems[i];
@@ -739,8 +891,10 @@ class CustomSelect {
 	private scrollOptionIntoView(index: number) {
 		const elem = this.getOptionElem(index);
 		if (this.optionsElem !== null && elem !== null) {
-			const elemOffsetTop = elem.offsetTop, elemHeight = elem.clientHeight;
-			const optionsScrollTop = this.optionsElem.scrollTop, optionsHeight = this.optionsElem.clientHeight;
+			const elemOffsetTop = elem.offsetTop,
+				elemHeight = elem.clientHeight;
+			const optionsScrollTop = this.optionsElem.scrollTop,
+				optionsHeight = this.optionsElem.clientHeight;
 			if (elemOffsetTop < optionsScrollTop) {
 				this.optionsElem.scroll(0, elemOffsetTop);
 			} else if (elemOffsetTop + elemHeight > optionsScrollTop + optionsHeight) {

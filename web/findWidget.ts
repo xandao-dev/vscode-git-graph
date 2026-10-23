@@ -1,7 +1,25 @@
+import { GitGraphView, abbrevCommit, findCommitElemWithId, getBranchLabels } from './main';
+import {
+	ATTR_ERROR,
+	CLASS_ACTIVE,
+	CLASS_DISABLED,
+	CLASS_TRANSITION,
+	SVG_ICONS,
+	UNCOMMITTED,
+	alterClass,
+	formatShortDate,
+	getChildNodesWithTextContent,
+	getChildrenWithClassName,
+	getCommitElems,
+	handledEvent,
+	modifyColourOpacity,
+	updateWorkspaceViewState
+} from './utils';
+
 const CLASS_FIND_CURRENT_COMMIT = 'findCurrentCommit';
 const CLASS_FIND_MATCH = 'findMatch';
 
-interface FindWidgetState {
+export interface FindWidgetState {
 	readonly text: string;
 	readonly currentHash: string | null;
 	readonly visible: boolean;
@@ -10,10 +28,10 @@ interface FindWidgetState {
 /**
  * Implements the Git Graph View's Find Widget.
  */
-class FindWidget {
+export class FindWidget {
 	private readonly view: GitGraphView;
 	private text: string = '';
-	private matches: { hash: string, elem: HTMLElement }[] = [];
+	private matches: { hash: string; elem: HTMLElement }[] = [];
 	private position: number = -1;
 	private visible: boolean = false;
 
@@ -34,11 +52,12 @@ class FindWidget {
 		this.view = view;
 		this.widgetElem = document.createElement('div');
 		this.widgetElem.className = 'findWidget';
-		this.widgetElem.innerHTML = '<input id="findInput" type="text" placeholder="Find" disabled/><span id="findCaseSensitive" class="findModifier" title="Match Case">Aa</span><span id="findRegex" class="findModifier" title="Use Regular Expression">.*</span><span id="findPosition"></span><span id="findPrev" title="Previous match (Shift+Enter)"></span><span id="findNext" title="Next match (Enter)"></span><span id="findOpenCdv" title="Open the Commit Details View for the current match"></span><span id="findClose" title="Close (Escape)"></span>';
+		this.widgetElem.innerHTML =
+			'<input id="findInput" type="text" placeholder="Find" disabled/><span id="findCaseSensitive" class="findModifier" title="Match Case">Aa</span><span id="findRegex" class="findModifier" title="Use Regular Expression">.*</span><span id="findPosition"></span><span id="findPrev" title="Previous match (Shift+Enter)"></span><span id="findNext" title="Next match (Enter)"></span><span id="findOpenCdv" title="Open the Commit Details View for the current match"></span><span id="findClose" title="Close (Escape)"></span>';
 		document.body.appendChild(this.widgetElem);
 
 		this.inputElem = <HTMLInputElement>document.getElementById('findInput')!;
-		let keyupTimeout: NodeJS.Timer | null = null;
+		let keyupTimeout: number | null = null;
 		this.inputElem.addEventListener('keyup', (e) => {
 			if ((e.keyCode ? e.keyCode === 13 : e.key === 'Enter') && this.text !== '') {
 				if (e.shiftKey) {
@@ -161,7 +180,6 @@ class FindWidget {
 		document.body.style.setProperty('--git-graph-findMatchCommit', modifyColourOpacity(colour, 0.5));
 	}
 
-
 	/* State */
 
 	/**
@@ -202,7 +220,6 @@ class FindWidget {
 		return this.visible;
 	}
 
-
 	/* Matching */
 
 	/**
@@ -215,8 +232,11 @@ class FindWidget {
 		this.position = -1;
 
 		if (this.text !== '') {
-			let colVisibility = this.view.getColumnVisibility(), findPattern: RegExp | null, findGlobalPattern: RegExp | null;
-			const regexText = workspaceState.findIsRegex ? this.text : this.text.replace(/[\\\[\](){}|.*+?^$]/g, '\\$&'), flags = 'u' + (workspaceState.findIsCaseSensitive ? '' : 'i');
+			let colVisibility = this.view.getColumnVisibility(),
+				findPattern: RegExp | null,
+				findGlobalPattern: RegExp | null;
+			const regexText = workspaceState.findIsRegex ? this.text : this.text.replace(/[\\\[\](){}|.*+?^$]/g, '\\$&'),
+				flags = 'u' + (workspaceState.findIsCaseSensitive ? '' : 'i');
 			try {
 				findPattern = new RegExp(regexText, flags);
 				findGlobalPattern = new RegExp(regexText, 'g' + flags);
@@ -224,26 +244,30 @@ class FindWidget {
 			} catch (e) {
 				findPattern = null;
 				findGlobalPattern = null;
-				this.widgetElem.setAttribute(ATTR_ERROR, e.message);
+				this.widgetElem.setAttribute(ATTR_ERROR, (e as Error).message);
 			}
 			if (findPattern !== null && findGlobalPattern !== null) {
-				let commitElems = getCommitElems(), j = 0, commit, zeroLengthMatch = false;
+				let commitElems = getCommitElems(),
+					j = 0,
+					commit,
+					zeroLengthMatch = false;
 
 				// Search the commit data itself to detect commits that match, so that dom tree traversal is performed on matching commit rows (for performance)
 				const commits = this.view.getCommits();
 				for (let i = 0; i < commits.length; i++) {
 					commit = commits[i];
 					let branchLabels = getBranchLabels(commit.heads, commit.remotes);
-					if (commit.hash !== UNCOMMITTED && (
-						(colVisibility.author && findPattern.test(commit.author))
-						|| (colVisibility.commit && (commit.hash.search(findPattern) === 0 || findPattern.test(abbrevCommit(commit.hash))))
-						|| findPattern.test(commit.message)
-						|| branchLabels.heads.some(head => findPattern!.test(head.name) || head.remotes.some(remote => findPattern!.test(remote)))
-						|| branchLabels.remotes.some(remote => findPattern!.test(remote.name))
-						|| commit.tags.some(tag => findPattern!.test(tag.name))
-						|| (colVisibility.date && findPattern.test(formatShortDate(commit.date).formatted))
-						|| (commit.stash !== null && findPattern.test(commit.stash.selector))
-					)) {
+					if (
+						commit.hash !== UNCOMMITTED &&
+						((colVisibility.author && findPattern.test(commit.author)) ||
+							(colVisibility.commit && (commit.hash.search(findPattern) === 0 || findPattern.test(abbrevCommit(commit.hash)))) ||
+							findPattern.test(commit.message) ||
+							branchLabels.heads.some((head) => findPattern!.test(head.name) || head.remotes.some((remote) => findPattern!.test(remote))) ||
+							branchLabels.remotes.some((remote) => findPattern!.test(remote.name)) ||
+							commit.tags.some((tag) => findPattern!.test(tag.name)) ||
+							(colVisibility.date && findPattern.test(formatShortDate(commit.date).formatted)) ||
+							(commit.stash !== null && findPattern.test(commit.stash.selector)))
+					) {
 						let idStr = i.toString();
 						while (j < commitElems.length && commitElems[j].dataset.id !== idStr) j++;
 						if (j === commitElems.length) continue;
@@ -251,12 +275,16 @@ class FindWidget {
 						this.matches.push({ hash: commit.hash, elem: commitElems[j] });
 
 						// Highlight matches
-						let textElems = getChildNodesWithTextContent(commitElems[j]), textElem;
+						let textElems = getChildNodesWithTextContent(commitElems[j]),
+							textElem;
 						for (let k = 0; k < textElems.length; k++) {
 							textElem = textElems[k];
-							let matchStart = 0, matchEnd = 0, text = textElem.textContent!, match: RegExpExecArray | null;
+							let matchStart = 0,
+								matchEnd = 0,
+								text = textElem.textContent!,
+								match: RegExpExecArray | null;
 							findGlobalPattern.lastIndex = 0;
-							while (match = findGlobalPattern.exec(text)) {
+							while ((match = findGlobalPattern.exec(text))) {
 								if (match[0].length === 0) {
 									zeroLengthMatch = true;
 									break;
@@ -314,7 +342,7 @@ class FindWidget {
 		if (this.matches.length > 0) {
 			newPos = 0;
 			if (goToCommitHash !== null) {
-				let pos = this.matches.findIndex(match => match.hash === goToCommitHash);
+				let pos = this.matches.findIndex((match) => match.hash === goToCommitHash);
 				if (pos > -1) newPos = pos;
 			}
 		}
@@ -327,13 +355,15 @@ class FindWidget {
 	private clearMatches() {
 		for (let i = 0; i < this.matches.length; i++) {
 			if (i === this.position) this.matches[i].elem.classList.remove(CLASS_FIND_CURRENT_COMMIT);
-			let matchElems = getChildrenWithClassName(this.matches[i].elem, CLASS_FIND_MATCH), matchElem;
+			let matchElems = getChildrenWithClassName(this.matches[i].elem, CLASS_FIND_MATCH),
+				matchElem;
 			for (let j = 0; j < matchElems.length; j++) {
 				matchElem = matchElems[j];
 				let text = matchElem.childNodes[0].textContent!;
 
 				// Combine current text with the text from previous sibling text nodes
-				let node = matchElem.previousSibling, elem = matchElem.previousElementSibling;
+				let node = matchElem.previousSibling,
+					elem = matchElem.previousElementSibling;
 				while (node !== null && node !== elem && node.textContent !== null) {
 					text = node.textContent + text;
 					matchElem.parentNode!.removeChild(node);
@@ -366,7 +396,7 @@ class FindWidget {
 			this.matches[this.position].elem.classList.add(CLASS_FIND_CURRENT_COMMIT);
 			if (scrollToCommit) this.view.scrollToCommit(this.matches[position].hash, false);
 		}
-		this.positionElem.innerHTML = this.matches.length > 0 ? (this.position + 1) + ' of ' + this.matches.length : 'No Results';
+		this.positionElem.innerHTML = this.matches.length > 0 ? this.position + 1 + ' of ' + this.matches.length : 'No Results';
 		this.view.saveState();
 	}
 

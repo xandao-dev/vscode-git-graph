@@ -8,7 +8,23 @@ import { CodeReviewData, CodeReviews, ExtensionState } from './extensionState';
 import { GitGraphView } from './gitGraphView';
 import { Logger } from './logger';
 import { RepoManager } from './repoManager';
-import { GitExecutable, UNABLE_TO_FIND_GIT_MSG, VsCodeVersionRequirement, abbrevCommit, abbrevText, copyToClipboard, doesVersionMeetRequirement, getExtensionVersion, getPathFromUri, getRelativeTimeDiff, getRepoName, getSortedRepositoryPaths, isPathInWorkspace, openFile, resolveToSymbolicPath, showErrorMessage, showInformationMessage } from './utils';
+import {
+	GitExecutable,
+	UNABLE_TO_FIND_GIT_MSG,
+	abbrevCommit,
+	abbrevText,
+	copyToClipboard,
+	getExtensionVersion,
+	getPathFromUri,
+	getRelativeTimeDiff,
+	getRepoName,
+	getSortedRepositoryPaths,
+	isPathInWorkspace,
+	openFile,
+	resolveToSymbolicPath,
+	showErrorMessage,
+	showInformationMessage
+} from './utils';
 import { Disposable } from './utils/disposable';
 import { Event } from './utils/event';
 
@@ -35,7 +51,16 @@ export class CommandManager extends Disposable {
 	 * @param onDidChangeGitExecutable The Event emitting the Git executable for Git Graph to use.
 	 * @param logger The Git Graph Logger instance.
 	 */
-	constructor(context: vscode.ExtensionContext, avatarManger: AvatarManager, dataSource: DataSource, extensionState: ExtensionState, repoManager: RepoManager, gitExecutable: GitExecutable | null, onDidChangeGitExecutable: Event<GitExecutable>, logger: Logger) {
+	constructor(
+		context: vscode.ExtensionContext,
+		avatarManger: AvatarManager,
+		dataSource: DataSource,
+		extensionState: ExtensionState,
+		repoManager: RepoManager,
+		gitExecutable: GitExecutable | null,
+		onDidChangeGitExecutable: Event<GitExecutable>,
+		logger: Logger
+	) {
 		super();
 		this.context = context;
 		this.avatarManager = avatarManger;
@@ -62,13 +87,6 @@ export class CommandManager extends Disposable {
 				this.gitExecutable = gitExecutable;
 			})
 		);
-
-		// Register Extension Contexts
-		try {
-			this.registerContext('git-graph:codiconsSupported', doesVersionMeetRequirement(vscode.version, VsCodeVersionRequirement.Codicons));
-		} catch (_) {
-			this.logger.logError('Unable to set Visual Studio Code Context "git-graph:codiconsSupported"');
-		}
 	}
 
 	/**
@@ -84,19 +102,6 @@ export class CommandManager extends Disposable {
 			})
 		);
 	}
-
-	/**
-	 * Register a context with Visual Studio Code.
-	 * @param key The Context Key.
-	 * @param value The Context Value.
-	 */
-	private registerContext(key: string, value: any) {
-		return vscode.commands.executeCommand('setContext', key, value).then(
-			() => this.logger.log('Successfully set Visual Studio Code Context "' + key + '" to "' + JSON.stringify(value) + '"'),
-			() => this.logger.logError('Failed to set Visual Studio Code Context "' + key + '" to "' + JSON.stringify(value) + '"')
-		);
-	}
-
 
 	/* Commands */
 
@@ -132,22 +137,25 @@ export class CommandManager extends Disposable {
 			return;
 		}
 
-		vscode.window.showOpenDialog({ canSelectFiles: false, canSelectFolders: true, canSelectMany: false }).then(uris => {
-			if (uris && uris.length > 0) {
-				let path = getPathFromUri(uris[0]);
-				if (isPathInWorkspace(path)) {
-					this.repoManager.registerRepo(path, false).then(status => {
-						if (status.error === null) {
-							showInformationMessage('The repository "' + status.root! + '" was added to Git Graph.');
-						} else {
-							showErrorMessage(status.error + ' Therefore it could not be added to Git Graph.');
-						}
-					});
-				} else {
-					showErrorMessage('The folder "' + path + '" is not within the opened Visual Studio Code workspace, and therefore could not be added to Git Graph.');
+		vscode.window.showOpenDialog({ canSelectFiles: false, canSelectFolders: true, canSelectMany: false }).then(
+			(uris) => {
+				if (uris && uris.length > 0) {
+					let path = getPathFromUri(uris[0]);
+					if (isPathInWorkspace(path)) {
+						this.repoManager.registerRepo(path, false).then((status) => {
+							if (status.error === null) {
+								showInformationMessage('The repository "' + status.root! + '" was added to Git Graph.');
+							} else {
+								showErrorMessage(status.error + ' Therefore it could not be added to Git Graph.');
+							}
+						});
+					} else {
+						showErrorMessage('The folder "' + path + '" is not within the opened Visual Studio Code workspace, and therefore could not be added to Git Graph.');
+					}
 				}
-			}
-		}, () => { });
+			},
+			() => {}
+		);
 	}
 
 	/**
@@ -165,33 +173,41 @@ export class CommandManager extends Disposable {
 			description: path
 		}));
 
-		vscode.window.showQuickPick(items, {
-			placeHolder: 'Select a repository to remove from Git Graph:',
-			canPickMany: false
-		}).then((item) => {
-			if (item && item.description !== undefined) {
-				if (this.repoManager.ignoreRepo(item.description)) {
-					showInformationMessage('The repository "' + item.label + '" was removed from Git Graph.');
-				} else {
-					showErrorMessage('The repository "' + item.label + '" is not known to Git Graph.');
-				}
-			}
-		}, () => { });
+		vscode.window
+			.showQuickPick(items, {
+				placeHolder: 'Select a repository to remove from Git Graph:',
+				canPickMany: false
+			})
+			.then(
+				(item) => {
+					if (item && item.description !== undefined) {
+						if (this.repoManager.ignoreRepo(item.description)) {
+							showInformationMessage('The repository "' + item.label + '" was removed from Git Graph.');
+						} else {
+							showErrorMessage('The repository "' + item.label + '" is not known to Git Graph.');
+						}
+					}
+				},
+				() => {}
+			);
 	}
 
 	/**
 	 * The method run when the `git-graph.clearAvatarCache` command is invoked.
 	 */
 	private clearAvatarCache() {
-		this.avatarManager.clearCache().then((errorInfo) => {
-			if (errorInfo === null) {
-				showInformationMessage('The Avatar Cache was successfully cleared.');
-			} else {
-				showErrorMessage(errorInfo);
+		this.avatarManager.clearCache().then(
+			(errorInfo) => {
+				if (errorInfo === null) {
+					showInformationMessage('The Avatar Cache was successfully cleared.');
+				} else {
+					showErrorMessage(errorInfo);
+				}
+			},
+			() => {
+				showErrorMessage('An unexpected error occurred while running the command "Clear Avatar Cache".');
 			}
-		}, () => {
-			showErrorMessage('An unexpected error occurred while running the command "Clear Avatar Cache".');
-		});
+		);
 	}
 
 	/**
@@ -216,19 +232,24 @@ export class CommandManager extends Disposable {
 				}
 			}
 
-			vscode.window.showQuickPick(items, {
-				placeHolder: 'Select the repository you want to open in Git Graph, and fetch from remote(s):',
-				canPickMany: false
-			}).then((item) => {
-				if (item && item.description) {
-					GitGraphView.createOrShow(this.context.extensionPath, this.dataSource, this.extensionState, this.avatarManager, this.repoManager, this.logger, {
-						repo: item.description,
-						runCommandOnLoad: 'fetch'
-					});
-				}
-			}, () => {
-				showErrorMessage('An unexpected error occurred while running the command "Fetch from Remote(s)".');
-			});
+			vscode.window
+				.showQuickPick(items, {
+					placeHolder: 'Select the repository you want to open in Git Graph, and fetch from remote(s):',
+					canPickMany: false
+				})
+				.then(
+					(item) => {
+						if (item && item.description) {
+							GitGraphView.createOrShow(this.context.extensionPath, this.dataSource, this.extensionState, this.avatarManager, this.repoManager, this.logger, {
+								repo: item.description,
+								runCommandOnLoad: 'fetch'
+							});
+						}
+					},
+					() => {
+						showErrorMessage('An unexpected error occurred while running the command "Fetch from Remote(s)".');
+					}
+				);
 		} else if (repoPaths.length === 1) {
 			GitGraphView.createOrShow(this.context.extensionPath, this.dataSource, this.extensionState, this.avatarManager, this.repoManager, this.logger, {
 				repo: repoPaths[0],
@@ -257,22 +278,30 @@ export class CommandManager extends Disposable {
 			return;
 		}
 
-		vscode.window.showQuickPick(this.getCodeReviewQuickPickItems(codeReviews), {
-			placeHolder: 'Select the Code Review you want to end:',
-			canPickMany: false
-		}).then((item) => {
-			if (item) {
-				this.extensionState.endCodeReview(item.codeReviewRepo, item.codeReviewId).then((errorInfo) => {
-					if (errorInfo === null) {
-						showInformationMessage('Successfully ended Code Review "' + item.label + '".');
-					} else {
-						showErrorMessage(errorInfo);
+		vscode.window
+			.showQuickPick(this.getCodeReviewQuickPickItems(codeReviews), {
+				placeHolder: 'Select the Code Review you want to end:',
+				canPickMany: false
+			})
+			.then(
+				(item) => {
+					if (item) {
+						this.extensionState.endCodeReview(item.codeReviewRepo, item.codeReviewId).then(
+							(errorInfo) => {
+								if (errorInfo === null) {
+									showInformationMessage('Successfully ended Code Review "' + item.label + '".');
+								} else {
+									showErrorMessage(errorInfo);
+								}
+							},
+							() => {}
+						);
 					}
-				}, () => { });
-			}
-		}, () => {
-			showErrorMessage('An unexpected error occurred while running the command "End a specific Code Review in Workspace...".');
-		});
+				},
+				() => {
+					showErrorMessage('An unexpected error occurred while running the command "End a specific Code Review in Workspace...".');
+				}
+			);
 	}
 
 	/**
@@ -285,23 +314,28 @@ export class CommandManager extends Disposable {
 			return;
 		}
 
-		vscode.window.showQuickPick(this.getCodeReviewQuickPickItems(codeReviews), {
-			placeHolder: 'Select the Code Review you want to resume:',
-			canPickMany: false
-		}).then((item) => {
-			if (item) {
-				const commitHashes = item.codeReviewId.split('-');
-				GitGraphView.createOrShow(this.context.extensionPath, this.dataSource, this.extensionState, this.avatarManager, this.repoManager, this.logger, {
-					repo: item.codeReviewRepo,
-					commitDetails: {
-						commitHash: commitHashes[commitHashes.length > 1 ? 1 : 0],
-						compareWithHash: commitHashes.length > 1 ? commitHashes[0] : null
+		vscode.window
+			.showQuickPick(this.getCodeReviewQuickPickItems(codeReviews), {
+				placeHolder: 'Select the Code Review you want to resume:',
+				canPickMany: false
+			})
+			.then(
+				(item) => {
+					if (item) {
+						const commitHashes = item.codeReviewId.split('-');
+						GitGraphView.createOrShow(this.context.extensionPath, this.dataSource, this.extensionState, this.avatarManager, this.repoManager, this.logger, {
+							repo: item.codeReviewRepo,
+							commitDetails: {
+								commitHash: commitHashes[commitHashes.length > 1 ? 1 : 0],
+								compareWithHash: commitHashes.length > 1 ? commitHashes[0] : null
+							}
+						});
 					}
-				});
-			}
-		}, () => {
-			showErrorMessage('An unexpected error occurred while running the command "Resume a specific Code Review in Workspace...".');
-		});
+				},
+				() => {
+					showErrorMessage('An unexpected error occurred while running the command "Resume a specific Code Review in Workspace...".');
+				}
+			);
 	}
 
 	/**
@@ -310,16 +344,31 @@ export class CommandManager extends Disposable {
 	private async version() {
 		try {
 			const gitGraphVersion = await getExtensionVersion(this.context);
-			const information = 'Git Graph: ' + gitGraphVersion + '\nVisual Studio Code: ' + vscode.version + '\nOS: ' + os.type() + ' ' + os.arch() + ' ' + os.release() + '\nGit: ' + (this.gitExecutable !== null ? this.gitExecutable.version : '(none)');
-			vscode.window.showInformationMessage(information, { modal: true }, 'Copy').then((selectedItem) => {
-				if (selectedItem === 'Copy') {
-					copyToClipboard(information).then((result) => {
-						if (result !== null) {
-							showErrorMessage(result);
-						}
-					});
-				}
-			}, () => { });
+			const information =
+				'Git Graph: ' +
+				gitGraphVersion +
+				'\nVisual Studio Code: ' +
+				vscode.version +
+				'\nOS: ' +
+				os.type() +
+				' ' +
+				os.arch() +
+				' ' +
+				os.release() +
+				'\nGit: ' +
+				(this.gitExecutable !== null ? this.gitExecutable.version : '(none)');
+			vscode.window.showInformationMessage(information, { modal: true }, 'Copy').then(
+				(selectedItem) => {
+					if (selectedItem === 'Copy') {
+						copyToClipboard(information).then((result) => {
+							if (result !== null) {
+								showErrorMessage(result);
+							}
+						});
+					}
+				},
+				() => {}
+			);
 		} catch (_) {
 			showErrorMessage('An unexpected error occurred while retrieving version information.');
 		}
@@ -345,7 +394,6 @@ export class CommandManager extends Disposable {
 		}
 	}
 
-
 	/* Helper Methods */
 
 	/**
@@ -355,8 +403,8 @@ export class CommandManager extends Disposable {
 	 */
 	private getCodeReviewQuickPickItems(codeReviews: CodeReviews): Promise<CodeReviewQuickPickItem[]> {
 		const repos = this.repoManager.getRepos();
-		const enrichedCodeReviews: { repo: string, id: string, review: CodeReviewData, fromCommitHash: string, toCommitHash: string }[] = [];
-		const fetchCommits: { repo: string, commitHash: string }[] = [];
+		const enrichedCodeReviews: { repo: string; id: string; review: CodeReviewData; fromCommitHash: string; toCommitHash: string }[] = [];
+		const fetchCommits: { repo: string; commitHash: string }[] = [];
 
 		Object.keys(codeReviews).forEach((repo) => {
 			if (typeof repos[repo] === 'undefined') return;
@@ -364,23 +412,27 @@ export class CommandManager extends Disposable {
 				const commitHashes = id.split('-');
 				commitHashes.forEach((commitHash) => fetchCommits.push({ repo: repo, commitHash: commitHash }));
 				enrichedCodeReviews.push({
-					repo: repo, id: id, review: codeReviews[repo][id],
-					fromCommitHash: commitHashes[0], toCommitHash: commitHashes[commitHashes.length > 1 ? 1 : 0]
+					repo: repo,
+					id: id,
+					review: codeReviews[repo][id],
+					fromCommitHash: commitHashes[0],
+					toCommitHash: commitHashes[commitHashes.length > 1 ? 1 : 0]
 				});
 			});
 		});
 
-		return Promise.all(fetchCommits.map((fetch) => this.dataSource.getCommitSubject(fetch.repo, fetch.commitHash))).then(
-			(subjects) => {
-				const commitSubjects: { [repo: string]: { [commitHash: string]: string } } = {};
-				subjects.forEach((subject, i) => {
-					if (typeof commitSubjects[fetchCommits[i].repo] === 'undefined') {
-						commitSubjects[fetchCommits[i].repo] = {};
-					}
-					commitSubjects[fetchCommits[i].repo][fetchCommits[i].commitHash] = subject !== null ? subject : '<Unknown Commit Subject>';
-				});
+		return Promise.all(fetchCommits.map((fetch) => this.dataSource.getCommitSubject(fetch.repo, fetch.commitHash))).then((subjects) => {
+			const commitSubjects: { [repo: string]: { [commitHash: string]: string } } = {};
+			subjects.forEach((subject, i) => {
+				if (typeof commitSubjects[fetchCommits[i].repo] === 'undefined') {
+					commitSubjects[fetchCommits[i].repo] = {};
+				}
+				commitSubjects[fetchCommits[i].repo][fetchCommits[i].commitHash] = subject !== null ? subject : '<Unknown Commit Subject>';
+			});
 
-				return enrichedCodeReviews.sort((a, b) => b.review.lastActive - a.review.lastActive).map((codeReview) => {
+			return enrichedCodeReviews
+				.sort((a, b) => b.review.lastActive - a.review.lastActive)
+				.map((codeReview) => {
 					const fromSubject = commitSubjects[codeReview.repo][codeReview.fromCommitHash];
 					const toSubject = commitSubjects[codeReview.repo][codeReview.toCommitHash];
 					const isComparison = codeReview.fromCommitHash !== codeReview.toCommitHash;
@@ -389,13 +441,10 @@ export class CommandManager extends Disposable {
 						codeReviewId: codeReview.id,
 						label: (repos[codeReview.repo].name || getRepoName(codeReview.repo)) + ': ' + abbrevCommit(codeReview.fromCommitHash) + (isComparison ? ' ↔ ' + abbrevCommit(codeReview.toCommitHash) : ''),
 						description: getRelativeTimeDiff(Math.round(codeReview.review.lastActive / 1000)),
-						detail: isComparison
-							? abbrevText(fromSubject, 50) + ' ↔ ' + abbrevText(toSubject, 50)
-							: fromSubject
+						detail: isComparison ? abbrevText(fromSubject, 50) + ' ↔ ' + abbrevText(toSubject, 50) : fromSubject
 					};
 				});
-			}
-		);
+		});
 	}
 }
 

@@ -2,14 +2,12 @@
 .vscode/
 coverage/
 node_modules/*/*.md
-out/**/*.d.ts
 out/**/*.js.map
-out/*.d.ts
-out/*.js.map
 resources/demo.gif
 src/
 tests/
 web/
-.eslintrc.json
 .gitignore
-jest.config.js
+.nvmrc
+tsconfig.json
+vite.config.ts

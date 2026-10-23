@@ -749,6 +749,165 @@ body.tagLabelsRightAligned .gitRef.tag{
 	margin-right:0;
 }
 
+.gitRefWorktree, .gitRefAgent{
+	display:inline-block;
+	height:18px;
+	line-height:18px;
+	padding:0 5px;
+	border-left:1px solid rgba(128,128,128,0.45);
+}
+.gitRefWorktree{
+	background-color:rgba(128,128,128,0.1);
+}
+.gitRefWorktree svg{
+	width:11px;
+	height:12px;
+	margin-right:4px;
+	vertical-align:-1px;
+	fill:var(--git-graph-color);
+}
+.gitRefAgent{
+	font-style:italic;
+}
+.gitRef .gitRefWorktree:hover{
+	background-color:rgba(128,128,128,0.2);
+}
+
+
+/* Worktrees Panel */
+
+#worktreesPanel{
+	display:none;
+	position:fixed;
+	top:0;
+	right:0;
+	bottom:0;
+	width:300px;
+	box-sizing:border-box;
+	overflow-x:hidden;
+	overflow-y:auto;
+	background-color:var(--vscode-sideBar-background, var(--vscode-editor-background));
+	border-left:1px solid rgba(128,128,128,0.5);
+	font-size:13px;
+	cursor:default;
+}
+body.worktreesPanelOpen #worktreesPanel{
+	display:block;
+}
+body.worktreesPanelOpen #view, body.worktreesPanelOpen #cdv.docked, body.worktreesPanelOpen #scrollShadow.active{
+	right:300px;
+}
+body.worktreesPanelOpen .findWidget, body.worktreesPanelOpen #settingsWidget{
+	right:328px;
+}
+
+#worktreesPanelHeader{
+	display:flex;
+	align-items:center;
+	gap:6px;
+	padding:8px 10px;
+	line-height:22px;
+	border-bottom:1px solid rgba(128,128,128,0.35);
+}
+#worktreesPanelTitle{
+	font-size:11px;
+	font-weight:700;
+	letter-spacing:0.04em;
+	text-transform:uppercase;
+}
+.worktreesPanelCount{
+	margin-right:auto;
+	padding:0 6px;
+	line-height:16px;
+	font-size:11px;
+	border-radius:8px;
+	background-color:rgba(128,128,128,0.25);
+}
+#worktreesPanelHeader .roundedBtn, .worktreeActions .roundedBtn, #worktreesPrune .roundedBtn{
+	display:inline-block;
+	padding:0 8px;
+	line-height:22px;
+	font-size:12px;
+	border-radius:11px;
+	white-space:nowrap;
+}
+
+.worktreesPanelItem{
+	padding:8px 10px;
+	border-bottom:1px solid rgba(128,128,128,0.2);
+	cursor:pointer;
+}
+.worktreesPanelItem:hover{
+	background-color:rgba(128,128,128,0.1);
+}
+.worktreesPanelItem.selected{
+	background-color:var(--vscode-list-inactiveSelectionBackground, rgba(128,128,128,0.2));
+}
+.worktreeTitle{
+	display:flex;
+	align-items:center;
+	gap:6px;
+	line-height:20px;
+}
+.worktreeIcon svg{
+	display:block;
+	width:14px;
+	height:16px;
+	fill:var(--git-graph-color, rgba(128,128,128,0.75));
+}
+.worktreeName{
+	font-weight:700;
+	overflow:hidden;
+	text-overflow:ellipsis;
+	white-space:nowrap;
+}
+.worktreeTag{
+	padding:0 5px;
+	line-height:14px;
+	font-size:11px;
+	border:1px solid rgba(128,128,128,0.6);
+	border-radius:7px;
+	white-space:nowrap;
+}
+.worktreeChanges{
+	margin-left:auto;
+	font-size:12px;
+	opacity:0.75;
+	white-space:nowrap;
+}
+.worktreeChanges.changed{
+	opacity:1;
+	color:var(--vscode-gitDecoration-modifiedResourceForeground, inherit);
+}
+.worktreeBranch, .worktreePath{
+	padding-left:20px;
+	font-family:var(--vscode-editor-font-family);
+	font-size:12px;
+	opacity:0.75;
+	overflow:hidden;
+	text-overflow:ellipsis;
+	white-space:nowrap;
+}
+.worktreePath{
+	margin-top:4px;
+	white-space:normal;
+	word-break:break-all;
+}
+.worktreeActions{
+	display:flex;
+	flex-wrap:wrap;
+	gap:4px;
+	margin-top:6px;
+	padding-left:20px;
+}
+#worktreesPrune{
+	display:flex;
+	align-items:center;
+	gap:8px;
+	padding:8px 10px;
+	font-size:12px;
+}
+
 
 /* Loader */
 
@@ -790,7 +949,7 @@ body.tagLabelsRightAligned .gitRef.tag{
 	user-select:none;
 }
 
-#repoControl, #branchControl, #showRemoteBranchesControl{
+#repoControl, #branchControl, #showRemoteBranchesControl, #worktreesControl{
 	display:inline-block;
 	white-space:nowrap;
 	margin:0 10px;
@@ -798,7 +957,7 @@ body.tagLabelsRightAligned .gitRef.tag{
 #repoDropdown, #branchDropdown{
 	margin-left:3px;
 }
-#showRemoteBranchesControl > .customCheckbox{
+#showRemoteBranchesControl > .customCheckbox, #worktreesControl > .customCheckbox{
 	margin-right:6px;
 }
 

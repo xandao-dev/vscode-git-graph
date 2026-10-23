@@ -5,7 +5,7 @@ import { Disposable, toDisposable } from './disposable';
  */
 export class BufferedQueue<T> extends Disposable {
 	private readonly queue: T[] = [];
-	private timeout: NodeJS.Timer | null = null;
+	private timeout: NodeJS.Timeout | null = null;
 	private processing: boolean = false;
 
 	private readonly bufferDuration: number;
@@ -25,12 +25,14 @@ export class BufferedQueue<T> extends Disposable {
 		this.onItem = onItem;
 		this.onChanges = onChanges;
 
-		this.registerDisposable(toDisposable(() => {
-			if (this.timeout !== null) {
-				clearTimeout(this.timeout);
-				this.timeout = null;
-			}
-		}));
+		this.registerDisposable(
+			toDisposable(() => {
+				if (this.timeout !== null) {
+					clearTimeout(this.timeout);
+					this.timeout = null;
+				}
+			})
+		);
 	}
 
 	/**
@@ -60,8 +62,9 @@ export class BufferedQueue<T> extends Disposable {
 	 */
 	private async run() {
 		this.processing = true;
-		let item, changes = false;
-		while (item = this.queue.shift()) {
+		let item,
+			changes = false;
+		while ((item = this.queue.shift())) {
 			if (await this.onItem(item)) {
 				changes = true;
 			}

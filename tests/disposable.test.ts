@@ -23,7 +23,7 @@ describe('Disposable', () => {
 	it('Should register a disposable', () => {
 		// Setup
 		const disposableTest = new DisposableTest();
-		const disposable = { dispose: jest.fn() };
+		const disposable = { dispose: vi.fn() };
 
 		// Run
 		disposableTest.registerDisposable(disposable);
@@ -36,8 +36,8 @@ describe('Disposable', () => {
 	it('Should register multiple disposables', () => {
 		// Setup
 		const disposableTest = new DisposableTest();
-		const disposable1 = { dispose: jest.fn() };
-		const disposable2 = { dispose: jest.fn() };
+		const disposable1 = { dispose: vi.fn() };
+		const disposable2 = { dispose: vi.fn() };
 
 		// Run
 		disposableTest.registerDisposables(disposable1, disposable2);
@@ -50,8 +50,8 @@ describe('Disposable', () => {
 	it('Should dispose all registered disposables', () => {
 		// Setup
 		const disposableTest = new DisposableTest();
-		const disposable1 = { dispose: jest.fn() };
-		const disposable2 = { dispose: jest.fn() };
+		const disposable1 = { dispose: vi.fn() };
+		const disposable2 = { dispose: vi.fn() };
 		disposableTest.registerDisposables(disposable1, disposable2);
 
 		// Run
@@ -67,13 +67,13 @@ describe('Disposable', () => {
 	it('Should dispose all registered disposables independently, catching any exceptions', () => {
 		// Setup
 		const disposableTest = new DisposableTest();
-		const disposable1 = { dispose: jest.fn() };
+		const disposable1 = { dispose: vi.fn() };
 		const disposable2 = {
-			dispose: jest.fn(() => {
+			dispose: vi.fn(() => {
 				throw new Error();
 			})
 		};
-		const disposable3 = { dispose: jest.fn() };
+		const disposable3 = { dispose: vi.fn() };
 		disposableTest.registerDisposables(disposable1, disposable2, disposable3);
 
 		// Run
@@ -91,7 +91,7 @@ describe('Disposable', () => {
 describe('toDisposable', () => {
 	it('Should wrap a function with a disposable', () => {
 		// Setup
-		const fn = () => { };
+		const fn = () => {};
 
 		// Run
 		const result = toDisposable(fn);

@@ -45,12 +45,14 @@ export async function onStartUp(extensionContext: vscode.ExtensionContext) {
 				previous: null,
 				current: versions,
 				apiAvailable: true,
-				queue: [{
-					stage: LifeCycleStage.Install,
-					extension: versions.extension,
-					vscode: versions.vscode,
-					nonce: nonce
-				}],
+				queue: [
+					{
+						stage: LifeCycleStage.Install,
+						extension: versions.extension,
+						vscode: versions.vscode,
+						nonce: nonce
+					}
+				],
 				attempts: 1
 			};
 		} else {
@@ -70,7 +72,6 @@ export async function onStartUp(extensionContext: vscode.ExtensionContext) {
 		state.apiAvailable = await sendQueue(state.queue);
 		state.queue = [];
 		await saveLifeCycleState(extensionContext, state);
-
 	} else if (state.queue.length > 0 && state.attempts < 2) {
 		// There are one or more events in the queue that previously failed to send, send them
 		state.attempts++;
@@ -88,10 +89,7 @@ export async function onStartUp(extensionContext: vscode.ExtensionContext) {
  * @param state The state to save.
  */
 function saveLifeCycleState(extensionContext: vscode.ExtensionContext, state: LifeCycleState) {
-	return Promise.all([
-		saveLifeCycleStateInDirectory(extensionContext.globalStoragePath, state),
-		saveLifeCycleStateInDirectory(getDataDirectory(), state)
-	]);
+	return Promise.all([saveLifeCycleStateInDirectory(extensionContext.globalStoragePath, state), saveLifeCycleStateInDirectory(getDataDirectory(), state)]);
 }
 
 /**

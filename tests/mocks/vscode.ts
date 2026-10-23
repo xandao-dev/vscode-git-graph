@@ -1,78 +1,76 @@
 import * as vscode from 'vscode';
 import { RequestMessage, ResponseMessage, Writeable } from '../../src/types';
 
-
 /* Mocks */
 
 const mockedExtensionSettingValues: { [section: string]: any } = {};
 const mockedCommands: { [command: string]: (...args: any[]) => any } = {};
 
 interface WebviewPanelMocks {
-	messages: ResponseMessage[],
+	messages: ResponseMessage[];
 	panel: {
-		onDidChangeViewState: (e: vscode.WebviewPanelOnDidChangeViewStateEvent) => any,
-		onDidDispose: (e: void) => any,
-		setVisibility: (visible: boolean) => void,
+		onDidChangeViewState: (e: vscode.WebviewPanelOnDidChangeViewStateEvent) => any;
+		onDidDispose: (e: void) => any;
+		setVisibility: (visible: boolean) => void;
 		webview: {
-			onDidReceiveMessage: (msg: RequestMessage) => void
-		}
-	}
+			onDidReceiveMessage: (msg: RequestMessage) => void;
+		};
+	};
 }
 
-let mockedWebviews: { panel: vscode.WebviewPanel, mocks: WebviewPanelMocks }[] = [];
+let mockedWebviews: { panel: vscode.WebviewPanel; mocks: WebviewPanelMocks }[] = [];
+
+const extensionContext = {
+	asAbsolutePath: vi.fn(),
+	extensionPath: '/path/to/extension',
+	globalState: {
+		get: vi.fn(),
+		update: vi.fn()
+	},
+	globalStoragePath: '/path/to/globalStorage',
+	logPath: '/path/to/logs',
+	storagePath: '/path/to/storage',
+	subscriptions: [],
+	workspaceState: {
+		get: vi.fn(),
+		update: vi.fn()
+	}
+};
 
 export const mocks = {
-	extensionContext: {
-		asAbsolutePath: jest.fn(),
-		extensionPath: '/path/to/extension',
-		globalState: {
-			get: jest.fn(),
-			update: jest.fn()
-		},
-		globalStoragePath: '/path/to/globalStorage',
-		logPath: '/path/to/logs',
-		storagePath: '/path/to/storage',
-		subscriptions: [],
-		workspaceState: {
-			get: jest.fn(),
-			update: jest.fn()
-		}
-	},
+	extensionContext: <typeof extensionContext & vscode.ExtensionContext>extensionContext,
 	outputChannel: {
-		appendLine: jest.fn(),
-		dispose: jest.fn()
+		appendLine: vi.fn(),
+		dispose: vi.fn()
 	},
 	statusBarItem: {
 		text: '',
 		tooltip: '',
 		command: '',
-		show: jest.fn(),
-		hide: jest.fn(),
-		dispose: jest.fn()
+		show: vi.fn(),
+		hide: vi.fn(),
+		dispose: vi.fn()
 	},
 	terminal: {
-		sendText: jest.fn(),
-		show: jest.fn()
+		sendText: vi.fn(),
+		show: vi.fn()
 	},
 	workspaceConfiguration: {
-		get: jest.fn((section: string, defaultValue?: any) => {
-			return typeof mockedExtensionSettingValues[section] !== 'undefined'
-				? mockedExtensionSettingValues[section]
-				: defaultValue;
+		get: vi.fn((section: string, defaultValue?: any) => {
+			return typeof mockedExtensionSettingValues[section] !== 'undefined' ? mockedExtensionSettingValues[section] : defaultValue;
 		}),
-		inspect: jest.fn((section: string) => ({
+		inspect: vi.fn((section: string) => ({
 			workspaceValue: mockedExtensionSettingValues[section],
 			globalValue: mockedExtensionSettingValues[section]
 		}))
 	}
 };
 
-
 /* Visual Studio Code API Mocks */
 
 export const commands = {
-	executeCommand: jest.fn((command: string, ...rest: any[]) => mockedCommands[command](...rest)),
-	registerCommand: jest.fn((command: string, callback: (...args: any[]) => any) => {
+	executeCommand: vi.fn((command: string, ...rest: any[]) => mockedCommands[command](...rest)),
+	registerCommand: vi.fn((command: string, callback: (...args: any[]) => any) => {
 		mockedCommands[command] = callback;
 		return {
 			dispose: () => {
@@ -84,15 +82,17 @@ export const commands = {
 
 export const env = {
 	clipboard: {
-		writeText: jest.fn()
+		writeText: vi.fn()
 	},
-	openExternal: jest.fn()
+	openExternal: vi.fn()
 };
 
-export const EventEmitter = jest.fn(() => ({
-	dispose: jest.fn(),
-	event: jest.fn()
-}));
+export const EventEmitter = vi.fn(function () {
+	return {
+		dispose: vi.fn(),
+		event: vi.fn()
+	};
+});
 
 export class Uri implements vscode.Uri {
 	public readonly scheme: string;
@@ -113,7 +113,7 @@ export class Uri implements vscode.Uri {
 		return this.path;
 	}
 
-	public with(change: { scheme?: string | undefined; authority?: string | undefined; path?: string | undefined; query?: string | undefined; fragment?: string | undefined; }): vscode.Uri {
+	public with(change: { scheme?: string | undefined; authority?: string | undefined; path?: string | undefined; query?: string | undefined; fragment?: string | undefined }): vscode.Uri {
 		return new Uri(change.scheme || this.scheme, change.authority || this.authority, change.path || this.path, change.query || this.query, change.fragment || this.fragment);
 	}
 
@@ -140,7 +140,7 @@ export enum StatusBarAlignment {
 	Right = 2
 }
 
-export let version = '1.51.0';
+export const version = '1.51.0';
 
 export enum ViewColumn {
 	Active = -1,
@@ -158,73 +158,80 @@ export enum ViewColumn {
 
 export const window = {
 	activeTextEditor: undefined as any,
-	createOutputChannel: jest.fn(() => mocks.outputChannel),
-	createStatusBarItem: jest.fn(() => mocks.statusBarItem),
-	createWebviewPanel: jest.fn(createWebviewPanel),
-	createTerminal: jest.fn(() => mocks.terminal),
-	showErrorMessage: jest.fn(),
-	showInformationMessage: jest.fn(),
-	showOpenDialog: jest.fn(),
-	showQuickPick: jest.fn(),
-	showSaveDialog: jest.fn()
+	createOutputChannel: vi.fn(() => mocks.outputChannel),
+	createStatusBarItem: vi.fn(() => mocks.statusBarItem),
+	createWebviewPanel: vi.fn(createWebviewPanel),
+	createTerminal: vi.fn(() => mocks.terminal),
+	showErrorMessage: vi.fn(),
+	showInformationMessage: vi.fn(),
+	showOpenDialog: vi.fn(),
+	showQuickPick: vi.fn(),
+	showSaveDialog: vi.fn()
 };
 
 export const workspace = {
-	createFileSystemWatcher: jest.fn(() => ({
-		onDidCreate: jest.fn(),
-		onDidChange: jest.fn(),
-		onDidDelete: jest.fn(),
-		dispose: jest.fn()
+	createFileSystemWatcher: vi.fn(() => ({
+		onDidCreate: vi.fn(),
+		onDidChange: vi.fn(),
+		onDidDelete: vi.fn(),
+		dispose: vi.fn()
 	})),
-	getConfiguration: jest.fn(() => mocks.workspaceConfiguration),
-	onDidChangeWorkspaceFolders: jest.fn((_: () => Promise<void>) => ({ dispose: jest.fn() })),
-	onDidCloseTextDocument: jest.fn((_: () => void) => ({ dispose: jest.fn() })),
-	workspaceFolders: <{ uri: Uri, index: number }[] | undefined>undefined
+	getConfiguration: vi.fn(() => mocks.workspaceConfiguration),
+	onDidChangeWorkspaceFolders: vi.fn((_: () => Promise<void>) => ({ dispose: vi.fn() })),
+	onDidCloseTextDocument: vi.fn((_: () => void) => ({ dispose: vi.fn() })),
+	updateWorkspaceFolders: vi.fn((_start: number, _deleteCount: number, ..._folders: { uri: Uri; name?: string }[]) => true),
+	workspaceFolders: <{ uri: Uri; index: number }[] | undefined>undefined
 };
 
-function createWebviewPanel(viewType: string, title: string, _showOptions: ViewColumn | { viewColumn: ViewColumn, preserveFocus?: boolean }, _options?: vscode.WebviewPanelOptions & vscode.WebviewOptions) {
+function createWebviewPanel(
+	viewType: string,
+	title: string,
+	_showOptions: ViewColumn | { viewColumn: ViewColumn; preserveFocus?: boolean },
+	_options?: vscode.WebviewPanelOptions & vscode.WebviewOptions
+) {
 	const mocks: WebviewPanelMocks = {
 		messages: [],
 		panel: {
-			onDidChangeViewState: () => { },
-			onDidDispose: () => { },
+			onDidChangeViewState: () => {},
+			onDidDispose: () => {},
 			setVisibility: (visible) => {
 				webviewPanel.visible = visible;
 				mocks.panel.onDidChangeViewState({ webviewPanel: webviewPanel });
 			},
 			webview: {
-				onDidReceiveMessage: () => { }
+				onDidReceiveMessage: () => {}
 			}
 		}
 	};
 
 	const webviewPanel: Writeable<vscode.WebviewPanel> = {
 		active: true,
-		dispose: jest.fn(),
+		dispose: vi.fn(),
 		iconPath: undefined,
-		onDidChangeViewState: jest.fn((onDidChangeViewState) => {
+		onDidChangeViewState: vi.fn((onDidChangeViewState) => {
 			mocks.panel.onDidChangeViewState = onDidChangeViewState;
-			return { dispose: jest.fn() };
+			return { dispose: vi.fn() };
 		}),
-		onDidDispose: jest.fn((onDidDispose) => {
+		onDidDispose: vi.fn((onDidDispose) => {
 			mocks.panel.onDidDispose = onDidDispose;
-			return { dispose: jest.fn() };
+			return { dispose: vi.fn() };
 		}),
 		options: {},
-		reveal: jest.fn((_viewColumn?: ViewColumn, _preserveFocus?: boolean) => { }),
+		reveal: vi.fn((_viewColumn?: ViewColumn, _preserveFocus?: boolean) => {}),
 		title: title,
+		viewColumn: undefined,
 		visible: true,
 		viewType: viewType,
 		webview: {
-			asWebviewUri: jest.fn((uri: Uri) => uri.with({ scheme: 'vscode-webview-resource', path: 'file//' + uri.path.replace(/\\/g, '/') })),
+			asWebviewUri: vi.fn((uri: Uri) => uri.with({ scheme: 'vscode-webview-resource', path: 'file//' + uri.path.replace(/\\/g, '/') })),
 			cspSource: 'vscode-webview-resource:',
 			html: '',
-			onDidReceiveMessage: jest.fn((onDidReceiveMessage) => {
+			onDidReceiveMessage: vi.fn((onDidReceiveMessage) => {
 				mocks.panel.webview.onDidReceiveMessage = onDidReceiveMessage;
-				return { dispose: jest.fn() };
+				return { dispose: vi.fn() };
 			}),
 			options: {},
-			postMessage: jest.fn((msg) => {
+			postMessage: vi.fn((msg) => {
 				mocks.messages.push(msg);
 				return Promise.resolve(true);
 			})
@@ -235,11 +242,10 @@ function createWebviewPanel(viewType: string, title: string, _showOptions: ViewC
 	return webviewPanel;
 }
 
-
 /* Utilities */
 
 beforeEach(() => {
-	jest.clearAllMocks();
+	vi.clearAllMocks();
 
 	window.activeTextEditor = {
 		document: {
@@ -254,16 +260,10 @@ beforeEach(() => {
 	});
 
 	mockedWebviews = [];
-
-	version = '1.51.0';
 });
 
 export function mockExtensionSettingReturnValue(section: string, value: any) {
 	mockedExtensionSettingValues[section] = value;
-}
-
-export function mockVscodeVersion(newVersion: string) {
-	version = newVersion;
 }
 
 export function getMockedWebviewPanel(i: number) {

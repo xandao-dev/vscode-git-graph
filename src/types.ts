@@ -95,13 +95,13 @@ export interface GitRepoConfig {
 	readonly remotes: ReadonlyArray<GitRepoSettingsRemote>;
 	readonly user: {
 		readonly name: {
-			readonly local: string | null,
-			readonly global: string | null
-		},
+			readonly local: string | null;
+			readonly global: string | null;
+		};
 		readonly email: {
-			readonly local: string | null,
-			readonly global: string | null
-		}
+			readonly local: string | null;
+			readonly global: string | null;
+		};
 	};
 }
 
@@ -135,6 +135,20 @@ export interface GitStash {
 	readonly message: string;
 }
 
+export interface GitWorktree {
+	readonly path: string;
+	readonly head: string | null; // null => the worktree has no commits
+	readonly branch: string | null; // null => detached HEAD
+	readonly isMain: boolean;
+	readonly isCurrent: boolean; // TRUE => the worktree is the repository being viewed
+	readonly isLocked: boolean;
+	readonly isPrunable: boolean; // TRUE => the worktree's directory no longer exists
+	readonly agent: string | null; // The name of the coding agent that created the worktree (if known)
+	readonly uncommittedChanges: number;
+}
+
+export type WorktreeOpenAfter = 'window' | 'terminal' | 'none';
+
 export interface GitTagDetails {
 	readonly hash: string;
 	readonly taggerName: string;
@@ -143,7 +157,6 @@ export interface GitTagDetails {
 	readonly message: string;
 	readonly signature: GitSignature | null;
 }
-
 
 /* Git Repo State */
 
@@ -190,8 +203,8 @@ interface PullRequestConfigBuiltIn extends PullRequestConfigBase {
 interface PullRequestConfigCustom extends PullRequestConfigBase {
 	readonly provider: PullRequestProvider.Custom;
 	readonly custom: {
-		readonly name: string,
-		readonly templateUrl: string
+		readonly name: string;
+		readonly templateUrl: string;
 	};
 }
 
@@ -218,7 +231,6 @@ export interface GitRepoState {
 	showTags: BooleanOverride;
 	workspaceFolderIndex: number | null;
 }
-
 
 /* Git Graph View Types */
 
@@ -248,7 +260,7 @@ export interface GitGraphViewConfig {
 	readonly graph: GraphConfig;
 	readonly includeCommitsMentionedByReflogs: boolean;
 	readonly initialLoadCommits: number;
-	readonly keybindings: KeybindingConfig
+	readonly keybindings: KeybindingConfig;
 	readonly loadMoreCommits: number;
 	readonly loadMoreCommitsAutomatically: boolean;
 	readonly markdown: boolean;
@@ -284,7 +296,7 @@ export interface CommitDetailsViewConfig {
 export interface GraphConfig {
 	readonly colours: ReadonlyArray<string>;
 	readonly style: GraphStyle;
-	readonly grid: { x: number, y: number, offsetX: number, offsetY: number, expandY: number };
+	readonly grid: { x: number; y: number; offsetX: number; offsetY: number; expandY: number };
 	readonly uncommittedChanges: GraphUncommittedChangesStyle;
 }
 
@@ -296,12 +308,12 @@ export interface KeybindingConfig {
 }
 
 export type LoadGitGraphViewTo = {
-	readonly repo: string,
+	readonly repo: string;
 	readonly commitDetails?: {
-		readonly commitHash: string,
-		readonly compareWithHash: string | null
-	},
-	readonly runCommandOnLoad?: 'fetch'
+		readonly commitHash: string;
+		readonly compareWithHash: string | null;
+	};
+	readonly runCommandOnLoad?: 'fetch';
 } | null;
 
 export interface MuteCommitsConfig {
@@ -320,7 +332,6 @@ export interface ReferenceLabelsConfig {
 	readonly combineLocalAndRemoteBranchLabels: boolean;
 	readonly tagLabelsOnRight: boolean;
 }
-
 
 /* Extension Settings Types */
 
@@ -363,6 +374,7 @@ export interface ContextMenuActionsVisibility {
 		readonly cherrypick: boolean;
 		readonly revert: boolean;
 		readonly drop: boolean;
+		readonly edit: boolean;
 		readonly merge: boolean;
 		readonly rebase: boolean;
 		readonly reset: boolean;
@@ -455,56 +467,56 @@ export interface DefaultColumnVisibility {
 
 export interface DialogDefaults {
 	readonly addTag: {
-		readonly pushToRemote: boolean,
-		readonly type: TagType
+		readonly pushToRemote: boolean;
+		readonly type: TagType;
 	};
 	readonly applyStash: {
-		readonly reinstateIndex: boolean
+		readonly reinstateIndex: boolean;
 	};
 	readonly cherryPick: {
-		readonly noCommit: boolean,
-		readonly recordOrigin: boolean
+		readonly noCommit: boolean;
+		readonly recordOrigin: boolean;
 	};
 	readonly createBranch: {
-		readonly checkout: boolean
+		readonly checkout: boolean;
 	};
 	readonly deleteBranch: {
-		readonly forceDelete: boolean
+		readonly forceDelete: boolean;
 	};
 	readonly fetchIntoLocalBranch: {
-		readonly forceFetch: boolean
+		readonly forceFetch: boolean;
 	};
 	readonly fetchRemote: {
-		readonly prune: boolean,
-		readonly pruneTags: boolean
+		readonly prune: boolean;
+		readonly pruneTags: boolean;
 	};
 	readonly general: {
-		readonly referenceInputSpaceSubstitution: string | null
+		readonly referenceInputSpaceSubstitution: string | null;
 	};
 	readonly merge: {
-		readonly noCommit: boolean,
-		readonly noFastForward: boolean,
-		readonly squash: boolean
+		readonly noCommit: boolean;
+		readonly noFastForward: boolean;
+		readonly squash: boolean;
 	};
 	readonly popStash: {
-		readonly reinstateIndex: boolean
+		readonly reinstateIndex: boolean;
 	};
 	readonly pullBranch: {
-		readonly noFastForward: boolean,
-		readonly squash: boolean
+		readonly noFastForward: boolean;
+		readonly squash: boolean;
 	};
 	readonly rebase: {
-		readonly ignoreDate: boolean,
-		readonly interactive: boolean
+		readonly ignoreDate: boolean;
+		readonly interactive: boolean;
 	};
 	readonly resetCommit: {
-		readonly mode: GitResetMode
+		readonly mode: GitResetMode;
 	};
 	readonly resetUncommitted: {
-		readonly mode: Exclude<GitResetMode, GitResetMode.Soft>
+		readonly mode: Exclude<GitResetMode, GitResetMode.Soft>;
 	};
 	readonly stashUncommittedChanges: {
-		readonly includeUntracked: boolean
+		readonly includeUntracked: boolean;
 	};
 }
 
@@ -557,7 +569,6 @@ export const enum TagType {
 	Annotated,
 	Lightweight
 }
-
 
 /* Base Interfaces for Request / Response Messages */
 
@@ -694,6 +705,16 @@ export interface ResponseCommitDetails extends ResponseWithErrorInfo {
 	readonly refresh: boolean;
 }
 
+export interface RequestCommitMessage extends RepoRequest {
+	readonly command: 'commitMessage';
+	readonly commitHash: string;
+}
+export interface ResponseCommitMessage extends ResponseWithErrorInfo {
+	readonly command: 'commitMessage';
+	readonly commitHash: string;
+	readonly message: string | null;
+}
+
 export interface RequestCompareCommits extends RepoRequest {
 	readonly command: 'compareCommits';
 	readonly commitHash: string;
@@ -747,6 +768,18 @@ export interface RequestCreateBranch extends RepoRequest {
 }
 export interface ResponseCreateBranch extends ResponseWithMultiErrorInfo {
 	readonly command: 'createBranch';
+}
+
+export interface RequestCreateWorktree extends RepoRequest {
+	readonly command: 'createWorktree';
+	readonly path: string;
+	readonly ref: string; // The branch or commit to check out in the worktree
+	readonly newBranch: string | null; // string => create a new branch with this name at `ref`, null => check out `ref`
+	readonly setUp: boolean; // TRUE => copy the repository's ignored .worktreeinclude (or .env*) files and link its node_modules folder
+	readonly openAfter: WorktreeOpenAfter;
+}
+export interface ResponseCreateWorktree extends ResponseWithErrorInfo {
+	readonly command: 'createWorktree';
 }
 
 export interface RequestCreatePullRequest extends RepoRequest {
@@ -826,6 +859,15 @@ export interface RequestDropStash extends RepoRequest {
 }
 export interface ResponseDropStash extends ResponseWithErrorInfo {
 	readonly command: 'dropStash';
+}
+
+export interface RequestEditCommit extends RepoRequest {
+	readonly command: 'editCommit';
+	readonly commitHash: string;
+	readonly message: string | null;
+}
+export interface ResponseEditCommit extends ResponseWithErrorInfo {
+	readonly command: 'editCommit';
 }
 
 export interface RequestEditRemote extends RepoRequest {
@@ -920,6 +962,7 @@ export interface ResponseLoadCommits extends ResponseWithErrorInfo {
 	readonly tags: string[];
 	readonly moreCommitsAvailable: boolean;
 	readonly onlyFollowFirstParent: boolean;
+	readonly worktrees: GitWorktree[];
 }
 
 export interface RequestLoadConfig extends RepoRequest {
@@ -930,6 +973,14 @@ export interface ResponseLoadConfig extends ResponseWithErrorInfo {
 	readonly command: 'loadConfig';
 	readonly repo: string;
 	readonly config: GitRepoConfig | null;
+}
+
+export interface RequestLoadWorktreeCleanup extends RepoRequest {
+	readonly command: 'loadWorktreeCleanup';
+}
+export interface ResponseLoadWorktreeCleanup extends ResponseWithErrorInfo {
+	readonly command: 'loadWorktreeCleanup';
+	readonly merged: string[]; // The paths of the worktrees whose branch is fully merged into HEAD
 }
 
 export interface RequestLoadRepoInfo extends RepoRequest {
@@ -1012,12 +1063,31 @@ export interface ResponseOpenFile extends ResponseWithErrorInfo {
 	readonly command: 'openFile';
 }
 
+export interface RequestMoveWorktreeBranch extends RepoRequest {
+	readonly command: 'moveWorktreeBranch';
+	readonly worktree: string;
+	readonly branchName: string;
+	readonly stashChanges: boolean;
+}
+export interface ResponseMoveWorktreeBranch extends ResponseWithErrorInfo {
+	readonly command: 'moveWorktreeBranch';
+}
+
 export interface RequestOpenTerminal extends RepoRequest {
 	readonly command: 'openTerminal';
 	readonly name: string;
 }
 export interface ResponseOpenTerminal extends ResponseWithErrorInfo {
 	readonly command: 'openTerminal';
+}
+
+export interface RequestOpenWorktree extends RepoRequest {
+	readonly command: 'openWorktree';
+	readonly worktree: string;
+	readonly method: 'window' | 'swap'; // window => open in a new window, swap => replace the repository's workspace folder with the worktree
+}
+export interface ResponseOpenWorktree extends ResponseWithErrorInfo {
+	readonly command: 'openWorktree';
 }
 
 export interface RequestPopStash extends RepoRequest {
@@ -1104,6 +1174,17 @@ export interface ResponseRebase extends ResponseWithErrorInfo {
 
 export interface ResponseRefresh extends BaseMessage {
 	readonly command: 'refresh';
+}
+
+export interface RequestRemoveWorktrees extends RepoRequest {
+	readonly command: 'removeWorktrees';
+	readonly worktrees: string[];
+	readonly force: boolean;
+	readonly deleteBranches: string[];
+	readonly prune: boolean;
+}
+export interface ResponseRemoveWorktrees extends ResponseWithMultiErrorInfo {
+	readonly command: 'removeWorktrees';
 }
 
 export interface RequestRenameBranch extends RepoRequest {
@@ -1248,7 +1329,7 @@ export interface ResponseViewScm extends ResponseWithErrorInfo {
 }
 
 export type RequestMessage =
-	RequestAddRemote
+	| RequestAddRemote
 	| RequestAddTag
 	| RequestApplyStash
 	| RequestBranchFromStash
@@ -1257,12 +1338,14 @@ export type RequestMessage =
 	| RequestCherrypickCommit
 	| RequestCleanUntrackedFiles
 	| RequestCommitDetails
+	| RequestCommitMessage
 	| RequestCompareCommits
 	| RequestCopyFilePath
 	| RequestCopyToClipboard
 	| RequestCreateArchive
 	| RequestCreateBranch
 	| RequestCreatePullRequest
+	| RequestCreateWorktree
 	| RequestDeleteBranch
 	| RequestDeleteRemote
 	| RequestDeleteRemoteBranch
@@ -1270,6 +1353,7 @@ export type RequestMessage =
 	| RequestDeleteUserDetails
 	| RequestDropCommit
 	| RequestDropStash
+	| RequestEditCommit
 	| RequestEditRemote
 	| RequestEditUserDetails
 	| RequestEndCodeReview
@@ -1281,12 +1365,15 @@ export type RequestMessage =
 	| RequestLoadConfig
 	| RequestLoadRepoInfo
 	| RequestLoadRepos
+	| RequestLoadWorktreeCleanup
 	| RequestMerge
+	| RequestMoveWorktreeBranch
 	| RequestOpenExtensionSettings
 	| RequestOpenExternalDirDiff
 	| RequestOpenExternalUrl
 	| RequestOpenFile
 	| RequestOpenTerminal
+	| RequestOpenWorktree
 	| RequestPopStash
 	| RequestPruneRemote
 	| RequestPullBranch
@@ -1294,6 +1381,7 @@ export type RequestMessage =
 	| RequestPushStash
 	| RequestPushTag
 	| RequestRebase
+	| RequestRemoveWorktrees
 	| RequestRenameBranch
 	| RequestRescanForRepos
 	| RequestResetFileToRevision
@@ -1312,7 +1400,7 @@ export type RequestMessage =
 	| RequestViewScm;
 
 export type ResponseMessage =
-	ResponseAddRemote
+	| ResponseAddRemote
 	| ResponseAddTag
 	| ResponseApplyStash
 	| ResponseBranchFromStash
@@ -1320,6 +1408,7 @@ export type ResponseMessage =
 	| ResponseCheckoutCommit
 	| ResponseCherrypickCommit
 	| ResponseCleanUntrackedFiles
+	| ResponseCommitMessage
 	| ResponseCompareCommits
 	| ResponseCommitDetails
 	| ResponseCopyFilePath
@@ -1327,6 +1416,7 @@ export type ResponseMessage =
 	| ResponseCreateArchive
 	| ResponseCreateBranch
 	| ResponseCreatePullRequest
+	| ResponseCreateWorktree
 	| ResponseDeleteBranch
 	| ResponseDeleteRemote
 	| ResponseDeleteRemoteBranch
@@ -1334,6 +1424,7 @@ export type ResponseMessage =
 	| ResponseDeleteUserDetails
 	| ResponseDropCommit
 	| ResponseDropStash
+	| ResponseEditCommit
 	| ResponseEditRemote
 	| ResponseEditUserDetails
 	| ResponseExportRepoConfig
@@ -1344,12 +1435,15 @@ export type ResponseMessage =
 	| ResponseLoadConfig
 	| ResponseLoadRepoInfo
 	| ResponseLoadRepos
+	| ResponseLoadWorktreeCleanup
 	| ResponseMerge
+	| ResponseMoveWorktreeBranch
 	| ResponseOpenExtensionSettings
 	| ResponseOpenExternalDirDiff
 	| ResponseOpenExternalUrl
 	| ResponseOpenFile
 	| ResponseOpenTerminal
+	| ResponseOpenWorktree
 	| ResponsePopStash
 	| ResponsePruneRemote
 	| ResponsePullBranch
@@ -1358,6 +1452,7 @@ export type ResponseMessage =
 	| ResponsePushTag
 	| ResponseRebase
 	| ResponseRefresh
+	| ResponseRemoveWorktrees
 	| ResponseRenameBranch
 	| ResponseResetFileToRevision
 	| ResponseResetToCommit
@@ -1372,7 +1467,6 @@ export type ResponseMessage =
 	| ResponseViewFileAtRevision
 	| ResponseViewScm;
 
-
 /** Helper Types */
 
 type PrimitiveTypes = string | number | boolean | symbol | bigint | undefined | null;
@@ -1385,17 +1479,9 @@ export type Writeable<T> = { -readonly [K in keyof T]: T[K] };
 /**
  * Make all properties in T recursively readonly
  */
-export type DeepReadonly<T> = T extends PrimitiveTypes
-	? T
-	: T extends (Array<infer U> | ReadonlyArray<infer U>)
-	? ReadonlyArray<DeepReadonly<U>>
-	: { readonly [K in keyof T]: DeepReadonly<T[K]> };
+export type DeepReadonly<T> = T extends PrimitiveTypes ? T : T extends Array<infer U> | ReadonlyArray<infer U> ? ReadonlyArray<DeepReadonly<U>> : { readonly [K in keyof T]: DeepReadonly<T[K]> };
 
 /**
  * Make all properties in T recursively writeable
  */
-export type DeepWriteable<T> = T extends PrimitiveTypes
-	? T
-	: T extends (Array<infer U> | ReadonlyArray<infer U>)
-	? Array<DeepWriteable<U>>
-	: { -readonly [K in keyof T]: DeepWriteable<T[K]> };
+export type DeepWriteable<T> = T extends PrimitiveTypes ? T : T extends Array<infer U> | ReadonlyArray<infer U> ? Array<DeepWriteable<U>> : { -readonly [K in keyof T]: DeepWriteable<T[K]> };

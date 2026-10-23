@@ -1,7 +1,6 @@
 import * as vscode from './mocks/vscode';
-jest.mock('vscode', () => vscode, { virtual: true });
-jest.mock('../src/dataSource');
-jest.mock('../src/logger');
+vi.mock('../src/dataSource');
+vi.mock('../src/logger');
 
 import * as path from 'path';
 import { ConfigurationChangeEvent } from 'vscode';
@@ -35,7 +34,7 @@ describe('DiffDocProvider', () => {
 	it('Should construct a DiffDocProvider, provide a document, and be disposed', async () => {
 		// Setup
 		const uri = encodeDiffDocUri('/repo', 'path/to/file.txt', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', GitFileStatus.Modified, DiffSide.New);
-		jest.spyOn(dataSource, 'getCommitFile').mockResolvedValueOnce('file-contents');
+		vi.spyOn(dataSource, 'getCommitFile').mockResolvedValueOnce('file-contents');
 
 		// Run
 		const diffDocProvider = new DiffDocProvider(dataSource);
@@ -59,12 +58,12 @@ describe('DiffDocProvider', () => {
 	it('Should remove a cached document once it is closed', async () => {
 		// Setup
 		const uri = encodeDiffDocUri('/repo', 'path/to/file.txt', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', GitFileStatus.Modified, DiffSide.New);
-		jest.spyOn(dataSource, 'getCommitFile').mockResolvedValueOnce('file-contents');
+		vi.spyOn(dataSource, 'getCommitFile').mockResolvedValueOnce('file-contents');
 
 		let closeTextDocument: (doc: { uri: vscode.Uri }) => void;
 		vscode.workspace.onDidCloseTextDocument.mockImplementationOnce((callback: (_: { uri: vscode.Uri }) => void) => {
 			closeTextDocument = callback;
-			return { dispose: jest.fn() };
+			return { dispose: vi.fn() };
 		});
 
 		// Run
@@ -88,7 +87,7 @@ describe('DiffDocProvider', () => {
 	it('Should reuse a cached document if it exists', async () => {
 		// Setup
 		const uri = encodeDiffDocUri('/repo', 'path/to/file.txt', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', GitFileStatus.Modified, DiffSide.New);
-		const spyOnGetCommitFile = jest.spyOn(dataSource, 'getCommitFile');
+		const spyOnGetCommitFile = vi.spyOn(dataSource, 'getCommitFile');
 		spyOnGetCommitFile.mockResolvedValueOnce('file-contents');
 
 		// Run
@@ -123,7 +122,7 @@ describe('DiffDocProvider', () => {
 	it('Should display an error message if an error occurred when fetching the file contents from the DataSource, and return an empty document', async () => {
 		// Setup
 		const uri = encodeDiffDocUri('/repo', 'path/to/file.txt', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', GitFileStatus.Modified, DiffSide.New);
-		jest.spyOn(dataSource, 'getCommitFile').mockRejectedValueOnce('error-message');
+		vi.spyOn(dataSource, 'getCommitFile').mockRejectedValueOnce('error-message');
 		vscode.window.showErrorMessage.mockResolvedValue(null);
 
 		// Run
@@ -193,10 +192,12 @@ describe('encodeDiffDocUri', () => {
 describe('decodeDiffDocUri', () => {
 	it('Should return the parsed DiffDocUriData from the URI', () => {
 		// Run
-		const value = decodeDiffDocUri(vscode.Uri.file('file.txt').with({
-			scheme: 'git-graph',
-			query: 'eyJmaWxlUGF0aCI6InBhdGgvdG8vZmlsZS50eHQiLCJjb21taXQiOiIxYTJiM2M0ZDVlNmYxYTJiM2M0ZDVlNmYxYTJiM2M0ZDVlNmYxYTJiIiwicmVwbyI6Ii9yZXBvIiwiZXhpc3RzIjp0cnVlfQ=='
-		}));
+		const value = decodeDiffDocUri(
+			vscode.Uri.file('file.txt').with({
+				scheme: 'git-graph',
+				query: 'eyJmaWxlUGF0aCI6InBhdGgvdG8vZmlsZS50eHQiLCJjb21taXQiOiIxYTJiM2M0ZDVlNmYxYTJiM2M0ZDVlNmYxYTJiM2M0ZDVlNmYxYTJiIiwicmVwbyI6Ii9yZXBvIiwiZXhpc3RzIjp0cnVlfQ=='
+			})
+		);
 
 		// Assert
 		expect(value).toStrictEqual({

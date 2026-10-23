@@ -1,15 +1,17 @@
-import * as GG from '../out/types'; // Import types from back-end (requires `npm run compile-src`)
+import type { FindWidgetState } from './findWidget';
+import type { SettingsWidgetState } from './settingsWidget';
+import type { TargetType } from './utils';
+
+import type * as GG from '../src/types';
 
 declare global {
-
 	/* Visual Studio Code API Types */
 
 	function acquireVsCodeApi(): {
-		getState: () => WebViewState | null,
-		postMessage: (message: GG.RequestMessage) => void,
-		setState: (state: WebViewState) => void
+		getState: () => WebViewState | null;
+		postMessage: (message: GG.RequestMessage) => void;
+		setState: (state: WebViewState) => void;
 	};
-
 
 	/* State Types */
 
@@ -35,12 +37,12 @@ declare global {
 		lastViewedFile: string | null;
 		loading: boolean;
 		scrollTop: {
-			summary: number,
-			fileView: number
+			summary: number;
+			fileView: number;
 		};
 		contextMenuOpen: {
-			summary: boolean,
-			fileView: number
+			summary: boolean;
+			fileView: number;
 		};
 	}
 
@@ -65,8 +67,9 @@ declare global {
 		readonly scrollTop: number;
 		readonly findWidget: FindWidgetState;
 		readonly settingsWidget: SettingsWidgetState;
+		readonly worktrees?: GG.GitWorktree[]; // Optional, as the state could have been saved by a version of Git Graph without worktree support
+		readonly worktreesPanelOpen?: boolean;
 	}
-
 
 	/* Commit Details / Comparison View File Tree Types */
 
@@ -96,15 +99,7 @@ declare global {
 	type FileTreeNode = FileTreeFolder | FileTreeLeaf;
 	type FileTreeFolderContents = { [name: string]: FileTreeNode };
 
-
 	/* Dialog & ContextMenu shared base Target interfaces */
-
-	const enum TargetType {
-		Commit = 'commit',
-		CommitDetailsView = 'cdv',
-		Ref = 'ref',
-		Repo = 'repo'
-	}
 
 	interface CommitOrRefTarget {
 		type: TargetType.Commit | TargetType.Ref | TargetType.CommitDetailsView;
@@ -123,6 +118,3 @@ declare global {
 		ref: string;
 	}
 }
-
-export as namespace GG;
-export = GG;

@@ -1,6 +1,5 @@
 import * as date from './mocks/date';
 import * as vscode from './mocks/vscode';
-jest.mock('vscode', () => vscode, { virtual: true });
 
 import { Logger } from '../src/logger';
 

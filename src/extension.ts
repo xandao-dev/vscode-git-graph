@@ -55,17 +55,25 @@ export async function activate(context: vscode.ExtensionContext) {
 				const paths = getConfig().gitPaths;
 				if (paths.length === 0) return;
 
-				getGitExecutableFromPaths(paths).then((gitExecutable) => {
-					gitExecutableEmitter.emit(gitExecutable);
-					const msg = 'Git Graph is now using ' + gitExecutable.path + ' (version: ' + gitExecutable.version + ')';
-					showInformationMessage(msg);
-					logger.log(msg);
-					repoManager.searchWorkspaceForRepos();
-				}, () => {
-					const msg = 'The new value of "git.path" ("' + paths.join('", "') + '") does not ' + (paths.length > 1 ? 'contain a string that matches' : 'match') + ' the path and filename of a valid Git executable.';
-					showErrorMessage(msg);
-					logger.logError(msg);
-				});
+				getGitExecutableFromPaths(paths).then(
+					(gitExecutable) => {
+						gitExecutableEmitter.emit(gitExecutable);
+						const msg = 'Git Graph is now using ' + gitExecutable.path + ' (version: ' + gitExecutable.version + ')';
+						showInformationMessage(msg);
+						logger.log(msg);
+						repoManager.searchWorkspaceForRepos();
+					},
+					() => {
+						const msg =
+							'The new value of "git.path" ("' +
+							paths.join('", "') +
+							'") does not ' +
+							(paths.length > 1 ? 'contain a string that matches' : 'match') +
+							' the path and filename of a valid Git executable.';
+						showErrorMessage(msg);
+						logger.logError(msg);
+					}
+				);
 			}
 		}),
 		diffDocProvider,
@@ -82,10 +90,10 @@ export async function activate(context: vscode.ExtensionContext) {
 	logger.log('Started Git Graph - Ready to use!');
 
 	extensionState.expireOldCodeReviews();
-	onStartUp(context).catch(() => { });
+	onStartUp(context).catch(() => {});
 }
 
 /**
  * Deactivate Git Graph.
  */
-export function deactivate() { }
+export function deactivate() {}

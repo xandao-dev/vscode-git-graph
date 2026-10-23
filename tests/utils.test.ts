@@ -1,21 +1,25 @@
+import type { MockInstance } from 'vite-plus/test';
 import * as date from './mocks/date';
 import { mockSpyOnSpawn } from './mocks/spawn';
 import * as vscode from './mocks/vscode';
-jest.mock('vscode', () => vscode, { virtual: true });
-jest.mock('../src/dataSource');
-jest.mock('../src/extensionState');
-jest.mock('../src/logger');
+vi.mock('../src/dataSource');
+vi.mock('../src/extensionState');
+vi.mock('../src/logger');
+vi.mock('child_process', { spy: true });
 
 import * as fs from 'fs';
-const mockedFileSystemModule: any = {
-	access: jest.fn(),
-	constants: fs.constants,
-	readFile: jest.fn(),
-	realpath: jest.fn(),
-	stat: jest.fn()
-};
-mockedFileSystemModule.realpath['native'] = jest.fn();
-jest.doMock('fs', () => mockedFileSystemModule);
+const mockedFileSystemModule: any = await vi.hoisted(async () => {
+	const mockedModule: any = {
+		access: vi.fn(),
+		constants: (await vi.importActual<typeof import('fs')>('fs')).constants,
+		readFile: vi.fn(),
+		realpath: vi.fn(),
+		stat: vi.fn()
+	};
+	mockedModule.realpath['native'] = vi.fn();
+	return mockedModule;
+});
+vi.mock('fs', () => mockedFileSystemModule);
 
 import * as cp from 'child_process';
 import * as path from 'path';
@@ -24,7 +28,50 @@ import { DataSource } from '../src/dataSource';
 import { ExtensionState } from '../src/extensionState';
 import { Logger } from '../src/logger';
 import { GitFileStatus, PullRequestProvider, RepoDropdownOrder } from '../src/types';
-import { GitExecutable, GitVersionRequirement, UNCOMMITTED, abbrevCommit, abbrevText, archive, constructIncompatibleGitVersionMessage, copyFilePathToClipboard, copyToClipboard, createPullRequest, doesFileExist, doesVersionMeetRequirement, evalPromises, findGit, getExtensionVersion, getGitExecutable, getGitExecutableFromPaths, getNonce, getPathFromStr, getPathFromUri, getRelativeTimeDiff, getRepoName, getSortedRepositoryPaths, isPathInWorkspace, openExtensionSettings, openExternalUrl, openFile, openGitTerminal, pathWithTrailingSlash, realpath, resolveSpawnOutput, resolveToSymbolicPath, showErrorMessage, showInformationMessage, viewDiff, viewDiffWithWorkingFile, viewFileAtRevision, viewScm } from '../src/utils';
+import {
+	GitExecutable,
+	GitVersionRequirement,
+	UNCOMMITTED,
+	UNCOMMITTED_WORKTREE_PREFIX,
+	abbrevCommit,
+	abbrevText,
+	archive,
+	constructIncompatibleGitVersionMessage,
+	copyFilePathToClipboard,
+	copyToClipboard,
+	createPullRequest,
+	doesFileExist,
+	doesVersionMeetRequirement,
+	evalPromises,
+	findGit,
+	getExtensionVersion,
+	getGitExecutable,
+	getGitExecutableFromPaths,
+	getNonce,
+	getPathFromStr,
+	getPathFromUri,
+	getRelativeTimeDiff,
+	getRepoName,
+	getSortedRepositoryPaths,
+	insertWorktreeUncommittedChanges,
+	isPathInWorkspace,
+	openExtensionSettings,
+	openExternalUrl,
+	openFile,
+	openGitTerminal,
+	openWorktreeInNewWindow,
+	pathWithTrailingSlash,
+	realpath,
+	resolveSpawnOutput,
+	resolveToSymbolicPath,
+	showErrorMessage,
+	showInformationMessage,
+	swapWorkspaceFolderForWorktree,
+	viewDiff,
+	viewDiffWithWorkingFile,
+	viewFileAtRevision,
+	viewScm
+} from '../src/utils';
 import { EventEmitter } from '../src/utils/event';
 
 import { mockRepoState } from './helpers/utils';
@@ -35,14 +82,14 @@ let onDidChangeConfiguration: EventEmitter<ConfigurationChangeEvent>;
 let onDidChangeGitExecutable: EventEmitter<GitExecutable>;
 let logger: Logger;
 let dataSource: DataSource;
-let spyOnSpawn: jest.SpyInstance;
+let spyOnSpawn: MockInstance;
 
 beforeAll(() => {
 	onDidChangeConfiguration = new EventEmitter<ConfigurationChangeEvent>();
 	onDidChangeGitExecutable = new EventEmitter<GitExecutable>();
 	logger = new Logger();
 	dataSource = new DataSource(null, onDidChangeConfiguration.subscribe, onDidChangeGitExecutable.subscribe, logger);
-	spyOnSpawn = jest.spyOn(cp, 'spawn');
+	spyOnSpawn = vi.spyOn(cp, 'spawn');
 });
 
 afterAll(() => {
@@ -168,7 +215,10 @@ describe('realpath', () => {
 describe('isPathInWorkspace', () => {
 	it('Should return TRUE if a path is a workspace folder', () => {
 		// Setup
-		vscode.workspace.workspaceFolders = [{ uri: vscode.Uri.file('/path/to/workspace-folder1'), index: 0 }, { uri: vscode.Uri.file('/path/to/workspace-folder2'), index: 1 }];
+		vscode.workspace.workspaceFolders = [
+			{ uri: vscode.Uri.file('/path/to/workspace-folder1'), index: 0 },
+			{ uri: vscode.Uri.file('/path/to/workspace-folder2'), index: 1 }
+		];
 
 		// Run
 		const result = isPathInWorkspace('/path/to/workspace-folder1');
@@ -179,7 +229,10 @@ describe('isPathInWorkspace', () => {
 
 	it('Should return TRUE if a path is within a workspace folder', () => {
 		// Setup
-		vscode.workspace.workspaceFolders = [{ uri: vscode.Uri.file('/path/to/workspace-folder1'), index: 0 }, { uri: vscode.Uri.file('/path/to/workspace-folder2'), index: 1 }];
+		vscode.workspace.workspaceFolders = [
+			{ uri: vscode.Uri.file('/path/to/workspace-folder1'), index: 0 },
+			{ uri: vscode.Uri.file('/path/to/workspace-folder2'), index: 1 }
+		];
 
 		// Run
 		const result = isPathInWorkspace('/path/to/workspace-folder1/subfolder');
@@ -190,7 +243,10 @@ describe('isPathInWorkspace', () => {
 
 	it('Should return FALSE if a path is not within a workspace folder', () => {
 		// Setup
-		vscode.workspace.workspaceFolders = [{ uri: vscode.Uri.file('/path/to/workspace-folder1'), index: 0 }, { uri: vscode.Uri.file('/path/to/workspace-folder2'), index: 1 }];
+		vscode.workspace.workspaceFolders = [
+			{ uri: vscode.Uri.file('/path/to/workspace-folder1'), index: 0 },
+			{ uri: vscode.Uri.file('/path/to/workspace-folder2'), index: 1 }
+		];
 
 		// Run
 		const result = isPathInWorkspace('/path/to/workspace-folder3/file');
@@ -226,7 +282,9 @@ describe('resolveToSymbolicPath', () => {
 
 	it('Should return the symbolic path if a vscode workspace folder resolves to it', async () => {
 		// Setup
-		mockedFileSystemModule.realpath.mockImplementation((path: fs.PathLike, callback: (err: NodeJS.ErrnoException | null, resolvedPath: string) => void) => callback(null, (path as string).replace('symbolic', 'workspace')));
+		mockedFileSystemModule.realpath.mockImplementation((path: fs.PathLike, callback: (err: NodeJS.ErrnoException | null, resolvedPath: string) => void) =>
+			callback(null, (path as string).replace('symbolic', 'workspace'))
+		);
 		vscode.workspace.workspaceFolders = [{ uri: vscode.Uri.file('/path/to/symbolic-folder1'), index: 0 }];
 
 		// Run
@@ -250,7 +308,9 @@ describe('resolveToSymbolicPath', () => {
 
 	it('Should return the symbolic path if a vscode workspace folder resolves to contain it', async () => {
 		// Setup
-		mockedFileSystemModule.realpath.mockImplementation((path: fs.PathLike, callback: (err: NodeJS.ErrnoException | null, resolvedPath: string) => void) => callback(null, (path as string).replace('symbolic', 'workspace')));
+		mockedFileSystemModule.realpath.mockImplementation((path: fs.PathLike, callback: (err: NodeJS.ErrnoException | null, resolvedPath: string) => void) =>
+			callback(null, (path as string).replace('symbolic', 'workspace'))
+		);
 		vscode.workspace.workspaceFolders = [{ uri: vscode.Uri.file('/path/to/symbolic-folder1'), index: 0 }];
 
 		// Run
@@ -262,7 +322,9 @@ describe('resolveToSymbolicPath', () => {
 
 	it('Should return the symbolic path if the vscode workspace folder resolves to be contained within it', async () => {
 		// Setup
-		mockedFileSystemModule.realpath.mockImplementation((path: fs.PathLike, callback: (err: NodeJS.ErrnoException | null, resolvedPath: string) => void) => callback(null, (path as string).replace('symbolic', 'workspace')));
+		mockedFileSystemModule.realpath.mockImplementation((path: fs.PathLike, callback: (err: NodeJS.ErrnoException | null, resolvedPath: string) => void) =>
+			callback(null, (path as string).replace('symbolic', 'workspace'))
+		);
 		vscode.workspace.workspaceFolders = [{ uri: vscode.Uri.file('/path/to/symbolic-folder/dir'), index: 0 }];
 
 		// Run
@@ -289,7 +351,9 @@ describe('resolveToSymbolicPath', () => {
 
 	it('Should return the original path if it is unrelated to the vscode workspace folders', async () => {
 		// Setup
-		mockedFileSystemModule.realpath.mockImplementation((path: fs.PathLike, callback: (err: NodeJS.ErrnoException | null, resolvedPath: string) => void) => callback(null, (path as string).replace('symbolic', 'workspace')));
+		mockedFileSystemModule.realpath.mockImplementation((path: fs.PathLike, callback: (err: NodeJS.ErrnoException | null, resolvedPath: string) => void) =>
+			callback(null, (path as string).replace('symbolic', 'workspace'))
+		);
 		vscode.workspace.workspaceFolders = [{ uri: vscode.Uri.file('/path/to/symbolic-folder/dir'), index: 0 }];
 
 		// Run
@@ -324,7 +388,7 @@ describe('doesFileExist', () => {
 		expect(mockedFileSystemModule.access).toHaveBeenNthCalledWith(1, 'file.txt', fs.constants.R_OK, expect.anything());
 	});
 
-	it('Should return FALSE when the file doesn\'t exist', async () => {
+	it("Should return FALSE when the file doesn't exist", async () => {
 		// Setup
 		mockedFileSystemModule.access.mockImplementationOnce((_1: fs.PathLike, _2: number | undefined, callback: (err: NodeJS.ErrnoException | null) => void) => callback(new Error()));
 
@@ -346,7 +410,7 @@ describe('abbrevCommit', () => {
 		expect(abbrev).toBe('1a2b3c4d');
 	});
 
-	it('Doesn\'t truncate commit hashes less than eight characters', () => {
+	it("Doesn't truncate commit hashes less than eight characters", () => {
 		// Run
 		const abbrev = abbrevCommit('1a2b3c');
 
@@ -496,7 +560,7 @@ describe('getRelativeTimeDiff', () => {
 });
 
 describe('getExtensionVersion', () => {
-	it('Should return the extension\'s version number', async () => {
+	it("Should return the extension's version number", async () => {
 		// Setup
 		mockedFileSystemModule.readFile.mockImplementationOnce((_: fs.PathLike, callback: (err: NodeJS.ErrnoException | null, data: string) => void) => callback(null, '{"version":"1.2.3"}'));
 
@@ -515,7 +579,7 @@ describe('getExtensionVersion', () => {
 		mockedFileSystemModule.readFile.mockImplementationOnce((_: fs.PathLike, callback: (err: NodeJS.ErrnoException | null, data: string) => void) => callback(new Error(), ''));
 
 		// Run
-		await getExtensionVersion(vscode.mocks.extensionContext).catch(() => rejected = true);
+		await getExtensionVersion(vscode.mocks.extensionContext).catch(() => (rejected = true));
 
 		// Assert
 		expect(rejected).toBe(true);
@@ -527,7 +591,7 @@ describe('getExtensionVersion', () => {
 		mockedFileSystemModule.readFile.mockImplementationOnce((_: fs.PathLike, callback: (err: NodeJS.ErrnoException | null, data: string) => void) => callback(null, '{"version":"1.2.3"'));
 
 		// Run
-		await getExtensionVersion(vscode.mocks.extensionContext).catch(() => rejected = true);
+		await getExtensionVersion(vscode.mocks.extensionContext).catch(() => (rejected = true));
 
 		// Assert
 		expect(rejected).toBe(true);
@@ -578,39 +642,118 @@ describe('getRepoName', () => {
 	});
 });
 
+describe('insertWorktreeUncommittedChanges', () => {
+	const commit = (hash: string, parents: string[]) => ({
+		hash: hash,
+		parents: parents,
+		author: 'Test Name',
+		email: 'test@mhutchie.com',
+		date: 1587559258,
+		message: 'Message',
+		heads: [],
+		tags: [],
+		remotes: [],
+		stash: null
+	});
+	const worktree = (path: string, head: string | null, uncommittedChanges: number, isCurrent: boolean = false) => ({
+		path: path,
+		head: head,
+		branch: null,
+		isMain: false,
+		isCurrent: isCurrent,
+		isLocked: false,
+		isPrunable: false,
+		agent: null,
+		uncommittedChanges: uncommittedChanges
+	});
+
+	it('Should insert the uncommitted changes of each other worktree directly above the commit it has checked out', () => {
+		// Setup
+		date.setCurrentTime(1587559259);
+		const commits = [commit('1a2b3c4d', ['2b3c4d5e']), commit('2b3c4d5e', ['3c4d5e6f']), commit('3c4d5e6f', [])];
+
+		// Run
+		const result = insertWorktreeUncommittedChanges(commits, [
+			worktree('/path/to/repo', '1a2b3c4d', 5, true),
+			worktree('/path/to/clean', '1a2b3c4d', 0),
+			worktree('/path/to/other', '3c4d5e6f', 2),
+			worktree('/path/to/not-loaded', '4d5e6f1a', 1)
+		]);
+
+		// Assert
+		expect(result).toStrictEqual([
+			commits[0],
+			commits[1],
+			{
+				hash: UNCOMMITTED_WORKTREE_PREFIX + '/path/to/other',
+				parents: ['3c4d5e6f'],
+				author: '*',
+				email: '',
+				date: 1587559259,
+				message: 'Uncommitted Changes (2)',
+				heads: [],
+				tags: [],
+				remotes: [],
+				stash: null
+			},
+			commits[2]
+		]);
+		expect(commits.length).toBe(3);
+	});
+});
+
 describe('getSortedRepositoryPaths', () => {
 	it('Should sort by RepoDropdownOrder.WorkspaceFullPath', () => {
 		// Run
-		const repoPaths = getSortedRepositoryPaths({
-			'/path/to/workspace-1/a': mockRepoState({ workspaceFolderIndex: 1 }),
-			'/path/to/workspace-2/c': mockRepoState({ workspaceFolderIndex: 0 }),
-			'/path/to/workspace-3/a': mockRepoState({ workspaceFolderIndex: null }),
-			'/path/to/workspace-2/b': mockRepoState({ workspaceFolderIndex: 0 }),
-			'/path/to/workspace-1/b': mockRepoState({ workspaceFolderIndex: 1 }),
-			'/path/to/workspace-1/d': mockRepoState({ workspaceFolderIndex: 1 }),
-			'/path/to/workspace-3/b': mockRepoState({ workspaceFolderIndex: null }),
-			'/path/to/workspace-3/d': mockRepoState({ workspaceFolderIndex: null }),
-			'/path/to/workspace-2/a': mockRepoState({ workspaceFolderIndex: 0 }),
-			'/path/to/workspace-1/c': mockRepoState({ workspaceFolderIndex: 1 }),
-			'/path/to/workspace-3/c': mockRepoState({ workspaceFolderIndex: null }),
-			'/path/to/workspace-2/d': mockRepoState({ workspaceFolderIndex: 0 })
-		}, RepoDropdownOrder.WorkspaceFullPath);
+		const repoPaths = getSortedRepositoryPaths(
+			{
+				'/path/to/workspace-1/a': mockRepoState({ workspaceFolderIndex: 1 }),
+				'/path/to/workspace-2/c': mockRepoState({ workspaceFolderIndex: 0 }),
+				'/path/to/workspace-3/a': mockRepoState({ workspaceFolderIndex: null }),
+				'/path/to/workspace-2/b': mockRepoState({ workspaceFolderIndex: 0 }),
+				'/path/to/workspace-1/b': mockRepoState({ workspaceFolderIndex: 1 }),
+				'/path/to/workspace-1/d': mockRepoState({ workspaceFolderIndex: 1 }),
+				'/path/to/workspace-3/b': mockRepoState({ workspaceFolderIndex: null }),
+				'/path/to/workspace-3/d': mockRepoState({ workspaceFolderIndex: null }),
+				'/path/to/workspace-2/a': mockRepoState({ workspaceFolderIndex: 0 }),
+				'/path/to/workspace-1/c': mockRepoState({ workspaceFolderIndex: 1 }),
+				'/path/to/workspace-3/c': mockRepoState({ workspaceFolderIndex: null }),
+				'/path/to/workspace-2/d': mockRepoState({ workspaceFolderIndex: 0 })
+			},
+			RepoDropdownOrder.WorkspaceFullPath
+		);
 
 		// Assert
-		expect(repoPaths).toStrictEqual(['/path/to/workspace-2/a', '/path/to/workspace-2/b', '/path/to/workspace-2/c', '/path/to/workspace-2/d', '/path/to/workspace-1/a', '/path/to/workspace-1/b', '/path/to/workspace-1/c', '/path/to/workspace-1/d', '/path/to/workspace-3/a', '/path/to/workspace-3/b', '/path/to/workspace-3/c', '/path/to/workspace-3/d']);
+		expect(repoPaths).toStrictEqual([
+			'/path/to/workspace-2/a',
+			'/path/to/workspace-2/b',
+			'/path/to/workspace-2/c',
+			'/path/to/workspace-2/d',
+			'/path/to/workspace-1/a',
+			'/path/to/workspace-1/b',
+			'/path/to/workspace-1/c',
+			'/path/to/workspace-1/d',
+			'/path/to/workspace-3/a',
+			'/path/to/workspace-3/b',
+			'/path/to/workspace-3/c',
+			'/path/to/workspace-3/d'
+		]);
 	});
 
 	it('Should sort by RepoDropdownOrder.FullPath', () => {
 		// Run
-		const repoPaths = getSortedRepositoryPaths({
-			'/path/to/a': mockRepoState({ workspaceFolderIndex: 1 }),
-			'/path/to/f': mockRepoState({ workspaceFolderIndex: 2 }),
-			'/path/to/D': mockRepoState({ workspaceFolderIndex: 3 }),
-			'/path/to/b': mockRepoState({ workspaceFolderIndex: 4 }),
-			'/path/to/é': mockRepoState({ workspaceFolderIndex: 5 }),
-			'/path/to/C': mockRepoState({ workspaceFolderIndex: 6 }),
-			'/path/a': mockRepoState({ workspaceFolderIndex: 1 })
-		}, RepoDropdownOrder.FullPath);
+		const repoPaths = getSortedRepositoryPaths(
+			{
+				'/path/to/a': mockRepoState({ workspaceFolderIndex: 1 }),
+				'/path/to/f': mockRepoState({ workspaceFolderIndex: 2 }),
+				'/path/to/D': mockRepoState({ workspaceFolderIndex: 3 }),
+				'/path/to/b': mockRepoState({ workspaceFolderIndex: 4 }),
+				'/path/to/é': mockRepoState({ workspaceFolderIndex: 5 }),
+				'/path/to/C': mockRepoState({ workspaceFolderIndex: 6 }),
+				'/path/a': mockRepoState({ workspaceFolderIndex: 1 })
+			},
+			RepoDropdownOrder.FullPath
+		);
 
 		// Assert
 		expect(repoPaths).toStrictEqual(['/path/a', '/path/to/a', '/path/to/b', '/path/to/C', '/path/to/D', '/path/to/é', '/path/to/f']);
@@ -618,16 +761,19 @@ describe('getSortedRepositoryPaths', () => {
 
 	it('Should sort by RepoDropdownOrder.Name', () => {
 		// Run
-		const repoPaths = getSortedRepositoryPaths({
-			'/path/to/a': mockRepoState({ name: null, workspaceFolderIndex: 1 }),
-			'/path/to/x': mockRepoState({ name: 'f', workspaceFolderIndex: 2 }),
-			'/path/to/y': mockRepoState({ name: 'D', workspaceFolderIndex: 3 }),
-			'/path/to/b': mockRepoState({ name: null, workspaceFolderIndex: 4 }),
-			'/path/to/z': mockRepoState({ name: 'é', workspaceFolderIndex: 5 }),
-			'/path/to/C': mockRepoState({ name: null, workspaceFolderIndex: 6 }),
-			'/path/to/another/A': mockRepoState({ name: null, workspaceFolderIndex: 7 }),
-			'/path/a': mockRepoState({ name: null, workspaceFolderIndex: 1 })
-		}, RepoDropdownOrder.Name);
+		const repoPaths = getSortedRepositoryPaths(
+			{
+				'/path/to/a': mockRepoState({ name: null, workspaceFolderIndex: 1 }),
+				'/path/to/x': mockRepoState({ name: 'f', workspaceFolderIndex: 2 }),
+				'/path/to/y': mockRepoState({ name: 'D', workspaceFolderIndex: 3 }),
+				'/path/to/b': mockRepoState({ name: null, workspaceFolderIndex: 4 }),
+				'/path/to/z': mockRepoState({ name: 'é', workspaceFolderIndex: 5 }),
+				'/path/to/C': mockRepoState({ name: null, workspaceFolderIndex: 6 }),
+				'/path/to/another/A': mockRepoState({ name: null, workspaceFolderIndex: 7 }),
+				'/path/a': mockRepoState({ name: null, workspaceFolderIndex: 1 })
+			},
+			RepoDropdownOrder.Name
+		);
 
 		// Assert
 		expect(repoPaths).toStrictEqual(['/path/a', '/path/to/a', '/path/to/another/A', '/path/to/b', '/path/to/C', '/path/to/y', '/path/to/z', '/path/to/x']);
@@ -638,7 +784,7 @@ describe('archive', () => {
 	it('Should trigger the creation of the archive (tar)', async () => {
 		// Setup
 		vscode.window.showSaveDialog.mockResolvedValueOnce(vscode.Uri.file('/archive/file/destination.tar'));
-		const spyOnArchive = jest.spyOn(dataSource, 'archive');
+		const spyOnArchive = vi.spyOn(dataSource, 'archive');
 		spyOnArchive.mockResolvedValueOnce(null);
 
 		// Run
@@ -652,7 +798,7 @@ describe('archive', () => {
 	it('Should trigger the creation of the archive (TAR)', async () => {
 		// Setup
 		vscode.window.showSaveDialog.mockResolvedValueOnce(vscode.Uri.file('/archive/file/destination.TAR'));
-		const spyOnArchive = jest.spyOn(dataSource, 'archive');
+		const spyOnArchive = vi.spyOn(dataSource, 'archive');
 		spyOnArchive.mockResolvedValueOnce(null);
 
 		// Run
@@ -666,7 +812,7 @@ describe('archive', () => {
 	it('Should trigger the creation of the archive (zip)', async () => {
 		// Setup
 		vscode.window.showSaveDialog.mockResolvedValueOnce(vscode.Uri.file('/archive/file/destination.zip'));
-		const spyOnArchive = jest.spyOn(dataSource, 'archive');
+		const spyOnArchive = vi.spyOn(dataSource, 'archive');
 		spyOnArchive.mockResolvedValueOnce(null);
 
 		// Run
@@ -680,7 +826,7 @@ describe('archive', () => {
 	it('Should trigger the creation of the archive (ZIP)', async () => {
 		// Setup
 		vscode.window.showSaveDialog.mockResolvedValueOnce(vscode.Uri.file('/archive/file/destination.ZIP'));
-		const spyOnArchive = jest.spyOn(dataSource, 'archive');
+		const spyOnArchive = vi.spyOn(dataSource, 'archive');
 		spyOnArchive.mockResolvedValueOnce(null);
 
 		// Run
@@ -794,23 +940,30 @@ describe('createPullRequest', () => {
 		vscode.env.openExternal.mockResolvedValueOnce(true);
 
 		// Run
-		const result = await createPullRequest({
-			provider: PullRequestProvider.Bitbucket,
-			custom: null,
-			hostRootUrl: 'https://bitbucket.org',
-			sourceOwner: 'sourceOwner',
-			sourceRepo: 'sourceRepo',
-			sourceRemote: 'sourceRemote',
-			destOwner: 'destOwner',
-			destRepo: 'destRepo',
-			destBranch: 'destBranch',
-			destRemote: 'destRemote',
-			destProjectId: 'destProjectId'
-		}, 'sourceOwner', 'sourceRepo', 'sourceBranch');
+		const result = await createPullRequest(
+			{
+				provider: PullRequestProvider.Bitbucket,
+				custom: null,
+				hostRootUrl: 'https://bitbucket.org',
+				sourceOwner: 'sourceOwner',
+				sourceRepo: 'sourceRepo',
+				sourceRemote: 'sourceRemote',
+				destOwner: 'destOwner',
+				destRepo: 'destRepo',
+				destBranch: 'destBranch',
+				destRemote: 'destRemote',
+				destProjectId: 'destProjectId'
+			},
+			'sourceOwner',
+			'sourceRepo',
+			'sourceBranch'
+		);
 
 		// Assert
 		expect(result).toBe(null);
-		expect(vscode.env.openExternal.mock.calls[0][0].toString()).toBe('https://bitbucket.org/sourceOwner/sourceRepo/pull-requests/new?source=sourceOwner/sourceRepo::sourceBranch&dest=destOwner/destRepo::destBranch');
+		expect(vscode.env.openExternal.mock.calls[0][0].toString()).toBe(
+			'https://bitbucket.org/sourceOwner/sourceRepo/pull-requests/new?source=sourceOwner/sourceRepo::sourceBranch&dest=destOwner/destRepo::destBranch'
+		);
 	});
 
 	it('Should construct and open a Custom Providers Pull Request Creation Url', async () => {
@@ -818,22 +971,27 @@ describe('createPullRequest', () => {
 		vscode.env.openExternal.mockResolvedValueOnce(true);
 
 		// Run
-		const result = await createPullRequest({
-			provider: PullRequestProvider.Custom,
-			custom: {
-				name: 'custom',
-				templateUrl: '$1/$2/$3/$4/$5/$6/$8'
+		const result = await createPullRequest(
+			{
+				provider: PullRequestProvider.Custom,
+				custom: {
+					name: 'custom',
+					templateUrl: '$1/$2/$3/$4/$5/$6/$8'
+				},
+				hostRootUrl: 'https://example.com',
+				sourceOwner: 'sourceOwner',
+				sourceRepo: 'sourceRepo',
+				sourceRemote: 'sourceRemote',
+				destOwner: 'destOwner',
+				destRepo: 'destRepo',
+				destBranch: 'destBranch',
+				destRemote: 'destRemote',
+				destProjectId: 'destProjectId'
 			},
-			hostRootUrl: 'https://example.com',
-			sourceOwner: 'sourceOwner',
-			sourceRepo: 'sourceRepo',
-			sourceRemote: 'sourceRemote',
-			destOwner: 'destOwner',
-			destRepo: 'destRepo',
-			destBranch: 'destBranch',
-			destRemote: 'destRemote',
-			destProjectId: 'destProjectId'
-		}, 'sourceOwner', 'sourceRepo', 'sourceBranch');
+			'sourceOwner',
+			'sourceRepo',
+			'sourceBranch'
+		);
 
 		// Assert
 		expect(result).toBe(null);
@@ -845,19 +1003,24 @@ describe('createPullRequest', () => {
 		vscode.env.openExternal.mockResolvedValueOnce(true);
 
 		// Run
-		const result = await createPullRequest({
-			provider: PullRequestProvider.GitHub,
-			custom: null,
-			hostRootUrl: 'https://github.com',
-			sourceOwner: 'sourceOwner',
-			sourceRepo: 'sourceRepo',
-			sourceRemote: 'sourceRemote',
-			destOwner: 'destOwner',
-			destRepo: 'destRepo',
-			destBranch: 'destBranch',
-			destRemote: 'destRemote',
-			destProjectId: 'destProjectId'
-		}, 'sourceOwner', 'sourceRepo', 'sourceBranch');
+		const result = await createPullRequest(
+			{
+				provider: PullRequestProvider.GitHub,
+				custom: null,
+				hostRootUrl: 'https://github.com',
+				sourceOwner: 'sourceOwner',
+				sourceRepo: 'sourceRepo',
+				sourceRemote: 'sourceRemote',
+				destOwner: 'destOwner',
+				destRepo: 'destRepo',
+				destBranch: 'destBranch',
+				destRemote: 'destRemote',
+				destProjectId: 'destProjectId'
+			},
+			'sourceOwner',
+			'sourceRepo',
+			'sourceBranch'
+		);
 
 		// Assert
 		expect(result).toBe(null);
@@ -869,23 +1032,30 @@ describe('createPullRequest', () => {
 		vscode.env.openExternal.mockResolvedValueOnce(true);
 
 		// Run
-		const result = await createPullRequest({
-			provider: PullRequestProvider.GitLab,
-			custom: null,
-			hostRootUrl: 'https://gitlab.com',
-			sourceOwner: 'sourceOwner',
-			sourceRepo: 'sourceRepo',
-			sourceRemote: 'sourceRemote',
-			destOwner: 'destOwner',
-			destRepo: 'destRepo',
-			destBranch: 'destBranch',
-			destRemote: 'destRemote',
-			destProjectId: 'destProjectId'
-		}, 'sourceOwner', 'sourceRepo', 'sourceBranch');
+		const result = await createPullRequest(
+			{
+				provider: PullRequestProvider.GitLab,
+				custom: null,
+				hostRootUrl: 'https://gitlab.com',
+				sourceOwner: 'sourceOwner',
+				sourceRepo: 'sourceRepo',
+				sourceRemote: 'sourceRemote',
+				destOwner: 'destOwner',
+				destRepo: 'destRepo',
+				destBranch: 'destBranch',
+				destRemote: 'destRemote',
+				destProjectId: 'destProjectId'
+			},
+			'sourceOwner',
+			'sourceRepo',
+			'sourceBranch'
+		);
 
 		// Assert
 		expect(result).toBe(null);
-		expect(vscode.env.openExternal.mock.calls[0][0].toString()).toBe('https://gitlab.com/sourceOwner/sourceRepo/-/merge_requests/new?merge_request[source_branch]=sourceBranch&merge_request[target_branch]=destBranch&merge_request[target_project_id]=destProjectId');
+		expect(vscode.env.openExternal.mock.calls[0][0].toString()).toBe(
+			'https://gitlab.com/sourceOwner/sourceRepo/-/merge_requests/new?merge_request[source_branch]=sourceBranch&merge_request[target_branch]=destBranch&merge_request[target_project_id]=destProjectId'
+		);
 	});
 
 	it('Should construct and open a GitLab Pull Request Creation Url (without destProjectId)', async () => {
@@ -893,23 +1063,30 @@ describe('createPullRequest', () => {
 		vscode.env.openExternal.mockResolvedValueOnce(true);
 
 		// Run
-		const result = await createPullRequest({
-			provider: PullRequestProvider.GitLab,
-			custom: null,
-			hostRootUrl: 'https://gitlab.com',
-			sourceOwner: 'sourceOwner',
-			sourceRepo: 'sourceRepo',
-			sourceRemote: 'sourceRemote',
-			destOwner: 'destOwner',
-			destRepo: 'destRepo',
-			destBranch: 'destBranch',
-			destRemote: 'destRemote',
-			destProjectId: ''
-		}, 'sourceOwner', 'sourceRepo', 'sourceBranch');
+		const result = await createPullRequest(
+			{
+				provider: PullRequestProvider.GitLab,
+				custom: null,
+				hostRootUrl: 'https://gitlab.com',
+				sourceOwner: 'sourceOwner',
+				sourceRepo: 'sourceRepo',
+				sourceRemote: 'sourceRemote',
+				destOwner: 'destOwner',
+				destRepo: 'destRepo',
+				destBranch: 'destBranch',
+				destRemote: 'destRemote',
+				destProjectId: ''
+			},
+			'sourceOwner',
+			'sourceRepo',
+			'sourceBranch'
+		);
 
 		// Assert
 		expect(result).toBe(null);
-		expect(vscode.env.openExternal.mock.calls[0][0].toString()).toBe('https://gitlab.com/sourceOwner/sourceRepo/-/merge_requests/new?merge_request[source_branch]=sourceBranch&merge_request[target_branch]=destBranch');
+		expect(vscode.env.openExternal.mock.calls[0][0].toString()).toBe(
+			'https://gitlab.com/sourceOwner/sourceRepo/-/merge_requests/new?merge_request[source_branch]=sourceBranch&merge_request[target_branch]=destBranch'
+		);
 	});
 
 	it('Should return an error message if vscode was unable to open the url', async () => {
@@ -917,19 +1094,24 @@ describe('createPullRequest', () => {
 		vscode.env.openExternal.mockRejectedValueOnce(null);
 
 		// Run
-		const result = await createPullRequest({
-			provider: PullRequestProvider.GitHub,
-			custom: null,
-			hostRootUrl: 'https://github.com',
-			sourceOwner: 'sourceOwner',
-			sourceRepo: 'sourceRepo',
-			sourceRemote: 'sourceRemote',
-			destOwner: 'destOwner',
-			destRepo: 'destRepo',
-			destBranch: 'destBranch',
-			destRemote: 'destRemote',
-			destProjectId: 'destProjectId'
-		}, 'sourceOwner', 'sourceRepo', 'sourceBranch');
+		const result = await createPullRequest(
+			{
+				provider: PullRequestProvider.GitHub,
+				custom: null,
+				hostRootUrl: 'https://github.com',
+				sourceOwner: 'sourceOwner',
+				sourceRepo: 'sourceRepo',
+				sourceRemote: 'sourceRemote',
+				destOwner: 'destOwner',
+				destRepo: 'destRepo',
+				destBranch: 'destBranch',
+				destRemote: 'destRemote',
+				destProjectId: 'destProjectId'
+			},
+			'sourceOwner',
+			'sourceRepo',
+			'sourceBranch'
+		);
 
 		// Assert
 		expect(result).toBe('Visual Studio Code was unable to open the Pull Request URL: https://github.com/destOwner/destRepo/compare/destBranch...sourceOwner:sourceBranch');
@@ -998,7 +1180,7 @@ describe('openExternalUrl', () => {
 
 	it('Should return an error message if vscode was unable to parse the url', async () => {
 		// Setup
-		const spyOnParse = jest.spyOn(vscode.Uri, 'parse');
+		const spyOnParse = vi.spyOn(vscode.Uri, 'parse');
 		spyOnParse.mockImplementationOnce(() => {
 			throw new Error();
 		});
@@ -1069,7 +1251,7 @@ describe('openFile', () => {
 		mockedFileSystemModule.access.mockImplementationOnce((_1: fs.PathLike, _2: number | undefined, callback: (err: NodeJS.ErrnoException | null) => void) => callback(new Error()));
 		mockedFileSystemModule.access.mockImplementationOnce((_1: fs.PathLike, _2: number | undefined, callback: (err: NodeJS.ErrnoException | null) => void) => callback(null));
 		vscode.commands.executeCommand.mockResolvedValueOnce(null);
-		const spyOnGetNewPathOfRenamedFile = jest.spyOn(dataSource, 'getNewPathOfRenamedFile');
+		const spyOnGetNewPathOfRenamedFile = vi.spyOn(dataSource, 'getNewPathOfRenamedFile');
 		spyOnGetNewPathOfRenamedFile.mockResolvedValueOnce('renamed-new.txt');
 
 		// Run
@@ -1102,7 +1284,7 @@ describe('openFile', () => {
 		expect(mockedFileSystemModule.access).toHaveBeenNthCalledWith(1, path.join('/path/to/repo', 'file.txt'), fs.constants.R_OK, expect.anything());
 	});
 
-	it('Should return an error message if the file doesn\'t exist in the repository', async () => {
+	it("Should return an error message if the file doesn't exist in the repository", async () => {
 		// Setup
 		mockedFileSystemModule.access.mockImplementationOnce((_1: fs.PathLike, _2: number | undefined, callback: (err: NodeJS.ErrnoException | null) => void) => callback(new Error()));
 
@@ -1110,39 +1292,39 @@ describe('openFile', () => {
 		const result = await openFile('/path/to/repo', 'deleted.txt');
 
 		// Assert
-		expect(result).toBe('The file deleted.txt doesn\'t currently exist in this repository.');
+		expect(result).toBe("The file deleted.txt doesn't currently exist in this repository.");
 		expect(mockedFileSystemModule.access).toHaveBeenCalledTimes(1);
 		expect(mockedFileSystemModule.access).toHaveBeenNthCalledWith(1, path.join('/path/to/repo', 'deleted.txt'), fs.constants.R_OK, expect.anything());
 	});
 
-	it('Should return an error message if the file doesn\'t exist in the repository, and it wasn\'t renamed', async () => {
+	it("Should return an error message if the file doesn't exist in the repository, and it wasn't renamed", async () => {
 		// Setup
 		mockedFileSystemModule.access.mockImplementationOnce((_1: fs.PathLike, _2: number | undefined, callback: (err: NodeJS.ErrnoException | null) => void) => callback(new Error()));
-		const spyOnGetNewPathOfRenamedFile = jest.spyOn(dataSource, 'getNewPathOfRenamedFile');
+		const spyOnGetNewPathOfRenamedFile = vi.spyOn(dataSource, 'getNewPathOfRenamedFile');
 		spyOnGetNewPathOfRenamedFile.mockResolvedValueOnce(null);
 
 		// Run
 		const result = await openFile('/path/to/repo', 'deleted.txt', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', dataSource);
 
 		// Assert
-		expect(result).toBe('The file deleted.txt doesn\'t currently exist in this repository.');
+		expect(result).toBe("The file deleted.txt doesn't currently exist in this repository.");
 		expect(mockedFileSystemModule.access).toHaveBeenCalledTimes(1);
 		expect(mockedFileSystemModule.access).toHaveBeenNthCalledWith(1, path.join('/path/to/repo', 'deleted.txt'), fs.constants.R_OK, expect.anything());
 		expect(spyOnGetNewPathOfRenamedFile).toHaveBeenCalledWith('/path/to/repo', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', 'deleted.txt');
 	});
 
-	it('Should return an error message if the file doesn\'t exist in the repository, and it was renamed', async () => {
+	it("Should return an error message if the file doesn't exist in the repository, and it was renamed", async () => {
 		// Setup
 		mockedFileSystemModule.access.mockImplementationOnce((_1: fs.PathLike, _2: number | undefined, callback: (err: NodeJS.ErrnoException | null) => void) => callback(new Error()));
 		mockedFileSystemModule.access.mockImplementationOnce((_1: fs.PathLike, _2: number | undefined, callback: (err: NodeJS.ErrnoException | null) => void) => callback(new Error()));
-		const spyOnGetNewPathOfRenamedFile = jest.spyOn(dataSource, 'getNewPathOfRenamedFile');
+		const spyOnGetNewPathOfRenamedFile = vi.spyOn(dataSource, 'getNewPathOfRenamedFile');
 		spyOnGetNewPathOfRenamedFile.mockResolvedValueOnce('renamed-new.txt');
 
 		// Run
 		const result = await openFile('/path/to/repo', 'renamed-old.txt', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', dataSource);
 
 		// Assert
-		expect(result).toBe('The file renamed-old.txt doesn\'t currently exist in this repository.');
+		expect(result).toBe("The file renamed-old.txt doesn't currently exist in this repository.");
 		expect(mockedFileSystemModule.access).toHaveBeenNthCalledWith(1, path.join('/path/to/repo', 'renamed-old.txt'), fs.constants.R_OK, expect.anything());
 		expect(spyOnGetNewPathOfRenamedFile).toHaveBeenCalledWith('/path/to/repo', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', 'renamed-old.txt');
 		expect(mockedFileSystemModule.access).toHaveBeenNthCalledWith(2, path.join('/path/to/repo', 'renamed-new.txt'), fs.constants.R_OK, expect.anything());
@@ -1155,7 +1337,14 @@ describe('viewDiff', () => {
 		vscode.commands.executeCommand.mockResolvedValueOnce(null);
 
 		// Run
-		const result = await viewDiff('/path/to/repo', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', 'subfolder/added.txt', 'subfolder/added.txt', GitFileStatus.Added);
+		const result = await viewDiff(
+			'/path/to/repo',
+			'1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
+			'1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
+			'subfolder/added.txt',
+			'subfolder/added.txt',
+			GitFileStatus.Added
+		);
 
 		// Assert
 		const [command, leftUri, rightUri, title, config] = vscode.commands.executeCommand.mock.calls[0];
@@ -1175,7 +1364,14 @@ describe('viewDiff', () => {
 		vscode.commands.executeCommand.mockResolvedValueOnce(null);
 
 		// Run
-		const result = await viewDiff('/path/to/repo', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', 'subfolder/modified.txt', 'subfolder/modified.txt', GitFileStatus.Modified);
+		const result = await viewDiff(
+			'/path/to/repo',
+			'1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
+			'1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
+			'subfolder/modified.txt',
+			'subfolder/modified.txt',
+			GitFileStatus.Modified
+		);
 
 		// Assert
 		const [command, leftUri, rightUri, title, config] = vscode.commands.executeCommand.mock.calls[0];
@@ -1195,7 +1391,14 @@ describe('viewDiff', () => {
 		vscode.commands.executeCommand.mockResolvedValueOnce(null);
 
 		// Run
-		const result = await viewDiff('/path/to/repo', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', 'subfolder/deleted.txt', 'subfolder/deleted.txt', GitFileStatus.Deleted);
+		const result = await viewDiff(
+			'/path/to/repo',
+			'1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
+			'1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
+			'subfolder/deleted.txt',
+			'subfolder/deleted.txt',
+			GitFileStatus.Deleted
+		);
 
 		// Assert
 		const [command, leftUri, rightUri, title, config] = vscode.commands.executeCommand.mock.calls[0];
@@ -1215,7 +1418,14 @@ describe('viewDiff', () => {
 		vscode.commands.executeCommand.mockResolvedValueOnce(null);
 
 		// Run
-		const result = await viewDiff('/path/to/repo', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2', 'subfolder/added.txt', 'subfolder/added.txt', GitFileStatus.Added);
+		const result = await viewDiff(
+			'/path/to/repo',
+			'1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
+			'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
+			'subfolder/added.txt',
+			'subfolder/added.txt',
+			GitFileStatus.Added
+		);
 
 		// Assert
 		const [command, leftUri, rightUri, title, config] = vscode.commands.executeCommand.mock.calls[0];
@@ -1235,7 +1445,14 @@ describe('viewDiff', () => {
 		vscode.commands.executeCommand.mockResolvedValueOnce(null);
 
 		// Run
-		const result = await viewDiff('/path/to/repo', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2', 'subfolder/modified.txt', 'subfolder/modified.txt', GitFileStatus.Modified);
+		const result = await viewDiff(
+			'/path/to/repo',
+			'1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
+			'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
+			'subfolder/modified.txt',
+			'subfolder/modified.txt',
+			GitFileStatus.Modified
+		);
 
 		// Assert
 		const [command, leftUri, rightUri, title, config] = vscode.commands.executeCommand.mock.calls[0];
@@ -1255,7 +1472,14 @@ describe('viewDiff', () => {
 		vscode.commands.executeCommand.mockResolvedValueOnce(null);
 
 		// Run
-		const result = await viewDiff('/path/to/repo', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2', 'subfolder/deleted.txt', 'subfolder/deleted.txt', GitFileStatus.Deleted);
+		const result = await viewDiff(
+			'/path/to/repo',
+			'1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
+			'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
+			'subfolder/deleted.txt',
+			'subfolder/deleted.txt',
+			GitFileStatus.Deleted
+		);
 
 		// Assert
 		const [command, leftUri, rightUri, title, config] = vscode.commands.executeCommand.mock.calls[0];
@@ -1395,7 +1619,14 @@ describe('viewDiff', () => {
 		vscode.commands.executeCommand.mockRejectedValueOnce(null);
 
 		// Run
-		const result = await viewDiff('/path/to/repo', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', 'subfolder/modified.txt', 'subfolder/modified.txt', GitFileStatus.Modified);
+		const result = await viewDiff(
+			'/path/to/repo',
+			'1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
+			'1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
+			'subfolder/modified.txt',
+			'subfolder/modified.txt',
+			GitFileStatus.Modified
+		);
 
 		// Assert
 		expect(result).toBe('Visual Studio Code was unable to load the diff editor for subfolder/modified.txt.');
@@ -1450,7 +1681,7 @@ describe('viewDiffWithWorkingFile', () => {
 		mockedFileSystemModule.access.mockImplementationOnce((_1: fs.PathLike, _2: number | undefined, callback: (err: NodeJS.ErrnoException | null) => void) => callback(new Error()));
 		mockedFileSystemModule.access.mockImplementationOnce((_1: fs.PathLike, _2: number | undefined, callback: (err: NodeJS.ErrnoException | null) => void) => callback(null));
 		vscode.commands.executeCommand.mockResolvedValueOnce(null);
-		const spyOnGetNewPathOfRenamedFile = jest.spyOn(dataSource, 'getNewPathOfRenamedFile');
+		const spyOnGetNewPathOfRenamedFile = vi.spyOn(dataSource, 'getNewPathOfRenamedFile');
 		spyOnGetNewPathOfRenamedFile.mockResolvedValueOnce('subfolder/renamed-new.txt');
 
 		// Run
@@ -1476,7 +1707,7 @@ describe('viewDiffWithWorkingFile', () => {
 		// Setup
 		mockedFileSystemModule.access.mockImplementationOnce((_1: fs.PathLike, _2: number | undefined, callback: (err: NodeJS.ErrnoException | null) => void) => callback(new Error()));
 		vscode.commands.executeCommand.mockResolvedValueOnce(null);
-		const spyOnGetNewPathOfRenamedFile = jest.spyOn(dataSource, 'getNewPathOfRenamedFile');
+		const spyOnGetNewPathOfRenamedFile = vi.spyOn(dataSource, 'getNewPathOfRenamedFile');
 		spyOnGetNewPathOfRenamedFile.mockResolvedValueOnce(null);
 
 		// Run
@@ -1502,7 +1733,7 @@ describe('viewDiffWithWorkingFile', () => {
 		mockedFileSystemModule.access.mockImplementationOnce((_1: fs.PathLike, _2: number | undefined, callback: (err: NodeJS.ErrnoException | null) => void) => callback(new Error()));
 		mockedFileSystemModule.access.mockImplementationOnce((_1: fs.PathLike, _2: number | undefined, callback: (err: NodeJS.ErrnoException | null) => void) => callback(new Error()));
 		vscode.commands.executeCommand.mockResolvedValueOnce(null);
-		const spyOnGetNewPathOfRenamedFile = jest.spyOn(dataSource, 'getNewPathOfRenamedFile');
+		const spyOnGetNewPathOfRenamedFile = vi.spyOn(dataSource, 'getNewPathOfRenamedFile');
 		spyOnGetNewPathOfRenamedFile.mockResolvedValueOnce('subfolder/renamed-new.txt');
 
 		// Run
@@ -1566,6 +1797,76 @@ describe('viewFileAtRevision', () => {
 
 		// Assert
 		expect(result).toBe('Visual Studio Code was unable to open subfolder/file.txt at commit 1a2b3c4d.');
+	});
+});
+
+describe('openWorktreeInNewWindow', () => {
+	it('Opens the worktree in a new window', async () => {
+		// Setup
+		vscode.commands.executeCommand.mockResolvedValueOnce(null);
+
+		// Run
+		const result = await openWorktreeInNewWindow('/path/to/worktree');
+
+		// Assert
+		expect(vscode.commands.executeCommand).toHaveBeenCalledWith('vscode.openFolder', expect.objectContaining({ fsPath: '/path/to/worktree' }), { forceNewWindow: true });
+		expect(result).toBe(null);
+	});
+
+	it('Returns an error message when executeCommand fails', async () => {
+		// Setup
+		vscode.commands.executeCommand.mockRejectedValueOnce(null);
+
+		// Run
+		const result = await openWorktreeInNewWindow('/path/to/worktree');
+
+		// Assert
+		expect(result).toBe('Visual Studio Code was unable to open the worktree "/path/to/worktree" in a new window.');
+	});
+});
+
+describe('swapWorkspaceFolderForWorktree', () => {
+	afterEach(() => {
+		vscode.workspace.workspaceFolders = undefined;
+	});
+
+	it("Replaces the repository's workspace folder with the worktree", () => {
+		// Setup
+		vscode.workspace.workspaceFolders = [
+			{ uri: vscode.Uri.file('/path/to/other-repo'), index: 0 },
+			{ uri: vscode.Uri.file('/path/to/repo'), index: 1 }
+		];
+
+		// Run
+		const result = swapWorkspaceFolderForWorktree('/path/to/repo', '/path/to/worktree');
+
+		// Assert
+		expect(result).toBe(null);
+		expect(vscode.workspace.updateWorkspaceFolders).toHaveBeenCalledWith(1, 1, { uri: expect.objectContaining({ fsPath: '/path/to/worktree' }) });
+	});
+
+	it("Returns an error message when the repository isn't a workspace folder", () => {
+		// Setup
+		vscode.workspace.workspaceFolders = [{ uri: vscode.Uri.file('/path/to'), index: 0 }];
+
+		// Run
+		const result = swapWorkspaceFolderForWorktree('/path/to/repo', '/path/to/worktree');
+
+		// Assert
+		expect(result).toBe('The repository "/path/to/repo" isn\'t a folder of this workspace, so it can\'t be swapped for the worktree. Open the worktree in a new window instead.');
+		expect(vscode.workspace.updateWorkspaceFolders).not.toHaveBeenCalled();
+	});
+
+	it('Returns an error message when Visual Studio Code rejects the change', () => {
+		// Setup
+		vscode.workspace.workspaceFolders = [{ uri: vscode.Uri.file('/path/to/repo'), index: 0 }];
+		vscode.workspace.updateWorkspaceFolders.mockReturnValueOnce(false);
+
+		// Run
+		const result = swapWorkspaceFolderForWorktree('/path/to/repo', '/path/to/worktree');
+
+		// Assert
+		expect(result).toBe('Visual Studio Code was unable to replace the workspace folder "/path/to/repo" with the worktree.');
 	});
 });
 
@@ -1801,7 +2102,7 @@ describe('evalPromises', () => {
 		let rejected = false;
 
 		// Run
-		await evalPromises([1], 2, (x) => Promise.reject(x * 2)).catch(() => rejected = true);
+		await evalPromises([1], 2, (x) => Promise.reject(x * 2)).catch(() => (rejected = true));
 
 		// Assert
 		expect(rejected).toBe(true);
@@ -1828,7 +2129,7 @@ describe('evalPromises', () => {
 		let rejected = false;
 
 		// Run
-		await evalPromises([1, 2, 3, 4], 2, (x) => Promise.reject(x * 2)).catch(() => rejected = true);
+		await evalPromises([1, 2, 3, 4], 2, (x) => Promise.reject(x * 2)).catch(() => (rejected = true));
 
 		// Assert
 		expect(rejected).toBe(true);
@@ -1840,7 +2141,7 @@ describe('evalPromises', () => {
 		const prom2 = prom1.catch(() => 1);
 
 		// Run
-		const result = await evalPromises([1, 2, 3, 4], 2, (x) => x === 1 ? prom1 : prom2).catch(() => -1);
+		const result = await evalPromises([1, 2, 3, 4], 2, (x) => (x === 1 ? prom1 : prom2)).catch(() => -1);
 
 		// Assert
 		expect(result).toBe(-1);
@@ -1861,11 +2162,7 @@ describe('resolveSpawnOutput', () => {
 		const result = await resolveSpawnOutput(cp.spawn('/path/to/git', ['arg0', 'arg1']));
 
 		// Assert
-		expect(result).toStrictEqual([
-			{ code: -1, error: 'error' },
-			expect.any(Buffer),
-			''
-		]);
+		expect(result).toStrictEqual([{ code: -1, error: 'error' }, expect.any(Buffer), '']);
 	});
 
 	it('Should resolve child process promise only once (exit event first)', async () => {
@@ -1881,11 +2178,7 @@ describe('resolveSpawnOutput', () => {
 		const result = await resolveSpawnOutput(cp.spawn('/path/to/git', ['arg0', 'arg1']));
 
 		// Assert
-		expect(result).toStrictEqual([
-			{ code: 1, error: null },
-			expect.any(Buffer),
-			''
-		]);
+		expect(result).toStrictEqual([{ code: 1, error: null }, expect.any(Buffer), '']);
 	});
 });
 
@@ -1909,7 +2202,7 @@ describe('findGit', () => {
 
 	it('Should use the last known Git executable path if it still exists', async () => {
 		// Setup
-		jest.spyOn(extensionState, 'getLastKnownGitPath').mockReturnValueOnce('/path/to/git');
+		vi.spyOn(extensionState, 'getLastKnownGitPath').mockReturnValueOnce('/path/to/git');
 		mockSpawnGitVersionSuccessOnce();
 
 		// Run
@@ -1925,7 +2218,7 @@ describe('findGit', () => {
 
 	it('Should use the users git.path if the last known Git executable path no longer exists', async () => {
 		// Setup
-		jest.spyOn(extensionState, 'getLastKnownGitPath').mockReturnValueOnce('/path/to/not-git');
+		vi.spyOn(extensionState, 'getLastKnownGitPath').mockReturnValueOnce('/path/to/not-git');
 		vscode.mockExtensionSettingReturnValue('path', '/path/to/git');
 		mockSpawnGitVersionThrowingErrorOnce();
 		mockSpawnGitVersionSuccessOnce();
@@ -1943,7 +2236,7 @@ describe('findGit', () => {
 
 	it('Should use the users git.path if there is no last known Git executable path', async () => {
 		// Setup
-		jest.spyOn(extensionState, 'getLastKnownGitPath').mockReturnValueOnce(null);
+		vi.spyOn(extensionState, 'getLastKnownGitPath').mockReturnValueOnce(null);
 		vscode.mockExtensionSettingReturnValue('path', '/path/to/git');
 		mockSpawnGitVersionSuccessOnce();
 
@@ -1958,13 +2251,13 @@ describe('findGit', () => {
 		expect(spyOnSpawn).toHaveBeenCalledWith('/path/to/git', ['--version']);
 	});
 
-	describe('process.platform === \'darwin\'', () => {
-		let spyOnExec: jest.SpyInstance;
+	describe("process.platform === 'darwin'", () => {
+		let spyOnExec: MockInstance;
 		beforeEach(() => {
-			jest.spyOn(extensionState, 'getLastKnownGitPath').mockReturnValueOnce(null);
+			vi.spyOn(extensionState, 'getLastKnownGitPath').mockReturnValueOnce(null);
 			vscode.mockExtensionSettingReturnValue('path', null);
 			Object.defineProperty(process, 'platform', { value: 'darwin' });
-			spyOnExec = jest.spyOn(cp, 'exec');
+			spyOnExec = vi.spyOn(cp, 'exec');
 		});
 
 		it('Should find and return the Git executable using "which git"', async () => {
@@ -2016,7 +2309,7 @@ describe('findGit', () => {
 			});
 
 			// Run
-			await findGit(extensionState).catch(() => rejected = true);
+			await findGit(extensionState).catch(() => (rejected = true));
 
 			// Assert
 			expect(rejected).toBe(true);
@@ -2032,7 +2325,7 @@ describe('findGit', () => {
 			mockSpawnGitVersionThrowingErrorOnce();
 
 			// Run
-			await findGit(extensionState).catch(() => rejected = true);
+			await findGit(extensionState).catch(() => (rejected = true));
 
 			// Assert
 			expect(rejected).toBe(true);
@@ -2052,7 +2345,7 @@ describe('findGit', () => {
 			mockSpawnGitVersionThrowingErrorOnce();
 
 			// Run
-			await findGit(extensionState).catch(() => rejected = true);
+			await findGit(extensionState).catch(() => (rejected = true));
 
 			// Assert
 			expect(rejected).toBe(true);
@@ -2071,17 +2364,17 @@ describe('findGit', () => {
 			});
 
 			// Run
-			await findGit(extensionState).catch(() => rejected = true);
+			await findGit(extensionState).catch(() => (rejected = true));
 
 			// Assert
 			expect(rejected).toBe(true);
 		});
 	});
 
-	describe('process.platform === \'win32\'', () => {
+	describe("process.platform === 'win32'", () => {
 		let programW6432: string | undefined, programFilesX86: string | undefined, programFiles: string | undefined, localAppData: string | undefined, envPath: string | undefined;
 		beforeEach(() => {
-			jest.spyOn(extensionState, 'getLastKnownGitPath').mockReturnValueOnce(null);
+			vi.spyOn(extensionState, 'getLastKnownGitPath').mockReturnValueOnce(null);
 			vscode.mockExtensionSettingReturnValue('path', []);
 			programW6432 = process.env['ProgramW6432'];
 			programFilesX86 = process.env['ProgramFiles(x86)'];
@@ -2229,16 +2522,16 @@ describe('findGit', () => {
 			});
 
 			// Run
-			await findGit(extensionState).catch(() => rejected = true);
+			await findGit(extensionState).catch(() => (rejected = true));
 
 			// Assert
 			expect(rejected).toBe(true);
 		});
 	});
 
-	describe('process.platform === \'unknown\'', () => {
+	describe("process.platform === 'unknown'", () => {
 		beforeEach(() => {
-			jest.spyOn(extensionState, 'getLastKnownGitPath').mockReturnValueOnce(null);
+			vi.spyOn(extensionState, 'getLastKnownGitPath').mockReturnValueOnce(null);
 			vscode.mockExtensionSettingReturnValue('path', null);
 			Object.defineProperty(process, 'platform', { value: 'unknown' });
 		});
@@ -2257,13 +2550,13 @@ describe('findGit', () => {
 			});
 		});
 
-		it('Should reject when the Git executable doesn\'t exist', async () => {
+		it("Should reject when the Git executable doesn't exist", async () => {
 			// Setup
 			let rejected = false;
 			mockSpawnGitVersionThrowingErrorOnce();
 
 			// Run
-			await findGit(extensionState).catch(() => rejected = true);
+			await findGit(extensionState).catch(() => (rejected = true));
 
 			// Assert
 			expect(rejected).toBe(true);
@@ -2292,7 +2585,7 @@ describe('getGitExecutable', () => {
 		mockSpawnGitVersionThrowingErrorOnce();
 
 		// Run
-		await getGitExecutable('/path/to/git').catch(() => rejected = true);
+		await getGitExecutable('/path/to/git').catch(() => (rejected = true));
 
 		// Assert
 		expect(rejected).toBe(true);
@@ -2308,7 +2601,7 @@ describe('getGitExecutable', () => {
 		});
 
 		// Run
-		await getGitExecutable('/path/to/git').catch(() => rejected = true);
+		await getGitExecutable('/path/to/git').catch(() => (rejected = true));
 
 		// Assert
 		expect(rejected).toBe(true);
@@ -2324,7 +2617,7 @@ describe('getGitExecutable', () => {
 		});
 
 		// Run
-		await getGitExecutable('/path/to/git').catch(() => rejected = true);
+		await getGitExecutable('/path/to/git').catch(() => (rejected = true));
 
 		// Assert
 		expect(rejected).toBe(true);
@@ -2370,7 +2663,7 @@ describe('getGitExecutableFromPaths', () => {
 		mockSpawnGitVersionThrowingErrorOnce();
 
 		// Run
-		await getGitExecutableFromPaths(['/path/to/first/git', '/path/to/second/git']).catch(() => rejected = true);
+		await getGitExecutableFromPaths(['/path/to/first/git', '/path/to/second/git']).catch(() => (rejected = true));
 
 		// Assert
 		expect(rejected).toBe(true);
@@ -2382,7 +2675,7 @@ describe('getGitExecutableFromPaths', () => {
 		let rejected = false;
 
 		// Run
-		await getGitExecutableFromPaths([]).catch(() => rejected = true);
+		await getGitExecutableFromPaths([]).catch(() => (rejected = true));
 
 		// Assert
 		expect(rejected).toBe(true);

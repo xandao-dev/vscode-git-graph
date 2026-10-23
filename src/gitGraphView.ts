@@ -2,13 +2,34 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import { AvatarManager } from './avatarManager';
 import { getConfig } from './config';
-import { DataSource, GitCommitDetailsData, GitConfigKey } from './dataSource';
+import { DataSource, GitConfigKey } from './dataSource';
 import { ExtensionState } from './extensionState';
 import { Logger } from './logger';
 import { RepoFileWatcher } from './repoFileWatcher';
 import { RepoManager } from './repoManager';
 import { ErrorInfo, GitConfigLocation, GitGraphViewInitialState, GitPushBranchMode, GitRepoSet, LoadGitGraphViewTo, RequestMessage, ResponseMessage, TabIconColourTheme } from './types';
-import { UNABLE_TO_FIND_GIT_MSG, UNCOMMITTED, archive, copyFilePathToClipboard, copyToClipboard, createPullRequest, getNonce, openExtensionSettings, openExternalUrl, openFile, showErrorMessage, viewDiff, viewDiffWithWorkingFile, viewFileAtRevision, viewScm } from './utils';
+import {
+	UNABLE_TO_FIND_GIT_MSG,
+	UNCOMMITTED,
+	archive,
+	copyFilePathToClipboard,
+	copyToClipboard,
+	createPullRequest,
+	getNonce,
+	getPathFromStr,
+	getRepoName,
+	insertWorktreeUncommittedChanges,
+	openExtensionSettings,
+	openExternalUrl,
+	openFile,
+	openWorktreeInNewWindow,
+	showErrorMessage,
+	swapWorkspaceFolderForWorktree,
+	viewDiff,
+	viewDiffWithWorkingFile,
+	viewFileAtRevision,
+	viewScm
+} from './utils';
 import { Disposable, toDisposable } from './utils/disposable';
 
 /**
@@ -43,7 +64,15 @@ export class GitGraphView extends Disposable {
 	 * @param logger The Git Graph Logger instance.
 	 * @param loadViewTo What to load the view to.
 	 */
-	public static createOrShow(extensionPath: string, dataSource: DataSource, extensionState: ExtensionState, avatarManager: AvatarManager, repoManager: RepoManager, logger: Logger, loadViewTo: LoadGitGraphViewTo) {
+	public static createOrShow(
+		extensionPath: string,
+		dataSource: DataSource,
+		extensionState: ExtensionState,
+		avatarManager: AvatarManager,
+		repoManager: RepoManager,
+		logger: Logger,
+		loadViewTo: LoadGitGraphViewTo
+	) {
 		const column = vscode.window.activeTextEditor ? vscode.window.activeTextEditor.viewColumn : undefined;
 
 		if (GitGraphView.currentPanel) {
@@ -75,7 +104,16 @@ export class GitGraphView extends Disposable {
 	 * @param loadViewTo What to load the view to.
 	 * @param column The column the view should be loaded in.
 	 */
-	private constructor(extensionPath: string, dataSource: DataSource, extensionState: ExtensionState, avatarManager: AvatarManager, repoManager: RepoManager, logger: Logger, loadViewTo: LoadGitGraphViewTo, column: vscode.ViewColumn | undefined) {
+	private constructor(
+		extensionPath: string,
+		dataSource: DataSource,
+		extensionState: ExtensionState,
+		avatarManager: AvatarManager,
+		repoManager: RepoManager,
+		logger: Logger,
+		loadViewTo: LoadGitGraphViewTo,
+		column: vscode.ViewColumn | undefined
+	) {
 		super();
 		this.extensionPath = extensionPath;
 		this.avatarManager = avatarManager;
@@ -91,13 +129,13 @@ export class GitGraphView extends Disposable {
 			localResourceRoots: [vscode.Uri.file(path.join(extensionPath, 'media'))],
 			retainContextWhenHidden: config.retainContextWhenHidden
 		});
-		this.panel.iconPath = config.tabIconColourTheme === TabIconColourTheme.Colour
-			? this.getResourcesUri('webview-icon.svg')
-			: {
-				light: this.getResourcesUri('webview-icon-light.svg'),
-				dark: this.getResourcesUri('webview-icon-dark.svg')
-			};
-
+		this.panel.iconPath =
+			config.tabIconColourTheme === TabIconColourTheme.Colour
+				? this.getResourcesUri('webview-icon.svg')
+				: {
+						light: this.getResourcesUri('webview-icon-light.svg'),
+						dark: this.getResourcesUri('webview-icon-dark.svg')
+					};
 
 		this.registerDisposables(
 			// Dispose Git Graph View resources when disposed
@@ -169,7 +207,7 @@ export class GitGraphView extends Disposable {
 	 */
 	private async respondToMessage(msg: RequestMessage) {
 		this.repoFileWatcher.mute();
-		let errorInfos: ErrorInfo[];
+		let errorInfo: ErrorInfo, errorInfos: ErrorInfo[];
 
 		switch (msg.command) {
 			case 'addRemote':
@@ -181,7 +219,7 @@ export class GitGraphView extends Disposable {
 			case 'addTag':
 				errorInfos = [await this.dataSource.addTag(msg.repo, msg.tagName, msg.commitHash, msg.type, msg.message, msg.force)];
 				if (errorInfos[0] === null && msg.pushToRemote !== null) {
-					errorInfos.push(...await this.dataSource.pushTag(msg.repo, msg.tagName, [msg.pushToRemote], msg.commitHash, msg.pushSkipRemoteCheck));
+					errorInfos.push(...(await this.dataSource.pushTag(msg.repo, msg.tagName, [msg.pushToRemote], msg.commitHash, msg.pushSkipRemoteCheck)));
 				}
 				this.sendMessage({
 					command: 'addTag',
@@ -235,7 +273,7 @@ export class GitGraphView extends Disposable {
 				});
 				break;
 			case 'commitDetails':
-				let data = await Promise.all<GitCommitDetailsData, string | null>([
+				let data = await Promise.all([
 					msg.commitHash === UNCOMMITTED
 						? this.dataSource.getUncommittedDetails(msg.repo)
 						: msg.stash === null
@@ -251,12 +289,19 @@ export class GitGraphView extends Disposable {
 					refresh: msg.refresh
 				});
 				break;
+			case 'commitMessage':
+				this.sendMessage({
+					command: 'commitMessage',
+					commitHash: msg.commitHash,
+					...(await this.dataSource.getCommitMessage(msg.repo, msg.commitHash))
+				});
+				break;
 			case 'compareCommits':
 				this.sendMessage({
 					command: 'compareCommits',
 					commitHash: msg.commitHash,
 					compareWithHash: msg.compareWithHash,
-					...await this.dataSource.getCommitComparison(msg.repo, msg.fromHash, msg.toHash),
+					...(await this.dataSource.getCommitComparison(msg.repo, msg.fromHash, msg.toHash)),
 					codeReview: msg.toHash !== UNCOMMITTED ? this.extensionState.getCodeReview(msg.repo, msg.fromHash + '-' + msg.toHash) : null,
 					refresh: msg.refresh
 				});
@@ -295,6 +340,24 @@ export class GitGraphView extends Disposable {
 					command: 'createPullRequest',
 					push: msg.push,
 					errors: errorInfos
+				});
+				break;
+			case 'createWorktree':
+				const worktreePath = getPathFromStr(path.resolve(msg.repo, msg.path));
+				errorInfo = await this.dataSource.createWorktree(msg.repo, worktreePath, msg.ref, msg.newBranch);
+				if (errorInfo === null) {
+					// The worktree exists even if it couldn't be set up, so it's still opened
+					const setUpError = msg.setUp ? await this.dataSource.setUpWorktree(msg.repo, worktreePath) : null;
+					if (msg.openAfter === 'window') {
+						errorInfo = await openWorktreeInNewWindow(worktreePath);
+					} else if (msg.openAfter === 'terminal') {
+						errorInfo = await this.dataSource.openGitTerminal(worktreePath, null, getRepoName(worktreePath));
+					}
+					if (errorInfo === null) errorInfo = setUpError;
+				}
+				this.sendMessage({
+					command: 'createWorktree',
+					error: errorInfo
 				});
 				break;
 			case 'deleteBranch':
@@ -355,6 +418,12 @@ export class GitGraphView extends Disposable {
 					error: await this.dataSource.dropStash(msg.repo, msg.selector)
 				});
 				break;
+			case 'editCommit':
+				this.sendMessage({
+					command: 'editCommit',
+					error: await this.dataSource.editCommit(msg.repo, msg.commitHash, msg.message)
+				});
+				break;
 			case 'editRemote':
 				this.sendMessage({
 					command: 'editRemote',
@@ -405,23 +474,42 @@ export class GitGraphView extends Disposable {
 				break;
 			case 'loadCommits':
 				this.loadCommitsRefreshId = msg.refreshId;
+				const [commitData, worktrees] = await Promise.all([
+					this.dataSource.getCommits(
+						msg.repo,
+						msg.branches,
+						msg.maxCommits,
+						msg.showTags,
+						msg.showRemoteBranches,
+						msg.includeCommitsMentionedByReflogs,
+						msg.onlyFollowFirstParent,
+						msg.commitOrdering,
+						msg.remotes,
+						msg.hideRemotes,
+						msg.stashes
+					),
+					this.dataSource.getWorktrees(msg.repo)
+				]);
 				this.sendMessage({
 					command: 'loadCommits',
 					refreshId: msg.refreshId,
 					onlyFollowFirstParent: msg.onlyFollowFirstParent,
-					...await this.dataSource.getCommits(msg.repo, msg.branches, msg.maxCommits, msg.showTags, msg.showRemoteBranches, msg.includeCommitsMentionedByReflogs, msg.onlyFollowFirstParent, msg.commitOrdering, msg.remotes, msg.hideRemotes, msg.stashes)
+					...commitData,
+					commits: getConfig().showUncommittedChanges ? insertWorktreeUncommittedChanges(commitData.commits, worktrees) : commitData.commits,
+					worktrees: worktrees
 				});
 				break;
 			case 'loadConfig':
 				this.sendMessage({
 					command: 'loadConfig',
 					repo: msg.repo,
-					...await this.dataSource.getConfig(msg.repo, msg.remotes)
+					...(await this.dataSource.getConfig(msg.repo, msg.remotes))
 				});
 				break;
 			case 'loadRepoInfo':
 				this.loadRepoInfoRefreshId = msg.refreshId;
-				let repoInfo = await this.dataSource.getRepoInfo(msg.repo, msg.showRemoteBranches, msg.showStashes, msg.hideRemotes), isRepo = true;
+				let repoInfo = await this.dataSource.getRepoInfo(msg.repo, msg.showRemoteBranches, msg.showStashes, msg.hideRemotes),
+					isRepo = true;
 				if (repoInfo.error) {
 					// If an error occurred, check to make sure the repo still exists
 					isRepo = (await this.dataSource.repoRoot(msg.repo)) !== null;
@@ -440,16 +528,29 @@ export class GitGraphView extends Disposable {
 				}
 				break;
 			case 'loadRepos':
-				if (!msg.check || !await this.repoManager.checkReposExist()) {
+				if (!msg.check || !(await this.repoManager.checkReposExist())) {
 					// If not required to check repos, or no changes were found when checking, respond with repos
 					this.respondLoadRepos(this.repoManager.getRepos(), null);
 				}
+				break;
+			case 'loadWorktreeCleanup':
+				this.sendMessage({
+					command: 'loadWorktreeCleanup',
+					merged: await this.dataSource.getMergedWorktrees(msg.repo),
+					error: null
+				});
 				break;
 			case 'merge':
 				this.sendMessage({
 					command: 'merge',
 					actionOn: msg.actionOn,
 					error: await this.dataSource.merge(msg.repo, msg.obj, msg.actionOn, msg.createNewCommit, msg.squash, msg.noCommit)
+				});
+				break;
+			case 'moveWorktreeBranch':
+				this.sendMessage({
+					command: 'moveWorktreeBranch',
+					error: await this.dataSource.moveWorktreeBranch(msg.repo, msg.worktree, msg.branchName, msg.stashChanges)
 				});
 				break;
 			case 'openExtensionSettings':
@@ -480,6 +581,20 @@ export class GitGraphView extends Disposable {
 				this.sendMessage({
 					command: 'openTerminal',
 					error: await this.dataSource.openGitTerminal(msg.repo, null, msg.name)
+				});
+				break;
+			case 'openWorktree':
+				if (msg.method === 'swap') {
+					// Load the worktree when the Git Graph View receives the updated set of repositories
+					this.extensionState.setLastActiveRepo(msg.worktree);
+					errorInfo = swapWorkspaceFolderForWorktree(msg.repo, msg.worktree);
+					if (errorInfo !== null) this.extensionState.setLastActiveRepo(msg.repo);
+				} else {
+					errorInfo = await openWorktreeInNewWindow(msg.worktree);
+				}
+				this.sendMessage({
+					command: 'openWorktree',
+					error: errorInfo
 				});
 				break;
 			case 'popStash':
@@ -529,6 +644,12 @@ export class GitGraphView extends Disposable {
 					actionOn: msg.actionOn,
 					interactive: msg.interactive,
 					error: await this.dataSource.rebase(msg.repo, msg.obj, msg.actionOn, msg.ignoreDate, msg.interactive)
+				});
+				break;
+			case 'removeWorktrees':
+				this.sendMessage({
+					command: 'removeWorktrees',
+					errors: await this.dataSource.removeWorktrees(msg.repo, msg.worktrees, msg.force, msg.deleteBranches, msg.prune)
 				});
 				break;
 			case 'renameBranch':
@@ -583,7 +704,7 @@ export class GitGraphView extends Disposable {
 					command: 'startCodeReview',
 					commitHash: msg.commitHash,
 					compareWithHash: msg.compareWithHash,
-					...await this.extensionState.startCodeReview(msg.repo, msg.id, msg.files, msg.lastViewedFile)
+					...(await this.extensionState.startCodeReview(msg.repo, msg.id, msg.files, msg.lastViewedFile))
 				});
 				break;
 			case 'tagDetails':
@@ -591,7 +712,7 @@ export class GitGraphView extends Disposable {
 					command: 'tagDetails',
 					tagName: msg.tagName,
 					commitHash: msg.commitHash,
-					...await this.dataSource.getTagDetails(msg.repo, msg.tagName)
+					...(await this.dataSource.getTagDetails(msg.repo, msg.tagName))
 				});
 				break;
 			case 'updateCodeReview':
@@ -638,7 +759,7 @@ export class GitGraphView extends Disposable {
 			this.logger.log('The Git Graph View has already been disposed, ignored sending "' + msg.command + '" message.');
 		} else {
 			this.panel.webview.postMessage(msg).then(
-				() => { },
+				() => {},
 				() => {
 					if (this.isDisposed()) {
 						this.logger.log('The Git Graph View was disposed while sending "' + msg.command + '" message.');
@@ -662,7 +783,8 @@ export class GitGraphView extends Disposable {
 	 * @returns The HTML.
 	 */
 	private getHtmlForWebview() {
-		const config = getConfig(), nonce = getNonce();
+		const config = getConfig(),
+			nonce = getNonce();
 		const initialState: GitGraphViewInitialState = {
 			config: {
 				commitDetailsView: config.commitDetailsView,
@@ -703,7 +825,10 @@ export class GitGraphView extends Disposable {
 		const globalState = this.extensionState.getGlobalViewState();
 		const workspaceState = this.extensionState.getWorkspaceViewState();
 
-		let body, numRepos = Object.keys(initialState.repos).length, colorVars = '', colorParams = '';
+		let body,
+			numRepos = Object.keys(initialState.repos).length,
+			colorVars = '',
+			colorParams = '';
 		for (let i = 0; i < initialState.config.graph.colours.length; i++) {
 			colorVars += '--git-graph-color' + i + ':' + initialState.config.graph.colours[i] + '; ';
 			colorParams += '[data-color="' + i + '"]{--git-graph-color:var(--git-graph-color' + i + ');} ';
@@ -721,6 +846,7 @@ export class GitGraphView extends Disposable {
 					<span id="repoControl"><span class="unselectable">Repo: </span><div id="repoDropdown" class="dropdown"></div></span>
 					<span id="branchControl"><span class="unselectable">Branches: </span><div id="branchDropdown" class="dropdown"></div></span>
 					<label id="showRemoteBranchesControl"><input type="checkbox" id="showRemoteBranchesCheckbox" tabindex="-1"><span class="customCheckbox"></span>Show Remote Branches</label>
+					<label id="worktreesControl"><input type="checkbox" id="worktreesCheckbox" tabindex="-1"><span class="customCheckbox"></span>Worktrees</label>
 					<div id="findBtn" title="Find"></div>
 					<div id="terminalBtn" title="Open a Terminal for this Repository"></div>
 					<div id="settingsBtn" title="Repository Settings"></div>
@@ -733,6 +859,7 @@ export class GitGraphView extends Disposable {
 				</div>
 				<div id="footer"></div>
 			</div>
+			<div id="worktreesPanel"></div>
 			<div id="scrollShadow"></div>
 			<script nonce="${nonce}">var initialState = ${JSON.stringify(initialState)}, globalState = ${JSON.stringify(globalState)}, workspaceState = ${JSON.stringify(workspaceState)};</script>
 			<script nonce="${nonce}" src="${this.getMediaUri('out.min.js')}"></script>
@@ -763,7 +890,6 @@ export class GitGraphView extends Disposable {
 		</html>`;
 	}
 
-
 	/* URI Manipulation Methods */
 
 	/**
@@ -793,7 +919,6 @@ export class GitGraphView extends Disposable {
 		return vscode.Uri.file(path.join(this.extensionPath, ...pathComps));
 	}
 
-
 	/* Response Construction Methods */
 
 	/**
@@ -818,7 +943,9 @@ export class GitGraphView extends Disposable {
  */
 export function standardiseCspSource(cspSource: string) {
 	if (cspSource.startsWith('http://') || cspSource.startsWith('https://')) {
-		const pathIndex = cspSource.indexOf('/', 8), queryIndex = cspSource.indexOf('?', 8), fragmentIndex = cspSource.indexOf('#', 8);
+		const pathIndex = cspSource.indexOf('/', 8),
+			queryIndex = cspSource.indexOf('?', 8),
+			fragmentIndex = cspSource.indexOf('#', 8);
 		let endOfAuthorityIndex = pathIndex;
 		if (queryIndex > -1 && (queryIndex < endOfAuthorityIndex || endOfAuthorityIndex === -1)) endOfAuthorityIndex = queryIndex;
 		if (fragmentIndex > -1 && (fragmentIndex < endOfAuthorityIndex || endOfAuthorityIndex === -1)) endOfAuthorityIndex = fragmentIndex;

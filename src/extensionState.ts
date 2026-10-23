@@ -100,7 +100,6 @@ export class ExtensionState extends Disposable {
 		);
 	}
 
-
 	/* Known Repositories */
 
 	/**
@@ -151,7 +150,6 @@ export class ExtensionState extends Disposable {
 		}
 	}
 
-
 	/* Global View State */
 
 	/**
@@ -170,7 +168,6 @@ export class ExtensionState extends Disposable {
 	public setGlobalViewState(state: GitGraphViewGlobalState) {
 		return this.updateGlobalState(GLOBAL_VIEW_STATE, state);
 	}
-
 
 	/* Workspace View State */
 
@@ -191,7 +188,6 @@ export class ExtensionState extends Disposable {
 		return this.updateWorkspaceState(WORKSPACE_VIEW_STATE, state);
 	}
 
-
 	/* Ignored Repos */
 
 	/**
@@ -209,7 +205,6 @@ export class ExtensionState extends Disposable {
 	public setIgnoredRepos(ignoredRepos: string[]) {
 		return this.updateWorkspaceState(IGNORED_REPOS, ignoredRepos);
 	}
-
 
 	/* Last Active Repo */
 
@@ -229,7 +224,6 @@ export class ExtensionState extends Disposable {
 		this.updateWorkspaceState(LAST_ACTIVE_REPO, repo);
 	}
 
-
 	/* Last Known Git Path */
 
 	/**
@@ -247,7 +241,6 @@ export class ExtensionState extends Disposable {
 	private setLastKnownGitPath(path: string) {
 		this.updateGlobalState(LAST_KNOWN_GIT_PATH, path);
 	}
-
 
 	/* Avatars */
 
@@ -306,14 +299,13 @@ export class ExtensionState extends Disposable {
 				fs.readdir(this.globalStoragePath + AVATAR_STORAGE_FOLDER, (err, files) => {
 					if (err) return;
 					for (let i = 0; i < files.length; i++) {
-						fs.unlink(this.globalStoragePath + AVATAR_STORAGE_FOLDER + '/' + files[i], () => { });
+						fs.unlink(this.globalStoragePath + AVATAR_STORAGE_FOLDER + '/' + files[i], () => {});
 					}
 				});
 			}
 			return errorInfo;
 		});
 	}
-
 
 	/* Code Review */
 
@@ -330,7 +322,7 @@ export class ExtensionState extends Disposable {
 	public startCodeReview(repo: string, id: string, files: string[], lastViewedFile: string | null) {
 		let reviews = this.getCodeReviews();
 		if (typeof reviews[repo] === 'undefined') reviews[repo] = {};
-		reviews[repo][id] = { lastActive: (new Date()).getTime(), lastViewedFile: lastViewedFile, remainingFiles: files };
+		reviews[repo][id] = { lastActive: new Date().getTime(), lastViewedFile: lastViewedFile, remainingFiles: files };
 		return this.setCodeReviews(reviews).then((err) => ({
 			codeReview: <CodeReview>Object.assign({ id: id }, reviews[repo][id]),
 			error: err
@@ -357,7 +349,7 @@ export class ExtensionState extends Disposable {
 	public getCodeReview(repo: string, id: string) {
 		let reviews = this.getCodeReviews();
 		if (typeof reviews[repo] !== 'undefined' && typeof reviews[repo][id] !== 'undefined') {
-			reviews[repo][id].lastActive = (new Date()).getTime();
+			reviews[repo][id].lastActive = new Date().getTime();
 			this.setCodeReviews(reviews);
 			return <CodeReview>Object.assign({ id: id }, reviews[repo][id]);
 		} else {
@@ -382,7 +374,7 @@ export class ExtensionState extends Disposable {
 
 		if (remainingFiles.length > 0) {
 			reviews[repo][id].remainingFiles = remainingFiles;
-			reviews[repo][id].lastActive = (new Date()).getTime();
+			reviews[repo][id].lastActive = new Date().getTime();
 			if (lastViewedFile !== null) {
 				reviews[repo][id].lastViewedFile = lastViewedFile;
 			}
@@ -397,7 +389,9 @@ export class ExtensionState extends Disposable {
 	 * Delete any Code Reviews that haven't been active during the last 90 days.
 	 */
 	public expireOldCodeReviews() {
-		let reviews = this.getCodeReviews(), change = false, expireReviewsBefore = (new Date()).getTime() - 7776000000; // 90 days x 24 hours x 60 minutes x 60 seconds x 1000 milliseconds
+		let reviews = this.getCodeReviews(),
+			change = false,
+			expireReviewsBefore = new Date().getTime() - 7776000000; // 90 days x 24 hours x 60 minutes x 60 seconds x 1000 milliseconds
 		Object.keys(reviews).forEach((repo) => {
 			Object.keys(reviews[repo]).forEach((id) => {
 				if (reviews[repo][id].lastActive < expireReviewsBefore) {
@@ -433,7 +427,6 @@ export class ExtensionState extends Disposable {
 		return this.updateWorkspaceState(CODE_REVIEWS, reviews);
 	}
 
-
 	/* Update State Memento's */
 
 	/**
@@ -462,7 +455,6 @@ export class ExtensionState extends Disposable {
 		);
 	}
 }
-
 
 /* Helper Methods */
 

@@ -1,4 +1,6 @@
-interface DropdownOption {
+import { CLASS_SELECTED, SVG_ICONS, alterClass, escapeHtml, formatCommaSeparatedList } from './utils';
+
+export interface DropdownOption {
 	readonly name: string;
 	readonly value: string;
 	readonly hint?: string;
@@ -7,7 +9,7 @@ interface DropdownOption {
 /**
  * Implements the dropdown inputs used in the Git Graph View's top control bar.
  */
-class Dropdown {
+export class Dropdown {
 	private readonly showInfo: boolean;
 	private readonly multipleAllowed: boolean;
 	private readonly changeCallback: (values: string[]) => void;
@@ -17,7 +19,7 @@ class Dropdown {
 	private lastSelected: number = 0; // Only used when multipleAllowed === false
 	private dropdownVisible: boolean = false;
 	private lastClicked: number = 0;
-	private doubleClickTimeout: NodeJS.Timer | null = null;
+	private doubleClickTimeout: number | null = null;
 
 	private readonly elem: HTMLElement;
 	private readonly currentValueElem: HTMLDivElement;
@@ -64,27 +66,31 @@ class Dropdown {
 		alterClass(this.elem, 'multi', multipleAllowed);
 		this.elem.appendChild(this.menuElem);
 
-		document.addEventListener('click', (e) => {
-			if (!e.target) return;
-			if (e.target === this.currentValueElem) {
-				this.dropdownVisible = !this.dropdownVisible;
-				if (this.dropdownVisible) {
-					this.filterInput.value = '';
-					this.filter();
-				}
-				this.elem.classList.toggle('dropdownOpen');
-				if (this.dropdownVisible) this.filterInput.focus();
-			} else if (this.dropdownVisible) {
-				if ((<HTMLElement>e.target).closest('.dropdown') !== this.elem) {
-					this.close();
-				} else {
-					const option = <HTMLElement | null>(<HTMLElement>e.target).closest('.dropdownOption');
-					if (option !== null && option.parentNode === this.optionsElem && typeof option.dataset.id !== 'undefined') {
-						this.onOptionClick(parseInt(option.dataset.id!));
+		document.addEventListener(
+			'click',
+			(e) => {
+				if (!e.target) return;
+				if (e.target === this.currentValueElem) {
+					this.dropdownVisible = !this.dropdownVisible;
+					if (this.dropdownVisible) {
+						this.filterInput.value = '';
+						this.filter();
+					}
+					this.elem.classList.toggle('dropdownOpen');
+					if (this.dropdownVisible) this.filterInput.focus();
+				} else if (this.dropdownVisible) {
+					if ((<HTMLElement>e.target).closest('.dropdown') !== this.elem) {
+						this.close();
+					} else {
+						const option = <HTMLElement | null>(<HTMLElement>e.target).closest('.dropdownOption');
+						if (option !== null && option.parentNode === this.optionsElem && typeof option.dataset.id !== 'undefined') {
+							this.onOptionClick(parseInt(option.dataset.id!));
+						}
 					}
 				}
-			}
-		}, true);
+			},
+			true
+		);
 		document.addEventListener('contextmenu', () => this.close(), true);
 		this.filterInput.addEventListener('keyup', () => this.filter());
 	}
@@ -97,7 +103,8 @@ class Dropdown {
 	public setOptions(options: ReadonlyArray<DropdownOption>, optionsSelected: string[]) {
 		this.options = options;
 		this.optionsSelected = [];
-		let selectedOption = -1, isSelected;
+		let selectedOption = -1,
+			isSelected;
 		for (let i = 0; i < options.length; i++) {
 			isSelected = optionsSelected.includes(options[i].value);
 			this.optionsSelected[i] = isSelected;
@@ -172,7 +179,7 @@ class Dropdown {
 
 			// Unselect the option with the specified value
 			this.optionsSelected[optionIndex] = false;
-			if (this.optionsSelected.every(selected => !selected)) {
+			if (this.optionsSelected.every((selected) => !selected)) {
 				// All items have been unselected, select "Show All"
 				this.optionsSelected[0] = true;
 			}
@@ -224,9 +231,17 @@ class Dropdown {
 		let html = '';
 		for (let i = 0; i < this.options.length; i++) {
 			const escapedName = escapeHtml(this.options[i].name);
-			html += '<div class="dropdownOption' + (this.optionsSelected[i] ? ' ' + CLASS_SELECTED : '') + '" data-id="' + i + '" title="' + escapedName + '">' +
+			html +=
+				'<div class="dropdownOption' +
+				(this.optionsSelected[i] ? ' ' + CLASS_SELECTED : '') +
+				'" data-id="' +
+				i +
+				'" title="' +
+				escapedName +
+				'">' +
 				(this.multipleAllowed && this.optionsSelected[i] ? '<div class="dropdownOptionMultiSelected">' + SVG_ICONS.check + '</div>' : '') +
-				escapedName + (typeof this.options[i].hint === 'string' && this.options[i].hint !== '' ? '<span class="dropdownOptionHint">' + escapeHtml(this.options[i].hint!) + '</span>' : '') +
+				escapedName +
+				(typeof this.options[i].hint === 'string' && this.options[i].hint !== '' ? '<span class="dropdownOptionHint">' + escapeHtml(this.options[i].hint!) + '</span>' : '') +
 				(this.showInfo ? '<div class="dropdownOptionInfo" title="' + escapeHtml(this.options[i].value) + '">' + SVG_ICONS.info + '</div>' : '') +
 				'</div>';
 		}
@@ -247,7 +262,9 @@ class Dropdown {
 	 * Filter the options displayed in the dropdown list, based on the filter criteria specified by the user.
 	 */
 	private filter() {
-		let val = this.filterInput.value.toLowerCase(), match, matches = false;
+		let val = this.filterInput.value.toLowerCase(),
+			match,
+			matches = false;
 		for (let i = 0; i < this.options.length; i++) {
 			match = this.options[i].name.toLowerCase().indexOf(val) > -1;
 			(<HTMLElement>this.optionsElem.children[i]).style.display = match ? 'block' : 'none';
@@ -313,7 +330,7 @@ class Dropdown {
 
 					this.optionsSelected[option] = !this.optionsSelected[option];
 
-					if (this.optionsSelected.every(selected => !selected)) {
+					if (this.optionsSelected.every((selected) => !selected)) {
 						// All items have been unselected, select "Show All"
 						this.optionsSelected[0] = true;
 					}
