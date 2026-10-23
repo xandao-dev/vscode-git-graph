@@ -12,6 +12,7 @@ export interface GitCommit {
 	readonly remotes: ReadonlyArray<GitCommitRemote>;
 	readonly stash: GitCommitStash | null; // null => not a stash, otherwise => stash info
 	readonly isPathFilterMatch: boolean; // FALSE => The commit didn't modify the filtered paths, and is only included to connect the commits that did
+	readonly signature: GitSignature | null; // null => not signed, or the signature status wasn't requested
 }
 
 export interface GitCommitTag {
@@ -462,6 +463,7 @@ export interface DefaultColumnVisibility {
 	readonly date: boolean;
 	readonly author: boolean;
 	readonly commit: boolean;
+	readonly signature: boolean;
 }
 
 export interface DialogDefaults {
@@ -960,6 +962,7 @@ export interface RequestLoadCommits extends RepoRequest {
 	readonly stashes: ReadonlyArray<GitStash>;
 	readonly simplifyByDecoration: boolean;
 	readonly pathFilter: string | null;
+	readonly showSignatures: boolean;
 }
 export interface ResponseLoadCommits extends ResponseWithErrorInfo {
 	readonly command: 'loadCommits';

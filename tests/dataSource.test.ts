@@ -561,7 +561,7 @@ describe('DataSource', () => {
 			date.setCurrentTime(1587559259);
 
 			// Run
-			const result = await dataSource.getCommits('/path/to/repo', null, 300, true, true, false, false, CommitOrdering.Date, ['origin'], [], [], false, null);
+			const result = await dataSource.getCommits('/path/to/repo', null, 300, true, true, false, false, CommitOrdering.Date, ['origin'], [], [], false, null, false);
 
 			// Assert
 			expect(result).toStrictEqual({
@@ -577,7 +577,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
@@ -594,7 +595,8 @@ describe('DataSource', () => {
 							{ name: 'other-remote/master', remote: null }
 						],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c',
@@ -607,7 +609,8 @@ describe('DataSource', () => {
 						tags: [{ name: 'tag1', annotated: true }],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d',
@@ -620,7 +623,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					}
 				],
 				head: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
@@ -674,7 +678,7 @@ describe('DataSource', () => {
 			date.setCurrentTime(1587559259);
 
 			// Run
-			const result = await dataSource.getCommits('/path/to/repo', ['master', 'develop'], 300, true, true, false, false, CommitOrdering.AuthorDate, ['origin'], [], [], false, null);
+			const result = await dataSource.getCommits('/path/to/repo', ['master', 'develop'], 300, true, true, false, false, CommitOrdering.AuthorDate, ['origin'], [], [], false, null, false);
 
 			// Assert
 			expect(result).toStrictEqual({
@@ -690,7 +694,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
@@ -703,7 +708,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [{ name: 'origin/master', remote: 'origin' }],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c',
@@ -716,7 +722,8 @@ describe('DataSource', () => {
 						tags: [{ name: 'tag1', annotated: true }],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d',
@@ -729,7 +736,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					}
 				],
 				head: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
@@ -772,7 +780,7 @@ describe('DataSource', () => {
 			date.setCurrentTime(1587559259);
 
 			// Run
-			const result = await dataSource.getCommits('/path/to/repo', null, 2, true, true, false, false, CommitOrdering.Topological, ['origin'], [], [], false, null);
+			const result = await dataSource.getCommits('/path/to/repo', null, 2, true, true, false, false, CommitOrdering.Topological, ['origin'], [], [], false, null, false);
 
 			// Assert
 			expect(result).toStrictEqual({
@@ -788,7 +796,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
@@ -801,7 +810,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c',
@@ -814,7 +824,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					}
 				],
 				head: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
@@ -865,7 +876,7 @@ describe('DataSource', () => {
 			date.setCurrentTime(1587559259);
 
 			// Run
-			const result = await dataSource.getCommits('/path/to/repo', null, 300, true, true, false, false, CommitOrdering.Date, ['origin'], [], [], false, null);
+			const result = await dataSource.getCommits('/path/to/repo', null, 300, true, true, false, false, CommitOrdering.Date, ['origin'], [], [], false, null, false);
 
 			// Assert
 			expect(result).toStrictEqual({
@@ -881,7 +892,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [{ name: 'origin/master', remote: 'origin' }],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c',
@@ -894,7 +906,8 @@ describe('DataSource', () => {
 						tags: [{ name: 'tag1', annotated: true }],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d',
@@ -907,7 +920,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					}
 				],
 				head: '4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e',
@@ -958,7 +972,7 @@ describe('DataSource', () => {
 			date.setCurrentTime(1587559259);
 
 			// Run
-			const result = await dataSource.getCommits('/path/to/repo', null, 300, true, true, false, false, CommitOrdering.Date, ['origin'], [], [], false, null);
+			const result = await dataSource.getCommits('/path/to/repo', null, 300, true, true, false, false, CommitOrdering.Date, ['origin'], [], [], false, null, false);
 
 			// Assert
 			expect(result).toStrictEqual({
@@ -974,7 +988,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [{ name: 'origin/master', remote: 'origin' }],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c',
@@ -987,7 +1002,8 @@ describe('DataSource', () => {
 						tags: [{ name: 'tag1', annotated: true }],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d',
@@ -1000,7 +1016,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					}
 				],
 				head: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
@@ -1053,7 +1070,7 @@ describe('DataSource', () => {
 			date.setCurrentTime(1587559259);
 
 			// Run
-			const result = await dataSource.getCommits('/path/to/repo', null, 300, true, true, false, false, CommitOrdering.Date, ['origin'], [], [], false, null);
+			const result = await dataSource.getCommits('/path/to/repo', null, 300, true, true, false, false, CommitOrdering.Date, ['origin'], [], [], false, null, false);
 
 			// Assert
 			expect(result).toStrictEqual({
@@ -1069,7 +1086,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
@@ -1082,7 +1100,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [{ name: 'origin/master', remote: 'origin' }],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c',
@@ -1095,7 +1114,8 @@ describe('DataSource', () => {
 						tags: [{ name: 'tag1', annotated: true }],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d',
@@ -1108,7 +1128,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					}
 				],
 				head: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
@@ -1161,7 +1182,7 @@ describe('DataSource', () => {
 			date.setCurrentTime(1587559259);
 
 			// Run
-			const result = await dataSource.getCommits('/path/to/repo', null, 300, false, true, false, false, CommitOrdering.Date, ['origin'], [], [], false, null);
+			const result = await dataSource.getCommits('/path/to/repo', null, 300, false, true, false, false, CommitOrdering.Date, ['origin'], [], [], false, null, false);
 
 			// Assert
 			expect(result).toStrictEqual({
@@ -1177,7 +1198,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
@@ -1190,7 +1212,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [{ name: 'origin/master', remote: 'origin' }],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c',
@@ -1203,7 +1226,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d',
@@ -1216,7 +1240,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					}
 				],
 				head: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
@@ -1268,7 +1293,7 @@ describe('DataSource', () => {
 			date.setCurrentTime(1587559259);
 
 			// Run
-			const result = await dataSource.getCommits('/path/to/repo', null, 300, false, true, false, false, CommitOrdering.Date, ['origin'], [], [], true, null);
+			const result = await dataSource.getCommits('/path/to/repo', null, 300, false, true, false, false, CommitOrdering.Date, ['origin'], [], [], true, null, false);
 
 			// Assert
 			expect(result).toStrictEqual({
@@ -1284,7 +1309,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
@@ -1297,7 +1323,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [{ name: 'origin/master', remote: 'origin' }],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c',
@@ -1310,7 +1337,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d',
@@ -1323,7 +1351,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					}
 				],
 				head: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
@@ -1377,7 +1406,7 @@ describe('DataSource', () => {
 			date.setCurrentTime(1587559259);
 
 			// Run
-			const result = await dataSource.getCommits('/path/to/repo', null, 300, true, true, false, false, CommitOrdering.Date, ['origin'], [], [], false, null);
+			const result = await dataSource.getCommits('/path/to/repo', null, 300, true, true, false, false, CommitOrdering.Date, ['origin'], [], [], false, null, false);
 
 			// Assert
 			expect(result).toStrictEqual({
@@ -1393,7 +1422,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
@@ -1406,7 +1436,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [{ name: 'origin/master', remote: 'origin' }],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c',
@@ -1419,7 +1450,8 @@ describe('DataSource', () => {
 						tags: [{ name: 'tag1', annotated: true }],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d',
@@ -1432,7 +1464,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					}
 				],
 				head: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
@@ -1483,7 +1516,7 @@ describe('DataSource', () => {
 			date.setCurrentTime(1587559259);
 
 			// Run
-			const result = await dataSource.getCommits('/path/to/repo', null, 300, true, false, false, false, CommitOrdering.Date, ['origin'], [], [], false, null);
+			const result = await dataSource.getCommits('/path/to/repo', null, 300, true, false, false, false, CommitOrdering.Date, ['origin'], [], [], false, null, false);
 
 			// Assert
 			expect(result).toStrictEqual({
@@ -1499,7 +1532,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
@@ -1512,7 +1546,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c',
@@ -1525,7 +1560,8 @@ describe('DataSource', () => {
 						tags: [{ name: 'tag1', annotated: true }],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d',
@@ -1538,7 +1574,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					}
 				],
 				head: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
@@ -1591,7 +1628,7 @@ describe('DataSource', () => {
 			date.setCurrentTime(1587559259);
 
 			// Run
-			const result = await dataSource.getCommits('/path/to/repo', null, 300, true, true, true, false, CommitOrdering.Date, ['origin'], [], [], false, null);
+			const result = await dataSource.getCommits('/path/to/repo', null, 300, true, true, true, false, CommitOrdering.Date, ['origin'], [], [], false, null, false);
 
 			// Assert
 			expect(result).toStrictEqual({
@@ -1607,7 +1644,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
@@ -1620,7 +1658,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [{ name: 'origin/master', remote: 'origin' }],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c',
@@ -1633,7 +1672,8 @@ describe('DataSource', () => {
 						tags: [{ name: 'tag1', annotated: true }],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d',
@@ -1646,7 +1686,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					}
 				],
 				head: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
@@ -1701,7 +1742,7 @@ describe('DataSource', () => {
 			date.setCurrentTime(1587559259);
 
 			// Run
-			const result = await dataSource.getCommits('/path/to/repo', null, 300, true, true, false, true, CommitOrdering.Date, ['origin'], [], [], false, null);
+			const result = await dataSource.getCommits('/path/to/repo', null, 300, true, true, false, true, CommitOrdering.Date, ['origin'], [], [], false, null, false);
 
 			// Assert
 			expect(result).toStrictEqual({
@@ -1717,7 +1758,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
@@ -1730,7 +1772,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [{ name: 'origin/master', remote: 'origin' }],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c',
@@ -1743,7 +1786,8 @@ describe('DataSource', () => {
 						tags: [{ name: 'tag1', annotated: true }],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d',
@@ -1756,7 +1800,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					}
 				],
 				head: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
@@ -1814,7 +1859,7 @@ describe('DataSource', () => {
 			date.setCurrentTime(1587559259);
 
 			// Run
-			const result = await dataSource.getCommits('/path/to/repo', null, 300, true, true, false, false, CommitOrdering.Date, ['origin'], [], [], false, null);
+			const result = await dataSource.getCommits('/path/to/repo', null, 300, true, true, false, false, CommitOrdering.Date, ['origin'], [], [], false, null, false);
 
 			// Assert
 			expect(result).toStrictEqual({
@@ -1830,7 +1875,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
@@ -1846,7 +1892,8 @@ describe('DataSource', () => {
 							{ name: 'other-remote/master', remote: null }
 						],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c',
@@ -1859,7 +1906,8 @@ describe('DataSource', () => {
 						tags: [{ name: 'tag1', annotated: true }],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d',
@@ -1872,7 +1920,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					}
 				],
 				head: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
@@ -1927,7 +1976,7 @@ describe('DataSource', () => {
 			date.setCurrentTime(1587559259);
 
 			// Run
-			const result = await dataSource.getCommits('/path/to/repo', null, 300, true, true, false, false, CommitOrdering.Date, ['origin', 'other-remote'], ['other-remote'], [], false, null);
+			const result = await dataSource.getCommits('/path/to/repo', null, 300, true, true, false, false, CommitOrdering.Date, ['origin', 'other-remote'], ['other-remote'], [], false, null, false);
 
 			// Assert
 			expect(result).toStrictEqual({
@@ -1943,7 +1992,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
@@ -1956,7 +2006,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [{ name: 'origin/master', remote: 'origin' }],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c',
@@ -1969,7 +2020,8 @@ describe('DataSource', () => {
 						tags: [{ name: 'tag1', annotated: true }],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d',
@@ -1982,7 +2034,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					}
 				],
 				head: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
@@ -2059,7 +2112,8 @@ describe('DataSource', () => {
 					}
 				],
 				false,
-				null
+				null,
+				false
 			);
 
 			// Assert
@@ -2076,7 +2130,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
@@ -2093,7 +2148,8 @@ describe('DataSource', () => {
 							selector: 'refs/stash@{0}',
 							untrackedFilesHash: '5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f'
 						},
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c',
@@ -2106,7 +2162,8 @@ describe('DataSource', () => {
 						tags: [{ name: 'tag1', annotated: true }],
 						remotes: [{ name: 'origin/master', remote: 'origin' }],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d',
@@ -2119,7 +2176,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					}
 				],
 				head: '2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c',
@@ -2205,7 +2263,8 @@ describe('DataSource', () => {
 					}
 				],
 				false,
-				null
+				null,
+				false
 			);
 
 			// Assert
@@ -2222,7 +2281,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
@@ -2239,7 +2299,8 @@ describe('DataSource', () => {
 							selector: 'refs/stash@{0}',
 							untrackedFilesHash: '5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f'
 						},
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
@@ -2252,7 +2313,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [{ name: 'origin/master', remote: 'origin' }],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: 'b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3',
@@ -2269,7 +2331,8 @@ describe('DataSource', () => {
 							selector: 'refs/stash@{1}',
 							untrackedFilesHash: '6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a'
 						},
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c',
@@ -2282,7 +2345,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d',
@@ -2295,7 +2359,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					}
 				],
 				head: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
@@ -2382,7 +2447,8 @@ describe('DataSource', () => {
 					}
 				],
 				false,
-				null
+				null,
+				false
 			);
 
 			// Assert
@@ -2399,7 +2465,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
@@ -2416,7 +2483,8 @@ describe('DataSource', () => {
 							selector: 'refs/stash@{0}',
 							untrackedFilesHash: '5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f'
 						},
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: 'b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3',
@@ -2433,7 +2501,8 @@ describe('DataSource', () => {
 							selector: 'refs/stash@{1}',
 							untrackedFilesHash: '6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a'
 						},
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
@@ -2446,7 +2515,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [{ name: 'origin/master', remote: 'origin' }],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c',
@@ -2459,7 +2529,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d',
@@ -2472,7 +2543,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					}
 				],
 				head: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
@@ -2548,7 +2620,8 @@ describe('DataSource', () => {
 					}
 				],
 				false,
-				null
+				null,
+				false
 			);
 
 			// Assert
@@ -2565,7 +2638,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
@@ -2578,7 +2652,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [{ name: 'origin/master', remote: 'origin' }],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c',
@@ -2591,7 +2666,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d',
@@ -2604,7 +2680,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					}
 				],
 				head: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
@@ -2658,7 +2735,7 @@ describe('DataSource', () => {
 			date.setCurrentTime(1587559259);
 
 			// Run
-			const result = await dataSource.getCommits('/path/to/repo', null, 300, true, true, false, false, CommitOrdering.Date, ['origin'], [], [], false, null);
+			const result = await dataSource.getCommits('/path/to/repo', null, 300, true, true, false, false, CommitOrdering.Date, ['origin'], [], [], false, null, false);
 
 			// Assert
 			expect(result).toStrictEqual({
@@ -2674,7 +2751,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [{ name: 'origin/master', remote: 'origin' }],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c',
@@ -2687,7 +2765,8 @@ describe('DataSource', () => {
 						tags: [{ name: 'tag1', annotated: true }],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d',
@@ -2700,7 +2779,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					}
 				],
 				head: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
@@ -2737,7 +2817,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('repository.showRemoteHeads', true);
 
 			// Run
-			const result = await dataSource.getCommits('/path/to/repo', null, 300, true, true, false, false, CommitOrdering.Date, ['origin'], [], [], false, null);
+			const result = await dataSource.getCommits('/path/to/repo', null, 300, true, true, false, false, CommitOrdering.Date, ['origin'], [], [], false, null, false);
 
 			// Assert
 			expect(result).toStrictEqual({
@@ -2778,7 +2858,7 @@ describe('DataSource', () => {
 			date.setCurrentTime(1587559259);
 
 			// Run
-			const result = await dataSource.getCommits('/path/to/repo', null, 300, true, true, false, false, CommitOrdering.Date, ['origin'], [], [], false, null);
+			const result = await dataSource.getCommits('/path/to/repo', null, 300, true, true, false, false, CommitOrdering.Date, ['origin'], [], [], false, null, false);
 
 			// Assert
 			expect(result).toStrictEqual({
@@ -2794,7 +2874,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
@@ -2810,7 +2891,8 @@ describe('DataSource', () => {
 							{ name: 'other-remote/master', remote: null }
 						],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c',
@@ -2823,7 +2905,8 @@ describe('DataSource', () => {
 						tags: [{ name: 'tag1', annotated: true }],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d',
@@ -2836,7 +2919,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					}
 				],
 				head: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
@@ -2897,7 +2981,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('repository.showUncommittedChanges', false);
 
 			// Run
-			const result = await dataSource.getCommits('/path/to/repo', null, 300, true, true, false, false, CommitOrdering.Date, ['origin'], [], [], true, ' src/main.ts, -docs ,');
+			const result = await dataSource.getCommits('/path/to/repo', null, 300, true, true, false, false, CommitOrdering.Date, ['origin'], [], [], true, ' src/main.ts, -docs ,', false);
 
 			// Assert
 			expect(result).toStrictEqual({
@@ -2913,7 +2997,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [{ name: 'origin/master', remote: 'origin' }],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c',
@@ -2926,7 +3011,8 @@ describe('DataSource', () => {
 						tags: [{ name: 'tag1', annotated: true }],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: false
+						isPathFilterMatch: false,
+						signature: null
 					},
 					{
 						hash: '5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f',
@@ -2939,7 +3025,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d',
@@ -2952,7 +3039,8 @@ describe('DataSource', () => {
 						tags: [{ name: 'tag2', annotated: false }],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					}
 				],
 				head: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
@@ -3031,7 +3119,7 @@ describe('DataSource', () => {
 			date.setCurrentTime(1587559259);
 
 			// Run
-			const result = await dataSource.getCommits('/path/to/repo', null, 300, true, true, false, false, CommitOrdering.Date, ['origin'], [], [], false, 'src');
+			const result = await dataSource.getCommits('/path/to/repo', null, 300, true, true, false, false, CommitOrdering.Date, ['origin'], [], [], false, 'src', false);
 
 			// Assert
 			expect(result).toStrictEqual({
@@ -3047,7 +3135,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
@@ -3060,7 +3149,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					},
 					{
 						hash: '3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d',
@@ -3073,7 +3163,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: false
+						isPathFilterMatch: false,
+						signature: null
 					},
 					{
 						hash: '2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c',
@@ -3086,7 +3177,8 @@ describe('DataSource', () => {
 						tags: [],
 						remotes: [],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					}
 				],
 				head: '3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d',
@@ -3128,7 +3220,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('repository.showUncommittedChanges', true);
 
 			// Run
-			const result = await dataSource.getCommits('/path/to/repo', ['develop'], 300, true, true, false, false, CommitOrdering.Date, ['origin'], [], [], false, 'src');
+			const result = await dataSource.getCommits('/path/to/repo', ['develop'], 300, true, true, false, false, CommitOrdering.Date, ['origin'], [], [], false, 'src', false);
 
 			// Assert
 			expect(result.commits.map((commit) => commit.hash)).toStrictEqual(['1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', '2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c']);
@@ -3165,7 +3257,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('repository.showUncommittedChanges', false);
 
 			// Run
-			const result = await dataSource.getCommits('/path/to/repo', null, 300, true, true, false, false, CommitOrdering.Date, ['origin'], [], [], false, ' , ');
+			const result = await dataSource.getCommits('/path/to/repo', null, 300, true, true, false, false, CommitOrdering.Date, ['origin'], [], [], false, ' , ', false);
 
 			// Assert
 			expect(result.commits.map((commit) => commit.isPathFilterMatch)).toStrictEqual([true, true]);
@@ -3205,7 +3297,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('repository.showRemoteHeads', true);
 
 			// Run
-			const result = await dataSource.getCommits('/path/to/repo', null, 300, true, true, false, false, CommitOrdering.Date, ['origin'], [], [], false, null);
+			const result = await dataSource.getCommits('/path/to/repo', null, 300, true, true, false, false, CommitOrdering.Date, ['origin'], [], [], false, null, false);
 
 			// Assert
 			expect(result).toStrictEqual({
@@ -3229,7 +3321,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('repository.showRemoteHeads', true);
 
 			// Run
-			const result = await dataSource.getCommits('/path/to/repo', null, 300, true, true, false, false, CommitOrdering.Date, ['origin'], [], [], false, null);
+			const result = await dataSource.getCommits('/path/to/repo', null, 300, true, true, false, false, CommitOrdering.Date, ['origin'], [], [], false, null, false);
 
 			// Assert
 			expect(result).toStrictEqual({
@@ -3239,6 +3331,173 @@ describe('DataSource', () => {
 				moreCommitsAvailable: false,
 				error: 'error message'
 			});
+		});
+
+		it('Should return the signature of each commit when signatures are requested', async () => {
+			// Setup
+			mockGitSuccessOnce(
+				'1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2bXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPb2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3cXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPbTest NameXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPbtest@mhutchie.comXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPb1587559258XX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPbCommit Message 2XX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPbGXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPbTest Signer <signer@mhutchie.com>XX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPbABCDEF1234567890\n' +
+					'2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3cXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPbXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPbTest NameXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPbtest@mhutchie.comXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPb1587559257XX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPbCommit Message 1XX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPbNXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPbXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPb\n'
+			);
+			mockGitSuccessOnce('1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b HEAD\n' + '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b refs/heads/master\n');
+			vscode.mockExtensionSettingReturnValue('repository.showCommitsOnlyReferencedByTags', true);
+			vscode.mockExtensionSettingReturnValue('repository.showRemoteHeads', true);
+			vscode.mockExtensionSettingReturnValue('repository.showUncommittedChanges', false);
+
+			// Run
+			const result = await dataSource.getCommits('/path/to/repo', null, 300, true, true, false, false, CommitOrdering.Date, ['origin'], [], [], false, null, true);
+
+			// Assert
+			expect(result).toStrictEqual({
+				commits: [
+					{
+						hash: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
+						parents: ['2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c'],
+						author: 'Test Name',
+						email: 'test@mhutchie.com',
+						date: 1587559258,
+						message: 'Commit Message 2',
+						heads: ['master'],
+						tags: [],
+						remotes: [],
+						stash: null,
+						isPathFilterMatch: true,
+						signature: { key: 'ABCDEF1234567890', signer: 'Test Signer <signer@mhutchie.com>', status: GitSignatureStatus.GoodAndValid }
+					},
+					{
+						hash: '2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c',
+						parents: [],
+						author: 'Test Name',
+						email: 'test@mhutchie.com',
+						date: 1587559257,
+						message: 'Commit Message 1',
+						heads: [],
+						tags: [],
+						remotes: [],
+						stash: null,
+						isPathFilterMatch: true,
+						signature: null
+					}
+				],
+				head: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
+				tags: [],
+				moreCommitsAvailable: false,
+				error: null
+			});
+			expect(spyOnSpawn).toBeCalledWith(
+				'/path/to/git',
+				[
+					'-c',
+					'log.showSignature=false',
+					'log',
+					'--max-count=301',
+					'--format=%HXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPb%PXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPb%anXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPb%aeXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPb%atXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPb%sXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPb%G?XX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPb%GSXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPb%GK',
+					'--date-order',
+					'--branches',
+					'--tags',
+					'--remotes',
+					'HEAD',
+					'--'
+				],
+				expect.objectContaining({ cwd: '/path/to/repo' })
+			);
+		});
+
+		it("Shouldn't request the signature of commits when the Git executable doesn't support it", async () => {
+			// Setup
+			onDidChangeGitExecutable.emit({ path: '/path/to/git', version: '2.3.0' });
+			mockGitSuccessOnce(
+				'1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2bXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPb2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3cXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPbTest NameXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPbtest@mhutchie.comXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPb1587559258XX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPbCommit Message 2\n' +
+					'2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3cXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPbXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPbTest NameXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPbtest@mhutchie.comXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPb1587559257XX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPbCommit Message 1\n'
+			);
+			mockGitSuccessOnce('1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b HEAD\n' + '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b refs/heads/master\n');
+			vscode.mockExtensionSettingReturnValue('repository.showCommitsOnlyReferencedByTags', true);
+			vscode.mockExtensionSettingReturnValue('repository.showRemoteHeads', true);
+			vscode.mockExtensionSettingReturnValue('repository.showUncommittedChanges', false);
+
+			// Run
+			const result = await dataSource.getCommits('/path/to/repo', null, 300, true, true, false, false, CommitOrdering.Date, ['origin'], [], [], false, null, true);
+
+			// Assert
+			expect(result.commits.map((commit) => commit.signature)).toStrictEqual([null, null]);
+			expect(spyOnSpawn).toBeCalledWith(
+				'/path/to/git',
+				[
+					'-c',
+					'log.showSignature=false',
+					'log',
+					'--max-count=301',
+					'--format=%HXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPb%PXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPb%anXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPb%aeXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPb%atXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPb%s',
+					'--date-order',
+					'--branches',
+					'--tags',
+					'--remotes',
+					'HEAD',
+					'--'
+				],
+				expect.objectContaining({ cwd: '/path/to/repo' })
+			);
+		});
+
+		it('Should only request the signature of the displayed commits when filtering by paths', async () => {
+			// Setup
+			mockGitSuccessOnce(
+				'1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2bXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPb2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3cXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPbTest NameXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPbtest@mhutchie.comXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPb1587559258XX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPbCommit Message 2XX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPbGXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPbTest Signer <signer@mhutchie.com>XX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPbABCDEF1234567890\n' +
+					'2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3cXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPbXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPbTest NameXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPbtest@mhutchie.comXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPb1587559257XX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPbCommit Message 1XX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPbNXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPbXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPb\n'
+			);
+			mockGitSuccessOnce('1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b HEAD\n' + '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b refs/heads/master\n');
+			mockGitSuccessOnce(
+				'1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2bXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPb2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3cXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPbTest NameXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPbtest@mhutchie.comXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPb1587559258XX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPbCommit Message 2\n' +
+					'2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3cXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPbXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPbTest NameXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPbtest@mhutchie.comXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPb1587559257XX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPbCommit Message 1\n'
+			);
+			vscode.mockExtensionSettingReturnValue('repository.showCommitsOnlyReferencedByTags', true);
+			vscode.mockExtensionSettingReturnValue('repository.showRemoteHeads', true);
+			vscode.mockExtensionSettingReturnValue('repository.showUncommittedChanges', false);
+
+			// Run
+			const result = await dataSource.getCommits('/path/to/repo', null, 300, true, true, false, false, CommitOrdering.Date, ['origin'], [], [], false, 'src', true);
+
+			// Assert
+			expect(result.commits.map((commit) => commit.signature)).toStrictEqual([{ key: 'ABCDEF1234567890', signer: 'Test Signer <signer@mhutchie.com>', status: GitSignatureStatus.GoodAndValid }, null]);
+			expect(spyOnSpawn).toHaveBeenCalledTimes(3);
+			expect(spyOnSpawn).toBeCalledWith(
+				'/path/to/git',
+				[
+					'-c',
+					'log.showSignature=false',
+					'log',
+					'--max-count=301',
+					'--format=%HXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPb%PXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPb%anXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPb%aeXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPb%atXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPb%sXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPb%G?XX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPb%GSXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPb%GK',
+					'--date-order',
+					'--full-history',
+					'--simplify-merges',
+					'--branches',
+					'--tags',
+					'--remotes',
+					'HEAD',
+					'--',
+					'src'
+				],
+				expect.objectContaining({ cwd: '/path/to/repo' })
+			);
+			expect(spyOnSpawn).toBeCalledWith(
+				'/path/to/git',
+				[
+					'-c',
+					'log.showSignature=false',
+					'log',
+					'--max-count=301',
+					'--format=%HXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPb%PXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPb%anXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPb%aeXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPb%atXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPb%s',
+					'--date-order',
+					'--branches',
+					'--tags',
+					'--remotes',
+					'HEAD',
+					'--',
+					'src'
+				],
+				expect.objectContaining({ cwd: '/path/to/repo' })
+			);
 		});
 	});
 

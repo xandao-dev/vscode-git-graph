@@ -559,14 +559,19 @@
 						"Commit": {
 							"type": "boolean",
 							"title": "Visibility of the Commit column"
+						},
+						"Signature": {
+							"type": "boolean",
+							"title": "Visibility of the Signature column"
 						}
 					},
 					"default": {
 						"Date": true,
 						"Author": true,
-						"Commit": true
+						"Commit": true,
+						"Signature": false
 					},
-					"description": "An object specifying the default visibility of the Date, Author & Commit columns. Example: {\"Date\": true, \"Author\": true, \"Commit\": true}"
+					"description": "An object specifying the default visibility of the Date, Author, Commit & Signature columns. Example: {\"Date\": true, \"Author\": true, \"Commit\": true, \"Signature\": false}. Showing the Signature column requires Git to check the signature of every loaded commit, which can be slow in large repositories. Requires Git (>= 2.4.0) & GPG (or equivalent) to be installed on the same machine that is running Visual Studio Code."
 				},
 				"git-graph.dialog.addTag.pushToRemote": {
 					"type": "boolean",

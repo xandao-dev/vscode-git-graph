@@ -217,6 +217,7 @@ export class DataSource extends Disposable {
 	 * @param stashes An array of all stashes in the repository.
 	 * @param simplifyByDecoration Only return commits that are referenced by a branch or tag (ignored when filtering by paths, as they can't be combined).
 	 * @param pathFilter A comma separated list of paths to only return the commits that modified them, or NULL (no path filter).
+	 * @param showSignatures Include the signature status of each commit (Git has to verify every signature, so this is only requested when it's displayed).
 	 * @returns The commits in the repository.
 	 */
 	public getCommits(
@@ -232,7 +233,8 @@ export class DataSource extends Disposable {
 		hideRemotes: ReadonlyArray<string>,
 		stashes: ReadonlyArray<GitStash>,
 		simplifyByDecoration: boolean,
-		pathFilter: string | null
+		pathFilter: string | null,
+		showSignatures: boolean
 	): Promise<GitCommitData> {
 		const config = getConfig();
 		const paths =
@@ -242,7 +244,7 @@ export class DataSource extends Disposable {
 						.map((filterPath) => filterPath.trim())
 						.filter((filterPath) => filterPath !== '')
 				: [];
-		const getLog = (simplifyMerges: boolean) =>
+		const getLog = (simplifyMerges: boolean, includeSignatures: boolean) =>
 			this.getLog(
 				repo,
 				branches,
@@ -257,16 +259,17 @@ export class DataSource extends Disposable {
 				stashes,
 				simplifyByDecoration && paths.length === 0,
 				paths,
-				simplifyMerges
+				simplifyMerges,
+				includeSignatures
 			);
 		return Promise.all([
-			getLog(paths.length > 0),
+			getLog(paths.length > 0, showSignatures),
 			this.getRefs(repo, showRemoteBranches, config.showRemoteHeads, hideRemotes).then(
 				(refData: GitRefData) => refData,
 				(errorMessage: string) => errorMessage
 			),
 			// The commits that modified the paths, the other commits returned when filtering by paths are only included to connect them in the graph
-			paths.length > 0 ? getLog(false).then((commits) => new Set(commits.map((commit) => commit.hash))) : null
+			paths.length > 0 ? getLog(false, false).then((commits) => new Set(commits.map((commit) => commit.hash))) : null
 		])
 			.then(async (results) => {
 				let commits: GitCommitRecord[] = results[0],
@@ -290,7 +293,7 @@ export class DataSource extends Disposable {
 
 				if (pathFilterMatches !== null && branches === null && refData.head !== null && !commits.some((commit) => commit.hash === refData.head)) {
 					// The checked-out commit didn't modify the paths, include it so that it (and any uncommitted changes) are still displayed
-					const head = (await this.getLog(repo, [refData.head], 1, false, false, false, false, commitOrdering, [], [], [], false, [], false))[0];
+					const head = (await this.getLog(repo, [refData.head], 1, false, false, false, false, commitOrdering, [], [], [], false, [], false, showSignatures))[0];
 					const headParents = head.parents.filter((parent) => commits.some((commit) => commit.hash === parent));
 					let insertAt = 0;
 					while (insertAt < commits.length && commits[insertAt].date > head.date && !headParents.includes(commits[insertAt].hash)) insertAt++;
@@ -308,7 +311,8 @@ export class DataSource extends Disposable {
 									author: '*',
 									email: '',
 									date: Math.round(new Date().getTime() / 1000),
-									message: 'Uncommitted Changes (' + numUncommittedChanges + ')'
+									message: 'Uncommitted Changes (' + numUncommittedChanges + ')',
+									signature: null
 								});
 							}
 							break;
@@ -362,7 +366,8 @@ export class DataSource extends Disposable {
 							baseHash: stash.baseHash,
 							untrackedFilesHash: stash.untrackedFilesHash
 						},
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					});
 				}
 				for (i = 0; i < commitNodes.length; i++) {
@@ -1840,13 +1845,7 @@ export class DataSource extends Disposable {
 				committer: commitInfo[5],
 				committerEmail: commitInfo[6],
 				committerDate: parseInt(commitInfo[7]),
-				signature: ['G', 'U', 'X', 'Y', 'R', 'E', 'B'].includes(commitInfo[8])
-					? {
-							key: commitInfo[10].trim(),
-							signer: commitInfo[9].trim(),
-							status: <GitSignatureStatus>commitInfo[8]
-						}
-					: null,
+				signature: parseSignature(commitInfo[8], commitInfo[9], commitInfo[10]),
 				body: removeTrailingBlankLines(commitInfo.slice(11).join(GIT_LOG_SEPARATOR).split(EOL_REGEX)).join('\n'),
 				fileChanges: []
 			};
@@ -1966,6 +1965,7 @@ export class DataSource extends Disposable {
 	 * @param simplifyByDecoration Only return commits that are referenced by a branch or tag.
 	 * @param paths Only return commits that modified these paths (all commits are returned if empty).
 	 * @param simplifyMerges Also return the merge commits needed to connect the commits that modified the paths, and rewrite the parents of the commits to their nearest returned ancestors.
+	 * @param showSignatures Include the signature status of each commit.
 	 * @returns An array of commits.
 	 */
 	private getLog(
@@ -1982,9 +1982,12 @@ export class DataSource extends Disposable {
 		stashes: ReadonlyArray<GitStash>,
 		simplifyByDecoration: boolean,
 		paths: ReadonlyArray<string>,
-		simplifyMerges: boolean
+		simplifyMerges: boolean,
+		showSignatures: boolean
 	) {
-		const args = ['-c', 'log.showSignature=false', 'log', '--max-count=' + num, '--format=' + this.gitFormatLog, '--' + order + '-order'];
+		const includeSignatures = showSignatures && this.gitExecutableSupportsGpgInfo;
+		const format = includeSignatures ? [this.gitFormatLog, '%G?', '%GS', '%GK'].join(GIT_LOG_SEPARATOR) : this.gitFormatLog;
+		const args = ['-c', 'log.showSignature=false', 'log', '--max-count=' + num, '--format=' + format, '--' + order + '-order'];
 		if (simplifyByDecoration) {
 			args.push('--simplify-by-decoration');
 		}
@@ -2029,8 +2032,16 @@ export class DataSource extends Disposable {
 			let commits: GitCommitRecord[] = [];
 			for (let i = 0; i < lines.length - 1; i++) {
 				let line = lines[i].split(GIT_LOG_SEPARATOR);
-				if (line.length !== 6) break;
-				commits.push({ hash: line[0], parents: line[1] !== '' ? line[1].split(' ') : [], author: line[2], email: line[3], date: parseInt(line[4]), message: line[5] });
+				if (line.length !== (includeSignatures ? 9 : 6)) break;
+				commits.push({
+					hash: line[0],
+					parents: line[1] !== '' ? line[1].split(' ') : [],
+					author: line[2],
+					email: line[3],
+					date: parseInt(line[4]),
+					message: line[5],
+					signature: includeSignatures ? parseSignature(line[6], line[7], line[8]) : null
+				});
 			}
 			return commits;
 		});
@@ -2488,6 +2499,17 @@ function getErrorMessage(error: Error | null, stdoutBuffer: Buffer, stderr: stri
 }
 
 /**
+ * Parse the signature of a commit, from the output of the `%G?`, `%GS` & `%GK` format placeholders.
+ * @param status The signature status.
+ * @param signer The signer of the signature.
+ * @param key The key used to make the signature.
+ * @returns The signature, or NULL if the commit isn't signed.
+ */
+function parseSignature(status: string, signer: string, key: string): GitSignature | null {
+	return ['G', 'U', 'X', 'Y', 'R', 'E', 'B'].includes(status) ? { key: key.trim(), signer: signer.trim(), status: <GitSignatureStatus>status } : null;
+}
+
+/**
  * Rearrange the entries of a rebase todo list in the same way as `git rebase --autosquash`: each "fixup!" / "squash!" commit is moved
  * after the commit it targets (and any commits already targeting it), with its action changed to fixup / squash.
  * @param entries The todo list entries (ordered from oldest to newest).
@@ -2571,6 +2593,7 @@ interface GitCommitRecord {
 	email: string;
 	date: number;
 	message: string;
+	signature: GitSignature | null;
 }
 
 interface GitCommitData {

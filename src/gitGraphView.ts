@@ -499,7 +499,8 @@ export class GitGraphView extends Disposable {
 						msg.hideRemotes,
 						msg.stashes,
 						msg.simplifyByDecoration,
-						msg.pathFilter
+						msg.pathFilter,
+						msg.showSignatures
 					))
 				});
 				break;

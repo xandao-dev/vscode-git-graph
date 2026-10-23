@@ -441,6 +441,8 @@ export class GitGraphView {
 					arraysEqual(a.remotes, b.remotes, (a, b) => a.name === b.name && a.remote === b.remote) &&
 					arraysStrictlyEqual(a.parents, b.parents) &&
 					a.isPathFilterMatch === b.isPathFilterMatch &&
+					((a.signature === null && b.signature === null) ||
+						(a.signature !== null && b.signature !== null && a.signature.status === b.signature.status && a.signature.signer === b.signature.signer && a.signature.key === b.signature.key)) &&
 					((a.stash === null && b.stash === null) || (a.stash !== null && b.stash !== null && a.stash.selector === b.stash.selector))
 			) &&
 			this.renderedGitBranchHead === this.gitBranchHead
@@ -755,7 +757,8 @@ export class GitGraphView {
 			hideRemotes: repoState.hideRemotes,
 			stashes: this.gitStashes,
 			simplifyByDecoration: pathFilter === null && getSimplifyByDecoration(repoState.simplifyByDecoration),
-			pathFilter: pathFilter
+			pathFilter: pathFilter,
+			showSignatures: this.getColumnVisibility().signature
 		});
 	}
 
@@ -878,7 +881,7 @@ export class GitGraphView {
 	}
 
 	private saveColumnWidths(columnWidths: GG.ColumnWidth[]) {
-		this.gitRepos[this.currentRepo].columnWidths = [columnWidths[0], columnWidths[2], columnWidths[3], columnWidths[4]];
+		this.gitRepos[this.currentRepo].columnWidths = [columnWidths[0], columnWidths[2], columnWidths[3], columnWidths[4], columnWidths[5]];
 		this.saveRepoState();
 	}
 
@@ -981,6 +984,7 @@ export class GitGraphView {
 			(colVisibility.date ? '<th class="tableColHeader dateCol" data-col="2">Date</th>' : '') +
 			(colVisibility.author ? '<th class="tableColHeader authorCol" data-col="3">Author</th>' : '') +
 			(colVisibility.commit ? '<th class="tableColHeader" data-col="4">Commit</th>' : '') +
+			(colVisibility.signature ? '<th class="tableColHeader signatureCol" data-col="5">Signature</th>' : '') +
 			'</tr>';
 
 		for (let i = 0; i < this.commits.length; i++) {
@@ -1117,6 +1121,7 @@ export class GitGraphView {
 						'</td>'
 					: '') +
 				(colVisibility.commit ? '<td class="text" title="' + escapeHtml(commit.hash) + '">' + abbrevCommit(commit.hash) + '</td>' : '') +
+				(colVisibility.signature ? '<td class="signatureCol text">' + (commit.signature !== null ? generateSignatureHtml(commit.signature) : '') + '</td>' : '') +
 				'</tr>';
 		}
 		this.tableElem.innerHTML = '<table>' + html + '</table>';
@@ -1187,7 +1192,8 @@ export class GitGraphView {
 			'</b></td>' +
 			(colVisibility.date ? '<td class="dateCol text" title="' + date.title + '">' + date.formatted + '</td>' : '') +
 			(colVisibility.author ? '<td class="authorCol text" title="* <>">*</td>' : '') +
-			(colVisibility.commit ? '<td class="text" title="*">*</td>' : '');
+			(colVisibility.commit ? '<td class="text" title="*">*</td>' : '') +
+			(colVisibility.signature ? '<td class="signatureCol text"></td>' : '');
 	}
 
 	private renderFetchButton() {
@@ -2686,10 +2692,18 @@ export class GitGraphView {
 		if (cWidths === null) {
 			// Initialise auto column layout if it is the first time viewing the repo.
 			let defaults = this.config.defaultColumnVisibility;
-			columnWidths = [COLUMN_AUTO, COLUMN_AUTO, defaults.date ? COLUMN_AUTO : COLUMN_HIDDEN, defaults.author ? COLUMN_AUTO : COLUMN_HIDDEN, defaults.commit ? COLUMN_AUTO : COLUMN_HIDDEN];
+			columnWidths = [
+				COLUMN_AUTO,
+				COLUMN_AUTO,
+				defaults.date ? COLUMN_AUTO : COLUMN_HIDDEN,
+				defaults.author ? COLUMN_AUTO : COLUMN_HIDDEN,
+				defaults.commit ? COLUMN_AUTO : COLUMN_HIDDEN,
+				defaults.signature ? COLUMN_AUTO : COLUMN_HIDDEN
+			];
 			this.saveColumnWidths(columnWidths);
 		} else {
-			columnWidths = [cWidths[0], COLUMN_AUTO, cWidths[1], cWidths[2], cWidths[3]];
+			// The Signature column is hidden for repositories with column widths saved before it existed
+			columnWidths = [cWidths[0], COLUMN_AUTO, cWidths[1], cWidths[2], cWidths[3], cWidths.length > 4 ? cWidths[4] : COLUMN_HIDDEN];
 		}
 
 		if (columnWidths[0] !== COLUMN_AUTO) {
@@ -2806,6 +2820,16 @@ export class GitGraphView {
 							visible: true,
 							checked: columnWidths[4] !== COLUMN_HIDDEN,
 							onClick: () => toggleColumnState(4, 80)
+						},
+						{
+							title: 'Signature',
+							visible: true,
+							checked: columnWidths[5] !== COLUMN_HIDDEN,
+							onClick: () => {
+								toggleColumnState(5, 80);
+								// The signature status of commits is only loaded while the column is visible
+								if (columnWidths[5] !== COLUMN_HIDDEN) this.refresh(false);
+							}
 						}
 					],
 					[
@@ -2840,16 +2864,21 @@ export class GitGraphView {
 	public getColumnVisibility() {
 		let colWidths = this.gitRepos[this.currentRepo].columnWidths;
 		if (colWidths !== null) {
-			return { date: colWidths[1] !== COLUMN_HIDDEN, author: colWidths[2] !== COLUMN_HIDDEN, commit: colWidths[3] !== COLUMN_HIDDEN };
+			return {
+				date: colWidths[1] !== COLUMN_HIDDEN,
+				author: colWidths[2] !== COLUMN_HIDDEN,
+				commit: colWidths[3] !== COLUMN_HIDDEN,
+				signature: colWidths.length > 4 && colWidths[4] !== COLUMN_HIDDEN
+			};
 		} else {
 			let defaults = this.config.defaultColumnVisibility;
-			return { date: defaults.date, author: defaults.author, commit: defaults.commit };
+			return { date: defaults.date, author: defaults.author, commit: defaults.commit, signature: defaults.signature };
 		}
 	}
 
 	private getNumColumns() {
 		let colVisibility = this.getColumnVisibility();
-		return 2 + (colVisibility.date ? 1 : 0) + (colVisibility.author ? 1 : 0) + (colVisibility.commit ? 1 : 0);
+		return 2 + (colVisibility.date ? 1 : 0) + (colVisibility.author ? 1 : 0) + (colVisibility.commit ? 1 : 0) + (colVisibility.signature ? 1 : 0);
 	}
 
 	/**

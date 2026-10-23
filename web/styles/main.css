@@ -258,6 +258,12 @@ code{
 #commitTable.autoLayout td.authorCol, #commitTable.autoLayout th.authorCol{
 	max-width:124px;
 }
+#commitTable td.signatureCol, #commitTable th.signatureCol{
+	text-align:center;
+}
+#commitTable td.signatureCol .signatureInfo{
+	margin-left:0;
+}
 @media screen and (min-width: 775px) and (max-width: 850px) {
 	#commitTable.autoLayout td.dateCol, #commitTable.autoLayout th.dateCol, #commitTable.autoLayout td.authorCol, #commitTable.autoLayout th.authorCol{
 		max-width:100px;

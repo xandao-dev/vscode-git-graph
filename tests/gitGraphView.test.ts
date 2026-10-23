@@ -2331,7 +2331,8 @@ describe('GitGraphView', () => {
 						tags: [],
 						remotes: [{ name: 'origin/master', remote: 'origin' }],
 						stash: null,
-						isPathFilterMatch: true
+						isPathFilterMatch: true,
+						signature: null
 					}
 				],
 				head: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
@@ -2361,12 +2362,13 @@ describe('GitGraphView', () => {
 					hideRemotes: ['upstream'],
 					stashes: [],
 					simplifyByDecoration: false,
-					pathFilter: null
+					pathFilter: null,
+					showSignatures: false
 				});
 
 				// Assert
 				await waitForExpect(() => {
-					expect(spyOnGetCommits).toHaveBeenCalledWith('/path/to/repo', null, 300, true, false, false, false, CommitOrdering.Date, ['origin', 'upstream'], ['upstream'], [], false, null);
+					expect(spyOnGetCommits).toHaveBeenCalledWith('/path/to/repo', null, 300, true, false, false, false, CommitOrdering.Date, ['origin', 'upstream'], ['upstream'], [], false, null, false);
 					expect(messages).toStrictEqual([
 						{
 							command: 'loadCommits',
@@ -2404,12 +2406,13 @@ describe('GitGraphView', () => {
 					hideRemotes: ['upstream'],
 					stashes: [],
 					simplifyByDecoration: false,
-					pathFilter: null
+					pathFilter: null,
+					showSignatures: false
 				});
 
 				// Assert
 				await waitForExpect(() => {
-					expect(spyOnGetCommits).toHaveBeenCalledWith('/path/to/repo', null, 300, false, true, false, false, CommitOrdering.Date, ['origin', 'upstream'], ['upstream'], [], false, null);
+					expect(spyOnGetCommits).toHaveBeenCalledWith('/path/to/repo', null, 300, false, true, false, false, CommitOrdering.Date, ['origin', 'upstream'], ['upstream'], [], false, null, false);
 					expect(messages).toStrictEqual([
 						{
 							command: 'loadCommits',
@@ -2447,12 +2450,13 @@ describe('GitGraphView', () => {
 					hideRemotes: ['upstream'],
 					stashes: [],
 					simplifyByDecoration: false,
-					pathFilter: null
+					pathFilter: null,
+					showSignatures: false
 				});
 
 				// Assert
 				await waitForExpect(() => {
-					expect(spyOnGetCommits).toHaveBeenCalledWith('/path/to/repo', null, 300, false, false, true, false, CommitOrdering.Date, ['origin', 'upstream'], ['upstream'], [], false, null);
+					expect(spyOnGetCommits).toHaveBeenCalledWith('/path/to/repo', null, 300, false, false, true, false, CommitOrdering.Date, ['origin', 'upstream'], ['upstream'], [], false, null, false);
 					expect(messages).toStrictEqual([
 						{
 							command: 'loadCommits',
@@ -2490,12 +2494,13 @@ describe('GitGraphView', () => {
 					hideRemotes: ['upstream'],
 					stashes: [],
 					simplifyByDecoration: false,
-					pathFilter: null
+					pathFilter: null,
+					showSignatures: false
 				});
 
 				// Assert
 				await waitForExpect(() => {
-					expect(spyOnGetCommits).toHaveBeenCalledWith('/path/to/repo', null, 300, false, false, false, true, CommitOrdering.Date, ['origin', 'upstream'], ['upstream'], [], false, null);
+					expect(spyOnGetCommits).toHaveBeenCalledWith('/path/to/repo', null, 300, false, false, false, true, CommitOrdering.Date, ['origin', 'upstream'], ['upstream'], [], false, null, false);
 					expect(messages).toStrictEqual([
 						{
 							command: 'loadCommits',
@@ -2533,12 +2538,72 @@ describe('GitGraphView', () => {
 					hideRemotes: ['upstream'],
 					stashes: [],
 					simplifyByDecoration: false,
-					pathFilter: 'src, docs'
+					pathFilter: 'src, docs',
+					showSignatures: false
 				});
 
 				// Assert
 				await waitForExpect(() => {
-					expect(spyOnGetCommits).toHaveBeenCalledWith('/path/to/repo', null, 300, false, false, false, false, CommitOrdering.Date, ['origin', 'upstream'], ['upstream'], [], false, 'src, docs');
+					expect(spyOnGetCommits).toHaveBeenCalledWith(
+						'/path/to/repo',
+						null,
+						300,
+						false,
+						false,
+						false,
+						false,
+						CommitOrdering.Date,
+						['origin', 'upstream'],
+						['upstream'],
+						[],
+						false,
+						'src, docs',
+						false
+					);
+					expect(messages).toStrictEqual([
+						{
+							command: 'loadCommits',
+							refreshId: 2,
+							commits: getCommitsResolvedValue.commits,
+							head: getCommitsResolvedValue.head,
+							tags: getCommitsResolvedValue.tags,
+							moreCommitsAvailable: getCommitsResolvedValue.moreCommitsAvailable,
+							onlyFollowFirstParent: false,
+							error: getCommitsResolvedValue.error
+						}
+					]);
+					expect(GitGraphView.currentPanel!['loadCommitsRefreshId']).toBe(2);
+				});
+			});
+
+			it('Should get commits (show signatures)', async () => {
+				// Setup
+				const spyOnGetCommits = vi.spyOn(dataSource, 'getCommits');
+				spyOnGetCommits.mockResolvedValueOnce(getCommitsResolvedValue);
+
+				// Run
+				onDidReceiveMessage({
+					command: 'loadCommits',
+					repo: '/path/to/repo',
+					refreshId: 2,
+					branches: null,
+					maxCommits: 300,
+					showTags: false,
+					showRemoteBranches: false,
+					includeCommitsMentionedByReflogs: false,
+					onlyFollowFirstParent: false,
+					commitOrdering: CommitOrdering.Date,
+					remotes: ['origin', 'upstream'],
+					hideRemotes: ['upstream'],
+					stashes: [],
+					simplifyByDecoration: false,
+					pathFilter: null,
+					showSignatures: true
+				});
+
+				// Assert
+				await waitForExpect(() => {
+					expect(spyOnGetCommits).toHaveBeenCalledWith('/path/to/repo', null, 300, false, false, false, false, CommitOrdering.Date, ['origin', 'upstream'], ['upstream'], [], false, null, true);
 					expect(messages).toStrictEqual([
 						{
 							command: 'loadCommits',
