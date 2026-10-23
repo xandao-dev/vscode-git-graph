@@ -1282,6 +1282,7 @@ export class GitGraphView {
 						const multipleRemotes = this.gitRemotes.length > 1;
 						const inputs: DialogInput[] = [
 							{ type: DialogInputType.Checkbox, name: 'Set Upstream', value: true },
+							{ type: DialogInputType.Checkbox, name: 'No Verify', value: false, info: 'Skip the pre-push hook.' },
 							{
 								type: DialogInputType.Radio,
 								name: 'Push Mode',
@@ -1322,7 +1323,8 @@ export class GitGraphView {
 										branchName: refName,
 										remotes: remotes,
 										setUpstream: setUpstream,
-										mode: <GG.GitPushBranchMode>values[1],
+										mode: <GG.GitPushBranchMode>values[2],
+										noVerify: <boolean>values[1],
 										willUpdateBranchConfig:
 											setUpstream &&
 											remotes.length > 0 &&
@@ -1682,11 +1684,28 @@ export class GitGraphView {
 									name: 'Squash Commits',
 									value: this.config.dialogDefaults.pullBranch.squash,
 									info: 'Create a single commit on the current branch whose effect is the same as merging this remote branch.'
+								},
+								{
+									type: DialogInputType.Checkbox,
+									name: 'No Verify',
+									value: false,
+									info: 'Skip Git hooks when creating the squash commit. Only applies when "Squash Commits" is enabled.'
 								}
 							],
 							'Yes, pull',
 							(values) => {
-								runAction({ command: 'pullBranch', repo: this.currentRepo, branchName: branchName, remote: remote, createNewCommit: <boolean>values[0], squash: <boolean>values[1] }, 'Pulling Branch');
+								runAction(
+									{
+										command: 'pullBranch',
+										repo: this.currentRepo,
+										branchName: branchName,
+										remote: remote,
+										createNewCommit: <boolean>values[0],
+										squash: <boolean>values[1],
+										noVerify: <boolean>values[2]
+									},
+									'Pulling Branch'
+								);
 							},
 							target
 						);
@@ -2306,6 +2325,12 @@ export class GitGraphView {
 				},
 				{
 					type: DialogInputType.Checkbox,
+					name: 'No Verify',
+					value: false,
+					info: 'Skip Git hooks when creating the squash commit. Only applies when "Squash Commits" is enabled.'
+				},
+				{
+					type: DialogInputType.Checkbox,
 					name: 'No Commit',
 					value: this.config.dialogDefaults.merge.noCommit,
 					info: 'The changes of the merge will be staged but not committed, so that you can review and/or modify the merge result before committing.'
@@ -2322,7 +2347,8 @@ export class GitGraphView {
 						createNewCommit: <boolean>values[0],
 						allowUnrelatedHistories: <boolean>values[1],
 						squash: <boolean>values[2],
-						noCommit: <boolean>values[3]
+						noVerify: <boolean>values[3],
+						noCommit: <boolean>values[4]
 					},
 					'Merging ' + actionOn
 				);

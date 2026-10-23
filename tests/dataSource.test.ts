@@ -5652,7 +5652,7 @@ describe('DataSource', () => {
 			mockGitSuccessOnce();
 
 			// Run
-			const result = await dataSource.pushBranch('/path/to/repo', 'master', 'origin', false, GitPushBranchMode.Normal);
+			const result = await dataSource.pushBranch('/path/to/repo', 'master', 'origin', false, GitPushBranchMode.Normal, false);
 
 			// Assert
 			expect(result).toBe(null);
@@ -5664,7 +5664,7 @@ describe('DataSource', () => {
 			mockGitSuccessOnce();
 
 			// Run
-			const result = await dataSource.pushBranch('/path/to/repo', 'master', 'origin', true, GitPushBranchMode.Normal);
+			const result = await dataSource.pushBranch('/path/to/repo', 'master', 'origin', true, GitPushBranchMode.Normal, false);
 
 			// Assert
 			expect(result).toBe(null);
@@ -5676,7 +5676,7 @@ describe('DataSource', () => {
 			mockGitSuccessOnce();
 
 			// Run
-			const result = await dataSource.pushBranch('/path/to/repo', 'master', 'origin', false, GitPushBranchMode.Force);
+			const result = await dataSource.pushBranch('/path/to/repo', 'master', 'origin', false, GitPushBranchMode.Force, false);
 
 			// Assert
 			expect(result).toBe(null);
@@ -5688,11 +5688,23 @@ describe('DataSource', () => {
 			mockGitSuccessOnce();
 
 			// Run
-			const result = await dataSource.pushBranch('/path/to/repo', 'master', 'origin', false, GitPushBranchMode.ForceWithLease);
+			const result = await dataSource.pushBranch('/path/to/repo', 'master', 'origin', false, GitPushBranchMode.ForceWithLease, false);
 
 			// Assert
 			expect(result).toBe(null);
 			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['push', 'origin', 'master', '--force-with-lease'], expect.objectContaining({ cwd: '/path/to/repo' }));
+		});
+
+		it('Should push a branch to the remote (without verifying)', async () => {
+			// Setup
+			mockGitSuccessOnce();
+
+			// Run
+			const result = await dataSource.pushBranch('/path/to/repo', 'master', 'origin', false, GitPushBranchMode.Normal, true);
+
+			// Assert
+			expect(result).toBe(null);
+			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['push', 'origin', 'master', '--no-verify'], expect.objectContaining({ cwd: '/path/to/repo' }));
 		});
 
 		it('Should return an error message thrown by git', async () => {
@@ -5700,7 +5712,7 @@ describe('DataSource', () => {
 			mockGitThrowingErrorOnce();
 
 			// Run
-			const result = await dataSource.pushBranch('/path/to/repo', 'master', 'origin', false, GitPushBranchMode.Normal);
+			const result = await dataSource.pushBranch('/path/to/repo', 'master', 'origin', false, GitPushBranchMode.Normal, false);
 
 			// Assert
 			expect(result).toBe('error message');
@@ -5713,7 +5725,7 @@ describe('DataSource', () => {
 			mockGitSuccessOnce();
 
 			// Run
-			const result = await dataSource.pushBranchToMultipleRemotes('/path/to/repo', 'master', ['origin'], false, GitPushBranchMode.Normal);
+			const result = await dataSource.pushBranchToMultipleRemotes('/path/to/repo', 'master', ['origin'], false, GitPushBranchMode.Normal, false);
 
 			// Assert
 			expect(result).toStrictEqual([null]);
@@ -5726,12 +5738,26 @@ describe('DataSource', () => {
 			mockGitSuccessOnce();
 
 			// Run
-			const result = await dataSource.pushBranchToMultipleRemotes('/path/to/repo', 'master', ['origin', 'other-origin'], false, GitPushBranchMode.Force);
+			const result = await dataSource.pushBranchToMultipleRemotes('/path/to/repo', 'master', ['origin', 'other-origin'], false, GitPushBranchMode.Force, false);
 
 			// Assert
 			expect(result).toStrictEqual([null, null]);
 			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['push', 'origin', 'master', '--force'], expect.objectContaining({ cwd: '/path/to/repo' }));
 			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['push', 'other-origin', 'master', '--force'], expect.objectContaining({ cwd: '/path/to/repo' }));
+		});
+
+		it('Should push a branch to multiple remotes (without verifying)', async () => {
+			// Setup
+			mockGitSuccessOnce();
+			mockGitSuccessOnce();
+
+			// Run
+			const result = await dataSource.pushBranchToMultipleRemotes('/path/to/repo', 'master', ['origin', 'other-origin'], false, GitPushBranchMode.Normal, true);
+
+			// Assert
+			expect(result).toStrictEqual([null, null]);
+			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['push', 'origin', 'master', '--no-verify'], expect.objectContaining({ cwd: '/path/to/repo' }));
+			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['push', 'other-origin', 'master', '--no-verify'], expect.objectContaining({ cwd: '/path/to/repo' }));
 		});
 
 		it('Should push a branch to multiple remotes, stopping if an error occurs', async () => {
@@ -5740,7 +5766,7 @@ describe('DataSource', () => {
 			mockGitThrowingErrorOnce();
 
 			// Run
-			const result = await dataSource.pushBranchToMultipleRemotes('/path/to/repo', 'master', ['origin', 'other-origin', 'another-origin'], true, GitPushBranchMode.Normal);
+			const result = await dataSource.pushBranchToMultipleRemotes('/path/to/repo', 'master', ['origin', 'other-origin', 'another-origin'], true, GitPushBranchMode.Normal, false);
 
 			// Assert
 			expect(result).toStrictEqual([null, 'error message']);
@@ -5750,7 +5776,7 @@ describe('DataSource', () => {
 
 		it('Should return an error when no remotes are specified', async () => {
 			// Run
-			const result = await dataSource.pushBranchToMultipleRemotes('/path/to/repo', 'master', [], false, GitPushBranchMode.Normal);
+			const result = await dataSource.pushBranchToMultipleRemotes('/path/to/repo', 'master', [], false, GitPushBranchMode.Normal, false);
 
 			// Assert
 			expect(result).toStrictEqual(['No remote(s) were specified to push the branch master to.']);
@@ -6176,7 +6202,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
 
 			// Run
-			const result = await dataSource.pullBranch('/path/to/repo', 'master', 'origin', false, false);
+			const result = await dataSource.pullBranch('/path/to/repo', 'master', 'origin', false, false, false);
 
 			// Assert
 			expect(result).toBe(null);
@@ -6190,7 +6216,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
 
 			// Run
-			const result = await dataSource.pullBranch('/path/to/repo', 'master', 'origin', true, false);
+			const result = await dataSource.pullBranch('/path/to/repo', 'master', 'origin', true, false, false);
 
 			// Assert
 			expect(result).toBe(null);
@@ -6204,7 +6230,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('repository.sign.commits', true);
 
 			// Run
-			const result = await dataSource.pullBranch('/path/to/repo', 'master', 'origin', true, false);
+			const result = await dataSource.pullBranch('/path/to/repo', 'master', 'origin', true, false, false);
 
 			// Assert
 			expect(result).toBe(null);
@@ -6221,7 +6247,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('dialog.pullBranch.squashMessageFormat', 'Default');
 
 			// Run
-			const result = await dataSource.pullBranch('/path/to/repo', 'master', 'origin', false, true);
+			const result = await dataSource.pullBranch('/path/to/repo', 'master', 'origin', false, true, false);
 
 			// Assert
 			expect(result).toBe(null);
@@ -6233,6 +6259,24 @@ describe('DataSource', () => {
 			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['commit', '-m', "Merge branch 'origin/master'"], expect.objectContaining({ cwd: '/path/to/repo' }));
 		});
 
+		it('Should pull a remote branch into the current branch (squash and staged changes exist, without verifying the squash commit)', async () => {
+			// Setup
+			mockGitSuccessOnce();
+			mockGitSuccessOnce(':100644 100644 f592752b794040422c9d3b884f15564e6143954b 0000000000000000000000000000000000000000 M      README.md');
+			mockGitSuccessOnce();
+			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
+			vscode.mockExtensionSettingReturnValue('dialog.pullBranch.squashMessageFormat', 'Default');
+
+			// Run
+			const result = await dataSource.pullBranch('/path/to/repo', 'master', 'origin', false, true, true);
+
+			// Assert
+			expect(result).toBe(null);
+			expect(spyOnSpawn).toBeCalledTimes(3);
+			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['pull', 'origin', 'master', '--squash'], expect.objectContaining({ cwd: '/path/to/repo' }));
+			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['commit', '--no-verify', '-m', "Merge branch 'origin/master'"], expect.objectContaining({ cwd: '/path/to/repo' }));
+		});
+
 		it('Should pull a remote branch into the current branch (squash and staged changes exist, signing merge commit)', async () => {
 			// Setup
 			mockGitSuccessOnce();
@@ -6242,7 +6286,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('dialog.pullBranch.squashMessageFormat', 'Default');
 
 			// Run
-			const result = await dataSource.pullBranch('/path/to/repo', 'master', 'origin', false, true);
+			const result = await dataSource.pullBranch('/path/to/repo', 'master', 'origin', false, true, false);
 
 			// Assert
 			expect(result).toBe(null);
@@ -6261,7 +6305,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
 
 			// Run
-			const result = await dataSource.pullBranch('/path/to/repo', 'master', 'origin', false, true);
+			const result = await dataSource.pullBranch('/path/to/repo', 'master', 'origin', false, true, false);
 
 			// Assert
 			expect(result).toBe(null);
@@ -6277,7 +6321,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
 
 			// Run
-			const result = await dataSource.pullBranch('/path/to/repo', 'master', 'origin', false, true);
+			const result = await dataSource.pullBranch('/path/to/repo', 'master', 'origin', false, true, false);
 
 			// Assert
 			expect(result).toBe(null);
@@ -6295,7 +6339,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('dialog.pullBranch.squashMessageFormat', 'Default');
 
 			// Run
-			const result = await dataSource.pullBranch('/path/to/repo', 'master', 'origin', true, true);
+			const result = await dataSource.pullBranch('/path/to/repo', 'master', 'origin', true, true, false);
 
 			// Assert
 			expect(result).toBe(null);
@@ -6314,7 +6358,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('dialog.pullBranch.squashMessageFormat', 'Git SQUASH_MSG');
 
 			// Run
-			const result = await dataSource.pullBranch('/path/to/repo', 'master', 'origin', false, true);
+			const result = await dataSource.pullBranch('/path/to/repo', 'master', 'origin', false, true, false);
 
 			// Assert
 			expect(result).toBe(null);
@@ -6330,7 +6374,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
 
 			// Run
-			const result = await dataSource.pullBranch('/path/to/repo', 'master', 'origin', false, true);
+			const result = await dataSource.pullBranch('/path/to/repo', 'master', 'origin', false, true, false);
 
 			// Assert
 			expect(result).toBe('error message');
@@ -6346,7 +6390,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('dialog.pullBranch.squashMessageFormat', 'Default');
 
 			// Run
-			const result = await dataSource.pullBranch('/path/to/repo', 'master', 'origin', false, true);
+			const result = await dataSource.pullBranch('/path/to/repo', 'master', 'origin', false, true, false);
 
 			// Assert
 			expect(result).toBe('error message');
@@ -6386,7 +6430,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
 
 			// Run
-			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, false, false, false, false);
+			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, false, false, false, false, false);
 
 			// Assert
 			expect(result).toBe(null);
@@ -6400,7 +6444,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
 
 			// Run
-			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, true, false, false, false);
+			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, true, false, false, false, false);
 
 			// Assert
 			expect(result).toBe(null);
@@ -6414,7 +6458,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('repository.sign.commits', true);
 
 			// Run
-			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, true, false, false, false);
+			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, true, false, false, false, false);
 
 			// Assert
 			expect(result).toBe(null);
@@ -6428,7 +6472,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
 
 			// Run
-			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, false, true, false, false);
+			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, false, true, false, false, false);
 
 			// Assert
 			expect(result).toBe(null);
@@ -6445,7 +6489,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('dialog.merge.squashMessageFormat', 'Default');
 
 			// Run
-			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, false, false, true, false);
+			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, false, false, true, false, false);
 
 			// Assert
 			expect(result).toBe(null);
@@ -6457,6 +6501,24 @@ describe('DataSource', () => {
 			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['commit', '-m', "Merge branch 'develop'"], expect.objectContaining({ cwd: '/path/to/repo' }));
 		});
 
+		it('Should merge a branch into the current branch (squash and staged changes exist, without verifying the squash commit)', async () => {
+			// Setup
+			mockGitSuccessOnce();
+			mockGitSuccessOnce(':100644 100644 f592752b794040422c9d3b884f15564e6143954b 0000000000000000000000000000000000000000 M      README.md');
+			mockGitSuccessOnce();
+			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
+			vscode.mockExtensionSettingReturnValue('dialog.merge.squashMessageFormat', 'Default');
+
+			// Run
+			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, false, false, true, true, false);
+
+			// Assert
+			expect(result).toBe(null);
+			expect(spyOnSpawn).toBeCalledTimes(3);
+			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['merge', 'develop', '--squash'], expect.objectContaining({ cwd: '/path/to/repo' }));
+			expect(spyOnSpawn).toBeCalledWith('/path/to/git', ['commit', '--no-verify', '-m', "Merge branch 'develop'"], expect.objectContaining({ cwd: '/path/to/repo' }));
+		});
+
 		it('Should merge a remote-tracking branch into the current branch (squash and staged changes exist)', async () => {
 			// Setup
 			mockGitSuccessOnce();
@@ -6466,7 +6528,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('dialog.merge.squashMessageFormat', 'Default');
 
 			// Run
-			const result = await dataSource.merge('/path/to/repo', 'origin/develop', MergeActionOn.RemoteTrackingBranch, false, false, true, false);
+			const result = await dataSource.merge('/path/to/repo', 'origin/develop', MergeActionOn.RemoteTrackingBranch, false, false, true, false, false);
 
 			// Assert
 			expect(result).toBe(null);
@@ -6485,7 +6547,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('dialog.merge.squashMessageFormat', 'Default');
 
 			// Run
-			const result = await dataSource.merge('/path/to/repo', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', MergeActionOn.Commit, false, false, true, false);
+			const result = await dataSource.merge('/path/to/repo', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', MergeActionOn.Commit, false, false, true, false, false);
 
 			// Assert
 			expect(result).toBe(null);
@@ -6504,7 +6566,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('dialog.merge.squashMessageFormat', 'Default');
 
 			// Run
-			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, false, false, true, false);
+			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, false, false, true, false, false);
 
 			// Assert
 			expect(result).toBe(null);
@@ -6525,7 +6587,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('dialog.merge.squashMessageFormat', 'Git SQUASH_MSG');
 
 			// Run
-			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, false, false, true, false);
+			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, false, false, true, false, false);
 
 			// Assert
 			expect(result).toBe(null);
@@ -6542,7 +6604,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
 
 			// Run
-			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, false, false, true, false);
+			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, false, false, true, false, false);
 
 			// Assert
 			expect(result).toBe(null);
@@ -6557,7 +6619,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
 
 			// Run
-			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, false, false, false, true);
+			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, false, false, false, false, true);
 
 			// Assert
 			expect(result).toBe(null);
@@ -6571,7 +6633,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
 
 			// Run
-			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, false, false, true, true);
+			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, false, false, true, false, true);
 
 			// Assert
 			expect(result).toBe(null);
@@ -6585,7 +6647,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
 
 			// Run
-			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, true, false, true, true);
+			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, true, false, true, false, true);
 
 			// Assert
 			expect(result).toBe(null);
@@ -6599,7 +6661,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
 
 			// Run
-			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, false, false, true, false);
+			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, false, false, true, false, false);
 
 			// Assert
 			expect(result).toBe('error message');
@@ -6614,7 +6676,7 @@ describe('DataSource', () => {
 			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
 
 			// Run
-			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, false, false, true, false);
+			const result = await dataSource.merge('/path/to/repo', 'develop', MergeActionOn.Branch, false, false, true, false, false);
 
 			// Assert
 			expect(result).toBe('error message');

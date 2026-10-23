@@ -989,6 +989,7 @@ export interface RequestMerge extends RepoRequest {
 	readonly createNewCommit: boolean;
 	readonly allowUnrelatedHistories: boolean;
 	readonly squash: boolean;
+	readonly noVerify: boolean;
 	readonly noCommit: boolean;
 }
 export interface ResponseMerge extends ResponseWithErrorInfo {
@@ -1061,6 +1062,7 @@ export interface RequestPullBranch extends RepoRequest {
 	readonly remote: string;
 	readonly createNewCommit: boolean;
 	readonly squash: boolean;
+	readonly noVerify: boolean;
 }
 export interface ResponsePullBranch extends ResponseWithErrorInfo {
 	readonly command: 'pullBranch';
@@ -1072,6 +1074,7 @@ export interface RequestPushBranch extends RepoRequest {
 	readonly remotes: string[];
 	readonly setUpstream: boolean;
 	readonly mode: GitPushBranchMode;
+	readonly noVerify: boolean;
 	readonly willUpdateBranchConfig: boolean;
 }
 export interface ResponsePushBranch extends ResponseWithMultiErrorInfo {

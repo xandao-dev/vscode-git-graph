@@ -763,7 +763,7 @@ describe('GitGraphView', () => {
 				// Assert
 				await waitForExpect(() => {
 					expect(spyOnCheckoutBranch).toHaveBeenCalledWith('/path/to/repo', 'develop', null);
-					expect(spyOnPullBranch).toHaveBeenCalledWith('/path/to/repo', 'develop', 'origin', true, false);
+					expect(spyOnPullBranch).toHaveBeenCalledWith('/path/to/repo', 'develop', 'origin', true, false, false);
 					expect(messages).toStrictEqual([
 						{
 							command: 'checkoutBranch',
@@ -1403,7 +1403,7 @@ describe('GitGraphView', () => {
 
 				// Assert
 				await waitForExpect(() => {
-					expect(spyOnPushBranch).toHaveBeenCalledWith('/path/to/repo', 'sourceBranch', 'origin', true, GitPushBranchMode.Normal);
+					expect(spyOnPushBranch).toHaveBeenCalledWith('/path/to/repo', 'sourceBranch', 'origin', true, GitPushBranchMode.Normal, false);
 					expect(spyOnCreatePullRequest).toHaveBeenCalledWith(pullRequestConfig, 'sourceOwner', 'sourceRepo', 'sourceBranch');
 
 					expect(messages).toStrictEqual([
@@ -1450,7 +1450,7 @@ describe('GitGraphView', () => {
 
 				// Assert
 				await waitForExpect(() => {
-					expect(spyOnPushBranch).toHaveBeenCalledWith('/path/to/repo', 'sourceBranch', 'origin', true, GitPushBranchMode.Normal);
+					expect(spyOnPushBranch).toHaveBeenCalledWith('/path/to/repo', 'sourceBranch', 'origin', true, GitPushBranchMode.Normal, false);
 					expect(spyOnCreatePullRequest).not.toHaveBeenCalled();
 
 					expect(messages).toStrictEqual([
@@ -2708,12 +2708,13 @@ describe('GitGraphView', () => {
 					createNewCommit: true,
 					allowUnrelatedHistories: false,
 					squash: false,
+					noVerify: false,
 					noCommit: false
 				});
 
 				// Assert
 				await waitForExpect(() => {
-					expect(spyOnMerge).toHaveBeenCalledWith('/path/to/repo', 'master', MergeActionOn.Branch, true, false, false, false);
+					expect(spyOnMerge).toHaveBeenCalledWith('/path/to/repo', 'master', MergeActionOn.Branch, true, false, false, false, false);
 					expect(messages).toStrictEqual([
 						{
 							command: 'merge',
@@ -2739,12 +2740,13 @@ describe('GitGraphView', () => {
 					createNewCommit: false,
 					allowUnrelatedHistories: true,
 					squash: false,
+					noVerify: false,
 					noCommit: false
 				});
 
 				// Assert
 				await waitForExpect(() => {
-					expect(spyOnMerge).toHaveBeenCalledWith('/path/to/repo', 'master', MergeActionOn.Branch, false, true, false, false);
+					expect(spyOnMerge).toHaveBeenCalledWith('/path/to/repo', 'master', MergeActionOn.Branch, false, true, false, false, false);
 					expect(messages).toStrictEqual([
 						{
 							command: 'merge',
@@ -2770,12 +2772,13 @@ describe('GitGraphView', () => {
 					createNewCommit: false,
 					allowUnrelatedHistories: false,
 					squash: true,
+					noVerify: false,
 					noCommit: false
 				});
 
 				// Assert
 				await waitForExpect(() => {
-					expect(spyOnMerge).toHaveBeenCalledWith('/path/to/repo', 'master', MergeActionOn.Branch, false, false, true, false);
+					expect(spyOnMerge).toHaveBeenCalledWith('/path/to/repo', 'master', MergeActionOn.Branch, false, false, true, false, false);
 					expect(messages).toStrictEqual([
 						{
 							command: 'merge',
@@ -2801,12 +2804,13 @@ describe('GitGraphView', () => {
 					createNewCommit: false,
 					allowUnrelatedHistories: false,
 					squash: false,
+					noVerify: false,
 					noCommit: true
 				});
 
 				// Assert
 				await waitForExpect(() => {
-					expect(spyOnMerge).toHaveBeenCalledWith('/path/to/repo', 'master', MergeActionOn.Branch, false, false, false, true);
+					expect(spyOnMerge).toHaveBeenCalledWith('/path/to/repo', 'master', MergeActionOn.Branch, false, false, false, false, true);
 					expect(messages).toStrictEqual([
 						{
 							command: 'merge',
@@ -3022,12 +3026,13 @@ describe('GitGraphView', () => {
 					branchName: 'master',
 					remote: 'origin',
 					createNewCommit: true,
-					squash: false
+					squash: false,
+					noVerify: false
 				});
 
 				// Assert
 				await waitForExpect(() => {
-					expect(spyOnPullBranch).toHaveBeenCalledWith('/path/to/repo', 'master', 'origin', true, false);
+					expect(spyOnPullBranch).toHaveBeenCalledWith('/path/to/repo', 'master', 'origin', true, false, false);
 					expect(messages).toStrictEqual([
 						{
 							command: 'pullBranch',
@@ -3053,12 +3058,13 @@ describe('GitGraphView', () => {
 					remotes: ['origin'],
 					setUpstream: true,
 					mode: GitPushBranchMode.Normal,
+					noVerify: false,
 					willUpdateBranchConfig: false
 				});
 
 				// Assert
 				await waitForExpect(() => {
-					expect(spyOnPushBranchToMultipleRemotes).toHaveBeenCalledWith('/path/to/repo', 'develop', ['origin'], true, GitPushBranchMode.Normal);
+					expect(spyOnPushBranchToMultipleRemotes).toHaveBeenCalledWith('/path/to/repo', 'develop', ['origin'], true, GitPushBranchMode.Normal, false);
 					expect(messages).toStrictEqual([
 						{
 							command: 'pushBranch',
