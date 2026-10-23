@@ -11,6 +11,7 @@ export interface GitCommit {
 	readonly tags: ReadonlyArray<GitCommitTag>;
 	readonly remotes: ReadonlyArray<GitCommitRemote>;
 	readonly stash: GitCommitStash | null; // null => not a stash, otherwise => stash info
+	readonly isPathFilterMatch: boolean; // FALSE => The commit didn't modify the filtered paths, and is only included to connect the commits that did
 }
 
 export interface GitCommitTag {
@@ -210,6 +211,7 @@ export interface GitRepoState {
 	onlyFollowFirstParent: BooleanOverride;
 	onRepoLoadShowCheckedOutBranch: BooleanOverride;
 	onRepoLoadShowSpecificBranches: string[] | null;
+	pathFilter: string | null;
 	pullRequestConfig: PullRequestConfig | null;
 	showRemoteBranches: boolean;
 	showRemoteBranchesV2: BooleanOverride;
@@ -228,6 +230,7 @@ export interface GitGraphViewInitialState {
 	readonly repos: GitRepoSet;
 	readonly loadRepoInfoRefreshId: number;
 	readonly loadCommitsRefreshId: number;
+	readonly workspaceFolderPaths: WorkspaceFolderPaths;
 }
 
 export interface GitGraphViewConfig {
@@ -256,6 +259,7 @@ export interface GitGraphViewConfig {
 	readonly onRepoLoad: OnRepoLoadConfig;
 	readonly referenceLabels: ReferenceLabelsConfig;
 	readonly repoDropdownOrder: RepoDropdownOrder;
+	readonly showPathFilter: boolean;
 	readonly showRemoteBranches: boolean;
 	readonly showStashes: boolean;
 	readonly showTags: boolean;
@@ -303,7 +307,10 @@ export type LoadGitGraphViewTo = {
 		readonly compareWithHash: string | null;
 	};
 	readonly runCommandOnLoad?: 'fetch';
+	readonly pathFilter?: string | null;
 } | null;
+
+export type WorkspaceFolderPaths = { readonly [repo: string]: ReadonlyArray<string> }; // The paths (relative to the repository) of the workspace folders that are in each repository
 
 export interface MuteCommitsConfig {
 	readonly commitsNotAncestorsOfHead: boolean;
@@ -942,6 +949,7 @@ export interface RequestLoadCommits extends RepoRequest {
 	readonly hideRemotes: ReadonlyArray<string>;
 	readonly stashes: ReadonlyArray<GitStash>;
 	readonly simplifyByDecoration: boolean;
+	readonly pathFilter: string | null;
 }
 export interface ResponseLoadCommits extends ResponseWithErrorInfo {
 	readonly command: 'loadCommits';
@@ -989,6 +997,7 @@ export interface ResponseLoadRepos extends BaseMessage {
 	readonly repos: GitRepoSet;
 	readonly lastActiveRepo: string | null;
 	readonly loadViewTo: LoadGitGraphViewTo;
+	readonly workspaceFolderPaths: WorkspaceFolderPaths;
 }
 
 export const enum MergeActionOn {

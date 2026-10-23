@@ -212,7 +212,8 @@ export class DataSource extends Disposable {
 	 * @param remotes An array of known remotes.
 	 * @param hideRemotes An array of hidden remotes.
 	 * @param stashes An array of all stashes in the repository.
-	 * @param simplifyByDecoration Only return commits that are referenced by a branch or tag.
+	 * @param simplifyByDecoration Only return commits that are referenced by a branch or tag (ignored when filtering by paths, as they can't be combined).
+	 * @param pathFilter A comma separated list of paths to only return the commits that modified them, or NULL (no path filter).
 	 * @returns The commits in the repository.
 	 */
 	public getCommits(
@@ -227,10 +228,18 @@ export class DataSource extends Disposable {
 		remotes: ReadonlyArray<string>,
 		hideRemotes: ReadonlyArray<string>,
 		stashes: ReadonlyArray<GitStash>,
-		simplifyByDecoration: boolean
+		simplifyByDecoration: boolean,
+		pathFilter: string | null
 	): Promise<GitCommitData> {
 		const config = getConfig();
-		return Promise.all([
+		const paths =
+			pathFilter !== null
+				? pathFilter
+						.split(',')
+						.map((filterPath) => filterPath.trim())
+						.filter((filterPath) => filterPath !== '')
+				: [];
+		const getLog = (simplifyMerges: boolean) =>
 			this.getLog(
 				repo,
 				branches,
@@ -243,16 +252,23 @@ export class DataSource extends Disposable {
 				remotes,
 				hideRemotes,
 				stashes,
-				simplifyByDecoration
-			),
+				simplifyByDecoration && paths.length === 0,
+				paths,
+				simplifyMerges
+			);
+		return Promise.all([
+			getLog(paths.length > 0),
 			this.getRefs(repo, showRemoteBranches, config.showRemoteHeads, hideRemotes).then(
 				(refData: GitRefData) => refData,
 				(errorMessage: string) => errorMessage
-			)
+			),
+			// The commits that modified the paths, the other commits returned when filtering by paths are only included to connect them in the graph
+			paths.length > 0 ? getLog(false).then((commits) => new Set(commits.map((commit) => commit.hash))) : null
 		])
 			.then(async (results) => {
 				let commits: GitCommitRecord[] = results[0],
 					refData: GitRefData | string = results[1],
+					pathFilterMatches = results[2],
 					i;
 				let moreCommitsAvailable = commits.length === maxCommits + 1;
 				if (moreCommitsAvailable) commits.pop();
@@ -267,6 +283,15 @@ export class DataSource extends Disposable {
 						// No commits exist, so getRefs() will always return an error. Set refData to the default value
 						refData = { head: null, heads: [], tags: [], remotes: [] };
 					}
+				}
+
+				if (pathFilterMatches !== null && branches === null && refData.head !== null && !commits.some((commit) => commit.hash === refData.head)) {
+					// The checked-out commit didn't modify the paths, include it so that it (and any uncommitted changes) are still displayed
+					const head = (await this.getLog(repo, [refData.head], 1, false, false, false, false, commitOrdering, [], [], [], false, [], false))[0];
+					const headParents = head.parents.filter((parent) => commits.some((commit) => commit.hash === parent));
+					let insertAt = 0;
+					while (insertAt < commits.length && commits[insertAt].date > head.date && !headParents.includes(commits[insertAt].hash)) insertAt++;
+					commits.splice(insertAt, 0, { ...head, parents: headParents });
 				}
 
 				if (refData.head !== null && config.showUncommittedChanges) {
@@ -293,7 +318,14 @@ export class DataSource extends Disposable {
 
 				for (i = 0; i < commits.length; i++) {
 					commitLookup[commits[i].hash] = i;
-					commitNodes.push({ ...commits[i], heads: [], tags: [], remotes: [], stash: null });
+					commitNodes.push({
+						...commits[i],
+						heads: [],
+						tags: [],
+						remotes: [],
+						stash: null,
+						isPathFilterMatch: pathFilterMatches === null || pathFilterMatches.has(commits[i].hash) || commits[i].hash === UNCOMMITTED
+					});
 				}
 
 				/* Insert Stashes */
@@ -326,12 +358,27 @@ export class DataSource extends Disposable {
 							selector: stash.selector,
 							baseHash: stash.baseHash,
 							untrackedFilesHash: stash.untrackedFilesHash
-						}
+						},
+						isPathFilterMatch: true
 					});
 				}
 				for (i = 0; i < commitNodes.length; i++) {
 					// Correct commit lookup after stashes have been spliced in
 					commitLookup[commitNodes[i].hash] = i;
+				}
+
+				/* Move references to commits that aren't displayed (because they didn't modify the paths) to their nearest displayed ancestor */
+				if (pathFilterMatches !== null && commits.length > 0) {
+					const annotatedTags = new Set(refData.tags.filter((tag) => tag.annotated).map((tag) => tag.name));
+					const refHashes = [...refData.heads, ...(showTags ? refData.tags.filter((tag) => tag.annotated || !annotatedTags.has(tag.name)) : []), ...refData.remotes]
+						.map((ref) => ref.hash)
+						.filter((hash) => typeof commitLookup[hash] !== 'number');
+					if (refHashes.length > 0) {
+						const oldestDate = commits.reduce((date, commit) => Math.min(date, commit.date), commits[0].date);
+						const ancestors = await this.getNearestAncestorsInSet(repo, unique(refHashes), commitLookup, oldestDate);
+						// Point the references' commits at their ancestors in the commit lookup, so they are annotated on them below
+						Object.keys(ancestors).forEach((hash) => (commitLookup[hash] = commitLookup[ancestors[hash]]));
+					}
 				}
 
 				/* Annotate Heads */
@@ -1698,6 +1745,8 @@ export class DataSource extends Disposable {
 	 * @param hideRemotes An array of hidden remotes.
 	 * @param stashes An array of all stashes in the repository.
 	 * @param simplifyByDecoration Only return commits that are referenced by a branch or tag.
+	 * @param paths Only return commits that modified these paths (all commits are returned if empty).
+	 * @param simplifyMerges Also return the merge commits needed to connect the commits that modified the paths, and rewrite the parents of the commits to their nearest returned ancestors.
 	 * @returns An array of commits.
 	 */
 	private getLog(
@@ -1712,11 +1761,16 @@ export class DataSource extends Disposable {
 		remotes: ReadonlyArray<string>,
 		hideRemotes: ReadonlyArray<string>,
 		stashes: ReadonlyArray<GitStash>,
-		simplifyByDecoration: boolean
+		simplifyByDecoration: boolean,
+		paths: ReadonlyArray<string>,
+		simplifyMerges: boolean
 	) {
 		const args = ['-c', 'log.showSignature=false', 'log', '--max-count=' + num, '--format=' + this.gitFormatLog, '--' + order + '-order'];
 		if (simplifyByDecoration) {
 			args.push('--simplify-by-decoration');
+		}
+		if (simplifyMerges) {
+			args.push('--full-history', '--simplify-merges');
 		}
 		if (onlyFollowFirstParent) {
 			args.push('--first-parent');
@@ -1749,7 +1803,7 @@ export class DataSource extends Disposable {
 
 			args.push('HEAD');
 		}
-		args.push('--');
+		args.push('--', ...paths);
 
 		return this.spawnGit(args, repo, (stdout) => {
 			let lines = stdout.split(EOL_REGEX);
@@ -1760,6 +1814,43 @@ export class DataSource extends Disposable {
 				commits.push({ hash: line[0], parents: line[1] !== '' ? line[1].split(' ') : [], author: line[2], email: line[3], date: parseInt(line[4]), message: line[5] });
 			}
 			return commits;
+		});
+	}
+
+	/**
+	 * Get the nearest ancestor of each of the specified commits that is in a set of commits.
+	 * @param repo The path of the repository.
+	 * @param hashes The commits to find the nearest ancestors of.
+	 * @param commitLookup The set of commits.
+	 * @param oldestDate The date of the oldest commit in the set (older commits aren't searched).
+	 * @returns A mapping from each commit to its nearest ancestor (commits without an ancestor in the set are not included).
+	 */
+	private getNearestAncestorsInSet(repo: string, hashes: ReadonlyArray<string>, commitLookup: { [hash: string]: number }, oldestDate: number) {
+		return this.spawnGit(['rev-list', '--topo-order', '--parents', '--max-age=' + oldestDate, ...hashes, '--'], repo, (stdout) => {
+			const ancestors: { [hash: string]: string } = {};
+			const reachableFrom: { [hash: string]: string[] } = {}; // The commits in "hashes" that each commit is reachable from, before reaching a commit in the set
+			hashes.forEach((hash) => (reachableFrom[hash] = [hash]));
+
+			// Topological order ensures all children of a commit are processed before the commit
+			const lines = stdout.split(EOL_REGEX);
+			for (let i = 0; i < lines.length - 1; i++) {
+				const line = lines[i].split(' '),
+					from = reachableFrom[line[0]];
+				if (typeof from === 'undefined') continue;
+				if (typeof commitLookup[line[0]] === 'number') {
+					from.forEach((hash) => {
+						if (typeof ancestors[hash] === 'undefined') ancestors[hash] = line[0];
+					});
+				} else {
+					for (let j = 1; j < line.length; j++) {
+						const parentFrom = reachableFrom[line[j]] || (reachableFrom[line[j]] = []);
+						from.forEach((hash) => {
+							if (!parentFrom.includes(hash)) parentFrom.push(hash);
+						});
+					}
+				}
+			}
+			return ancestors;
 		});
 	}
 

@@ -2991,6 +2991,8 @@ describe('Config', () => {
 
 	describe('retainContextWhenHidden', testBooleanExtensionSetting('retainContextWhenHidden', 'retainContextWhenHidden', true));
 
+	describe('showPathFilter', testBooleanExtensionSetting('showPathFilter', 'showPathFilter', true));
+
 	describe('showStatusBarItem', testBooleanExtensionSetting('showStatusBarItem', 'showStatusBarItem', true));
 
 	describe('tabIconColourTheme', () => {

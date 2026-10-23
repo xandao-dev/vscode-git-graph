@@ -169,7 +169,8 @@ describe('GitGraphView', () => {
 					loadViewTo: { repo: '/path/to/repo' },
 					repos: {
 						'/path/to/repo': mockRepoState()
-					}
+					},
+					workspaceFolderPaths: { '/path/to/repo': [] }
 				}
 			]);
 		});
@@ -340,7 +341,8 @@ describe('GitGraphView', () => {
 						loadViewTo: null,
 						repos: {
 							'/path/to/repo': mockRepoState()
-						}
+						},
+						workspaceFolderPaths: { '/path/to/repo': [] }
 					}
 				]);
 			});
@@ -367,7 +369,8 @@ describe('GitGraphView', () => {
 						},
 						repos: {
 							'/path/to/repo': mockRepoState()
-						}
+						},
+						workspaceFolderPaths: { '/path/to/repo': [] }
 					}
 				]);
 			});
@@ -425,6 +428,59 @@ describe('GitGraphView', () => {
 				const mockedWebviewPanel = vscode.getMockedWebviewPanel(0);
 				expect(mockedWebviewPanel.mocks.messages).toHaveLength(0);
 				expect(mockedWebviewPanel.panel.webview.html).toContain('"loadViewTo":{"repo":"/path/to/repo"}');
+			});
+		});
+
+		describe('vscode.workspace.onDidChangeWorkspaceFolders', () => {
+			let onDidChangeWorkspaceFolders: () => void;
+			beforeEach(() => {
+				vscode.workspace.onDidChangeWorkspaceFolders.mockImplementationOnce((listener) => {
+					onDidChangeWorkspaceFolders = listener;
+					return { dispose: vi.fn() };
+				});
+			});
+			afterEach(() => {
+				vscode.workspace.workspaceFolders = undefined;
+			});
+
+			it('Should send the repositories with the paths of the workspace folders in them to the front-end', () => {
+				// Setup
+				GitGraphView.createOrShow('/path/to/extension', dataSource, extensionState, avatarManager, repoManager, logger, null);
+				vscode.workspace.workspaceFolders = [
+					{ uri: vscode.Uri.file('/path/to/repo'), index: 0 },
+					{ uri: vscode.Uri.file('/path/to/repo/subfolder'), index: 1 },
+					{ uri: vscode.Uri.file('/path/to/repo-other'), index: 2 }
+				];
+
+				// Run
+				onDidChangeWorkspaceFolders();
+
+				// Assert
+				const mockedWebviewPanel = vscode.getMockedWebviewPanel(0);
+				expect(mockedWebviewPanel.mocks.messages).toStrictEqual([
+					{
+						command: 'loadRepos',
+						lastActiveRepo: null,
+						loadViewTo: null,
+						repos: {
+							'/path/to/repo': mockRepoState()
+						},
+						workspaceFolderPaths: { '/path/to/repo': ['subfolder'] }
+					}
+				]);
+			});
+
+			it("Shouldn't send the repositories to the front-end when the view is not visible", () => {
+				// Setup
+				GitGraphView.createOrShow('/path/to/extension', dataSource, extensionState, avatarManager, repoManager, logger, null);
+				const mockedWebviewPanel = vscode.getMockedWebviewPanel(0);
+				mockedWebviewPanel.mocks.panel.setVisibility(false);
+
+				// Run
+				onDidChangeWorkspaceFolders();
+
+				// Assert
+				expect(mockedWebviewPanel.mocks.messages).toHaveLength(0);
 			});
 		});
 
@@ -2246,7 +2302,8 @@ describe('GitGraphView', () => {
 						heads: ['master'],
 						tags: [],
 						remotes: [{ name: 'origin/master', remote: 'origin' }],
-						stash: null
+						stash: null,
+						isPathFilterMatch: true
 					}
 				],
 				head: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b',
@@ -2275,12 +2332,13 @@ describe('GitGraphView', () => {
 					remotes: ['origin', 'upstream'],
 					hideRemotes: ['upstream'],
 					stashes: [],
-					simplifyByDecoration: false
+					simplifyByDecoration: false,
+					pathFilter: null
 				});
 
 				// Assert
 				await waitForExpect(() => {
-					expect(spyOnGetCommits).toHaveBeenCalledWith('/path/to/repo', null, 300, true, false, false, false, CommitOrdering.Date, ['origin', 'upstream'], ['upstream'], [], false);
+					expect(spyOnGetCommits).toHaveBeenCalledWith('/path/to/repo', null, 300, true, false, false, false, CommitOrdering.Date, ['origin', 'upstream'], ['upstream'], [], false, null);
 					expect(messages).toStrictEqual([
 						{
 							command: 'loadCommits',
@@ -2317,12 +2375,13 @@ describe('GitGraphView', () => {
 					remotes: ['origin', 'upstream'],
 					hideRemotes: ['upstream'],
 					stashes: [],
-					simplifyByDecoration: false
+					simplifyByDecoration: false,
+					pathFilter: null
 				});
 
 				// Assert
 				await waitForExpect(() => {
-					expect(spyOnGetCommits).toHaveBeenCalledWith('/path/to/repo', null, 300, false, true, false, false, CommitOrdering.Date, ['origin', 'upstream'], ['upstream'], [], false);
+					expect(spyOnGetCommits).toHaveBeenCalledWith('/path/to/repo', null, 300, false, true, false, false, CommitOrdering.Date, ['origin', 'upstream'], ['upstream'], [], false, null);
 					expect(messages).toStrictEqual([
 						{
 							command: 'loadCommits',
@@ -2359,12 +2418,13 @@ describe('GitGraphView', () => {
 					remotes: ['origin', 'upstream'],
 					hideRemotes: ['upstream'],
 					stashes: [],
-					simplifyByDecoration: false
+					simplifyByDecoration: false,
+					pathFilter: null
 				});
 
 				// Assert
 				await waitForExpect(() => {
-					expect(spyOnGetCommits).toHaveBeenCalledWith('/path/to/repo', null, 300, false, false, true, false, CommitOrdering.Date, ['origin', 'upstream'], ['upstream'], [], false);
+					expect(spyOnGetCommits).toHaveBeenCalledWith('/path/to/repo', null, 300, false, false, true, false, CommitOrdering.Date, ['origin', 'upstream'], ['upstream'], [], false, null);
 					expect(messages).toStrictEqual([
 						{
 							command: 'loadCommits',
@@ -2401,12 +2461,13 @@ describe('GitGraphView', () => {
 					remotes: ['origin', 'upstream'],
 					hideRemotes: ['upstream'],
 					stashes: [],
-					simplifyByDecoration: false
+					simplifyByDecoration: false,
+					pathFilter: null
 				});
 
 				// Assert
 				await waitForExpect(() => {
-					expect(spyOnGetCommits).toHaveBeenCalledWith('/path/to/repo', null, 300, false, false, false, true, CommitOrdering.Date, ['origin', 'upstream'], ['upstream'], [], false);
+					expect(spyOnGetCommits).toHaveBeenCalledWith('/path/to/repo', null, 300, false, false, false, true, CommitOrdering.Date, ['origin', 'upstream'], ['upstream'], [], false, null);
 					expect(messages).toStrictEqual([
 						{
 							command: 'loadCommits',
@@ -2416,6 +2477,49 @@ describe('GitGraphView', () => {
 							tags: getCommitsResolvedValue.tags,
 							moreCommitsAvailable: getCommitsResolvedValue.moreCommitsAvailable,
 							onlyFollowFirstParent: true,
+							error: getCommitsResolvedValue.error
+						}
+					]);
+					expect(GitGraphView.currentPanel!['loadCommitsRefreshId']).toBe(2);
+				});
+			});
+
+			it('Should get commits (path filter)', async () => {
+				// Setup
+				const spyOnGetCommits = vi.spyOn(dataSource, 'getCommits');
+				spyOnGetCommits.mockResolvedValueOnce(getCommitsResolvedValue);
+
+				// Run
+				onDidReceiveMessage({
+					command: 'loadCommits',
+					repo: '/path/to/repo',
+					refreshId: 2,
+					branches: null,
+					maxCommits: 300,
+					showTags: false,
+					showRemoteBranches: false,
+					includeCommitsMentionedByReflogs: false,
+					onlyFollowFirstParent: false,
+					commitOrdering: CommitOrdering.Date,
+					remotes: ['origin', 'upstream'],
+					hideRemotes: ['upstream'],
+					stashes: [],
+					simplifyByDecoration: false,
+					pathFilter: 'src, docs'
+				});
+
+				// Assert
+				await waitForExpect(() => {
+					expect(spyOnGetCommits).toHaveBeenCalledWith('/path/to/repo', null, 300, false, false, false, false, CommitOrdering.Date, ['origin', 'upstream'], ['upstream'], [], false, 'src, docs');
+					expect(messages).toStrictEqual([
+						{
+							command: 'loadCommits',
+							refreshId: 2,
+							commits: getCommitsResolvedValue.commits,
+							head: getCommitsResolvedValue.head,
+							tags: getCommitsResolvedValue.tags,
+							moreCommitsAvailable: getCommitsResolvedValue.moreCommitsAvailable,
+							onlyFollowFirstParent: false,
 							error: getCommitsResolvedValue.error
 						}
 					]);
@@ -2673,7 +2777,8 @@ describe('GitGraphView', () => {
 							command: 'loadRepos',
 							repos: { '/path/to/repo': mockRepoState() },
 							lastActiveRepo: null,
-							loadViewTo: null
+							loadViewTo: null,
+							workspaceFolderPaths: { '/path/to/repo': [] }
 						}
 					]);
 				});
@@ -2716,7 +2821,8 @@ describe('GitGraphView', () => {
 							command: 'loadRepos',
 							repos: { '/path/to/repo': mockRepoState() },
 							lastActiveRepo: null,
-							loadViewTo: null
+							loadViewTo: null,
+							workspaceFolderPaths: { '/path/to/repo': [] }
 						}
 					]);
 				});
@@ -3836,6 +3942,29 @@ describe('GitGraphView', () => {
 			expect(mockedWebviewPanel.panel.webview.html).toContain('<script nonce="1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d">');
 			expect(mockedWebviewPanel.panel.webview.html).toContain('<script nonce="1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d" src="vscode-webview-resource://file///path/to/extension/media/out.min.js"></script>');
 			expect(spyOnIsAvatarStorageAvailable).not.toHaveBeenCalled();
+		});
+
+		it('Should get HTML when repositories exist (path filter shown)', () => {
+			// Run
+			GitGraphView.createOrShow('/path/to/extension', dataSource, extensionState, avatarManager, repoManager, logger, null);
+
+			// Assert
+			const mockedWebviewPanel = vscode.getMockedWebviewPanel(0);
+			expect(mockedWebviewPanel.panel.webview.html).toContain('<span id="pathFilterControl" title=');
+			expect(mockedWebviewPanel.panel.webview.html).toContain('"showPathFilter":true');
+		});
+
+		it('Should get HTML when repositories exist (path filter hidden)', () => {
+			// Setup
+			vscode.mockExtensionSettingReturnValue('showPathFilter', false);
+
+			// Run
+			GitGraphView.createOrShow('/path/to/extension', dataSource, extensionState, avatarManager, repoManager, logger, null);
+
+			// Assert
+			const mockedWebviewPanel = vscode.getMockedWebviewPanel(0);
+			expect(mockedWebviewPanel.panel.webview.html).toContain('<span id="pathFilterControl" style="display:none" title=');
+			expect(mockedWebviewPanel.panel.webview.html).toContain('"showPathFilter":false');
 		});
 
 		it('Should get HTML when repositories exist (fetch avatars enabled)', () => {

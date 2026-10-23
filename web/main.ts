@@ -26,6 +26,7 @@ import {
 	CLASS_ACTIVE,
 	CLASS_BRANCH_LABELS_ALIGNED_TO_GRAPH,
 	CLASS_COMMIT_DETAILS_OPEN,
+	CLASS_DISABLED,
 	CLASS_ENABLED,
 	CLASS_FETCH_SUPPORTED,
 	CLASS_PENDING_REVIEW,
@@ -92,6 +93,7 @@ export class GitGraphView {
 	private onlyFollowFirstParent: boolean = false;
 	private avatars: AvatarImageCollection = {};
 	private currentBranches: string[] | null = null;
+	private workspaceFolderPaths: GG.WorkspaceFolderPaths;
 
 	private currentRepo!: string;
 	private currentRepoLoading: boolean = true;
@@ -125,6 +127,7 @@ export class GitGraphView {
 	private readonly settingsWidget: SettingsWidget;
 	private readonly repoDropdown: Dropdown;
 	private readonly branchDropdown: Dropdown;
+	private readonly pathFilterDropdown: Dropdown;
 
 	private readonly viewElem: HTMLElement;
 	private readonly controlsElem: HTMLElement;
@@ -137,6 +140,7 @@ export class GitGraphView {
 
 	constructor(viewElem: HTMLElement, prevState: WebViewState | null) {
 		this.gitRepos = initialState.repos;
+		this.workspaceFolderPaths = initialState.workspaceFolderPaths;
 		this.config = initialState.config;
 		this.maxCommits = this.config.initialLoadCommits;
 		this.viewElem = viewElem;
@@ -171,6 +175,15 @@ export class GitGraphView {
 			this.clearCommits();
 			this.requestLoadRepoInfoAndCommits(true, true);
 		});
+
+		this.pathFilterDropdown = new Dropdown(
+			'pathFilterDropdown',
+			false,
+			false,
+			'Paths',
+			(values) => this.setPathFilter(values[0] !== SHOW_ALL_BRANCHES ? values[0] : null),
+			(value) => this.setPathFilter(value)
+		);
 
 		this.showRemoteBranchesElem = <HTMLInputElement>document.getElementById('showRemoteBranchesCheckbox')!;
 		this.showRemoteBranchesElem.addEventListener('change', () => {
@@ -225,7 +238,7 @@ export class GitGraphView {
 			loadViewTo = { repo: prevState.currentRepo };
 		}
 
-		if (!this.loadRepos(this.gitRepos, initialState.lastActiveRepo, loadViewTo)) {
+		if (!this.loadRepos(this.gitRepos, initialState.lastActiveRepo, loadViewTo, this.workspaceFolderPaths)) {
 			if (prevState) {
 				this.scrollTop = prevState.scrollTop;
 				this.viewElem.scroll(0, this.scrollTop);
@@ -259,8 +272,9 @@ export class GitGraphView {
 
 	/* Loading Data */
 
-	public loadRepos(repos: GG.GitRepoSet, lastActiveRepo: string | null, loadViewTo: GG.LoadGitGraphViewTo) {
+	public loadRepos(repos: GG.GitRepoSet, lastActiveRepo: string | null, loadViewTo: GG.LoadGitGraphViewTo, workspaceFolderPaths: GG.WorkspaceFolderPaths) {
 		this.gitRepos = repos;
+		this.workspaceFolderPaths = workspaceFolderPaths;
 		this.saveState();
 
 		let newRepo: string;
@@ -286,10 +300,22 @@ export class GitGraphView {
 			this.loadViewTo = null;
 		}
 
+		const loadPathFilter = this.loadViewTo !== null ? this.loadViewTo.pathFilter : undefined;
+		if (typeof loadPathFilter !== 'undefined') {
+			this.gitRepos[newRepo].pathFilter = loadPathFilter;
+			sendMessage({ command: 'setRepoState', repo: newRepo, state: this.gitRepos[newRepo] });
+		}
+
 		if (this.currentRepo !== newRepo) {
 			this.loadRepo(newRepo);
 			return true;
+		} else if (typeof loadPathFilter !== 'undefined') {
+			this.renderPathFilterDropdown();
+			this.maxCommits = this.config.initialLoadCommits;
+			this.refresh(true);
+			return true;
 		} else {
+			this.renderPathFilterDropdown();
 			this.finaliseRepoLoad(false);
 			return false;
 		}
@@ -300,6 +326,7 @@ export class GitGraphView {
 		this.currentRepoLoading = true;
 		this.showRemoteBranchesElem.checked = getShowRemoteBranches(this.gitRepos[this.currentRepo].showRemoteBranchesV2);
 		this.simplifyByDecorationElem.checked = getSimplifyByDecoration(this.gitRepos[this.currentRepo].simplifyByDecoration);
+		this.renderPathFilterDropdown();
 		this.maxCommits = this.config.initialLoadCommits;
 		this.gitConfig = null;
 		this.gitRemotes = [];
@@ -409,6 +436,7 @@ export class GitGraphView {
 					arraysEqual(a.tags, b.tags, (a, b) => a.name === b.name && a.annotated === b.annotated) &&
 					arraysEqual(a.remotes, b.remotes, (a, b) => a.name === b.name && a.remote === b.remote) &&
 					arraysStrictlyEqual(a.parents, b.parents) &&
+					a.isPathFilterMatch === b.isPathFilterMatch &&
 					((a.stash === null && b.stash === null) || (a.stash !== null && b.stash !== null && a.stash.selector === b.stash.selector))
 			) &&
 			this.renderedGitBranchHead === this.gitBranchHead
@@ -706,6 +734,7 @@ export class GitGraphView {
 
 	private requestLoadCommits() {
 		const repoState = this.gitRepos[this.currentRepo];
+		const pathFilter = this.getPathFilter();
 		sendMessage({
 			command: 'loadCommits',
 			repo: this.currentRepo,
@@ -720,7 +749,8 @@ export class GitGraphView {
 			remotes: this.gitRemotes,
 			hideRemotes: repoState.hideRemotes,
 			stashes: this.gitStashes,
-			simplifyByDecoration: getSimplifyByDecoration(repoState.simplifyByDecoration)
+			simplifyByDecoration: pathFilter === null && getSimplifyByDecoration(repoState.simplifyByDecoration),
+			pathFilter: pathFilter
 		});
 	}
 
@@ -870,6 +900,25 @@ export class GitGraphView {
 			}
 		};
 		this.saveState();
+	}
+
+	/**
+	 * Get the path filter of the current repository.
+	 * @returns The path filter, or NULL if the current repository isn't filtered by paths.
+	 */
+	private getPathFilter() {
+		return this.config.showPathFilter ? this.gitRepos[this.currentRepo].pathFilter : null;
+	}
+
+	/**
+	 * Filter the current repository by paths.
+	 * @param pathFilter The comma separated paths to filter by, or NULL to show all commits.
+	 */
+	private setPathFilter(pathFilter: string | null) {
+		this.saveRepoStateValue(this.currentRepo, 'pathFilter', pathFilter);
+		this.renderPathFilterDropdown();
+		this.maxCommits = this.config.initialLoadCommits;
+		this.refresh(true);
 	}
 
 	public saveRepoStateValue<K extends keyof GG.GitRepoState>(repo: string, key: K, value: GG.GitRepoState[K]) {
@@ -1032,7 +1081,7 @@ export class GitGraphView {
 			html +=
 				'<tr class="commit' +
 				(commit.hash === currentHash ? ' current' : '') +
-				(mutedCommits[i] ? ' mute' : '') +
+				(mutedCommits[i] || !commit.isPathFilterMatch ? ' mute' : '') +
 				'"' +
 				(commit.hash !== UNCOMMITTED ? '' : ' id="uncommittedChanges"') +
 				' data-id="' +
@@ -1211,6 +1260,17 @@ export class GitGraphView {
 
 	public renderRepoDropdownOptions(repo?: string) {
 		this.repoDropdown.setOptions(getRepoDropdownOptions(this.gitRepos), [repo || this.currentRepo]);
+	}
+
+	private renderPathFilterDropdown() {
+		const pathFilter = this.getPathFilter();
+		const paths = (this.workspaceFolderPaths[this.currentRepo] || []).slice();
+		if (pathFilter !== null && !paths.includes(pathFilter)) paths.push(pathFilter);
+		this.pathFilterDropdown.setOptions([{ name: 'Show All', value: SHOW_ALL_BRANCHES }, ...paths.map((path) => ({ name: path, value: path }))], [pathFilter !== null ? pathFilter : SHOW_ALL_BRANCHES]);
+
+		// Simplify By Decoration can't be combined with a path filter
+		this.simplifyByDecorationElem.disabled = pathFilter !== null;
+		alterClass(document.getElementById('simplifyByDecorationControl')!, CLASS_DISABLED, pathFilter !== null);
 	}
 
 	/* Context Menu Generation */
@@ -3821,9 +3881,14 @@ export class GitGraphView {
 
 		addListenerToClass('fileTreeRepo', 'click', (e) => {
 			if (e.target === null) return;
-			this.loadRepos(this.gitRepos, null, {
-				repo: decodeURIComponent((<HTMLElement>(<Element>e.target).closest('.fileTreeRepo')).dataset.path!)
-			});
+			this.loadRepos(
+				this.gitRepos,
+				null,
+				{
+					repo: decodeURIComponent((<HTMLElement>(<Element>e.target).closest('.fileTreeRepo')).dataset.path!)
+				},
+				this.workspaceFolderPaths
+			);
 		});
 
 		addListenerToClass('fileTreeFile', 'click', (e) => {
@@ -4185,7 +4250,7 @@ window.addEventListener('load', () => {
 				gitGraph.processLoadRepoInfoResponse(msg);
 				break;
 			case 'loadRepos':
-				gitGraph.loadRepos(msg.repos, msg.lastActiveRepo, msg.loadViewTo);
+				gitGraph.loadRepos(msg.repos, msg.lastActiveRepo, msg.loadViewTo, msg.workspaceFolderPaths);
 				break;
 			case 'merge':
 				refreshOrDisplayError(msg.error, 'Unable to Merge ' + msg.actionOn);

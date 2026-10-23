@@ -21,6 +21,7 @@ import {
 	getSortedRepositoryPaths,
 	isPathInWorkspace,
 	openFile,
+	pathWithTrailingSlash,
 	resolveToSymbolicPath,
 	showErrorMessage,
 	showInformationMessage
@@ -81,6 +82,7 @@ export class CommandManager extends Disposable {
 		this.registerCommand('git-graph.resumeWorkspaceCodeReview', () => this.resumeWorkspaceCodeReview());
 		this.registerCommand('git-graph.version', () => this.version());
 		this.registerCommand('git-graph.openFile', (arg) => this.openFile(arg));
+		this.registerCommand('git-graph.openWithPathFilter', (arg) => this.openWithPathFilter(arg));
 
 		this.registerDisposable(
 			onDidChangeGitExecutable((gitExecutable) => {
@@ -392,6 +394,32 @@ export class CommandManager extends Disposable {
 		} else {
 			return showErrorMessage('Unable to Open File: The command was not called with the required arguments.');
 		}
+	}
+
+	/**
+	 * The method run when the `git-graph.openWithPathFilter` command is invoked.
+	 * @param arg The URI of the file or folder selected in the Explorer.
+	 */
+	private openWithPathFilter(arg?: vscode.Uri) {
+		if (typeof arg !== 'object' || arg === null) {
+			return showErrorMessage('Unable to Filter in Git Graph: The command was not called with the required arguments.');
+		}
+
+		const path = getPathFromUri(arg);
+		if (typeof this.repoManager.getRepos()[path] !== 'undefined') {
+			// The root folder of a repository was selected, so open the repository without a path filter
+			GitGraphView.createOrShow(this.context.extensionPath, this.dataSource, this.extensionState, this.avatarManager, this.repoManager, this.logger, { repo: path, pathFilter: null });
+			return;
+		}
+
+		const repo = this.repoManager.getRepoContainingFile(path);
+		if (repo === null) {
+			return showErrorMessage('Unable to Filter in Git Graph: "' + path + '" is not in a repository known to Git Graph.');
+		}
+		GitGraphView.createOrShow(this.context.extensionPath, this.dataSource, this.extensionState, this.avatarManager, this.repoManager, this.logger, {
+			repo: repo,
+			pathFilter: path.substring(pathWithTrailingSlash(repo).length)
+		});
 	}
 
 	/* Helper Methods */

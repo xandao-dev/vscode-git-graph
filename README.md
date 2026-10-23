@@ -40,6 +40,7 @@ View a Git Graph of your repository, and easily perform Git actions from the gra
         * Show All branches
         * Select one or more branches to be viewed
         * Select from a user predefined array of custom glob patterns (by setting `git-graph.customBranchGlobPatterns`)
+    * Filter the commits shown in Git Graph to those that modified specific files or folders, using the 'Paths' dropdown menu (type one or more comma separated paths into its filter and press Enter), or by right clicking a file or folder in the Explorer and selecting "Filter in Git Graph".
     * Fetch from Remote(s) _(available on the top control bar)_
     * Find Widget allows you to quickly find one or more commits containing a specific phrase (in the commit message / date / author / hash, branch or tag names).
     * Repository Settings Widget:
@@ -137,6 +138,7 @@ A summary of the Git Graph extension settings are:
     * **Use Mailmap**: Respect [.mailmap](https://git-scm.com/docs/git-check-mailmap#_mapping_authors) files when displaying author & committer names and email addresses.
 * **Repository Dropdown Order**: Specifies the order that repositories are sorted in the repository dropdown on the Git Graph View (only visible when more than one repository exists in the current Visual Studio Code Workspace).
 * **Retain Context When Hidden**: Specifies if the Git Graph view Visual Studio Code context is kept when the panel is no longer visible (e.g. moved to background tab). Enabling this setting will make Git Graph load significantly faster when switching back to the Git Graph tab, however has a higher memory overhead.
+* **Show Path Filter**: Show the Paths dropdown on the Git Graph View's Control Bar, to only show the commits that modified specific files or folders. When disabled, any path filter previously applied to a repository is ignored.
 * **Show Status Bar Item**: Show a Status Bar Item that opens the Git Graph View when clicked.
 * **Source Code Provider Integration Location**: Specifies where the "View Git Graph" action appears on the title of SCM Providers.
 * **Tab Icon Colour Theme**: Specifies the colour theme of the icon displayed on the Git Graph tab.

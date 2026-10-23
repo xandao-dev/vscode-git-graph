@@ -790,16 +790,23 @@ body.tagLabelsRightAligned .gitRef.tag{
 	user-select:none;
 }
 
-#repoControl, #branchControl, #showRemoteBranchesControl, #simplifyByDecorationControl{
+#repoControl, #branchControl, #pathFilterControl, #showRemoteBranchesControl, #simplifyByDecorationControl{
 	display:inline-block;
 	white-space:nowrap;
 	margin:0 10px;
 }
-#repoDropdown, #branchDropdown{
+#repoDropdown, #branchDropdown, #pathFilterDropdown{
 	margin-left:3px;
 }
 #showRemoteBranchesControl > .customCheckbox, #simplifyByDecorationControl > .customCheckbox{
 	margin-right:6px;
+}
+#simplifyByDecorationControl.disabled{
+	opacity:0.4;
+	cursor:not-allowed;
+}
+#simplifyByDecorationControl.disabled:hover > .customCheckbox{
+	background-color:rgba(128,128,128,0.1);
 }
 
 .dropdownCurrentValue{

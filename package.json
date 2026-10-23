@@ -96,6 +96,11 @@
 				"title": "Open File",
 				"icon": "$(go-to-file)",
 				"enablement": "isInDiffEditor && resourceScheme == git-graph"
+			},
+			{
+				"category": "Git Graph",
+				"command": "git-graph.openWithPathFilter",
+				"title": "Filter in Git Graph"
 			}
 		],
 		"configuration": {
@@ -1165,6 +1170,11 @@
 					"default": true,
 					"description": "Specifies if the Git Graph View's Visual Studio Code context is kept when the panel is no longer visible (e.g. moved to background tab). Enabling this setting will make Git Graph load significantly faster when switching back to the Git Graph tab, however has a higher memory overhead."
 				},
+				"git-graph.showPathFilter": {
+					"type": "boolean",
+					"default": true,
+					"description": "Show the Paths dropdown on the Git Graph View's Control Bar, to only show the commits that modified specific files or folders. When disabled, any path filter previously applied to a repository is ignored."
+				},
 				"git-graph.showStatusBarItem": {
 					"type": "boolean",
 					"default": true,
@@ -1516,6 +1526,10 @@
 				{
 					"command": "git-graph.openFile",
 					"when": "isInDiffEditor && resourceScheme == git-graph"
+				},
+				{
+					"command": "git-graph.openWithPathFilter",
+					"when": "false"
 				}
 			],
 			"editor/title": [
@@ -1523,6 +1537,13 @@
 					"command": "git-graph.openFile",
 					"group": "navigation",
 					"when": "isInDiffEditor && resourceScheme == git-graph"
+				}
+			],
+			"explorer/context": [
+				{
+					"command": "git-graph.openWithPathFilter",
+					"group": "4_search",
+					"when": "config.git-graph.showPathFilter"
 				}
 			],
 			"scm/title": [

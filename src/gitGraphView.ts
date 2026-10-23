@@ -7,7 +7,18 @@ import { ExtensionState } from './extensionState';
 import { Logger } from './logger';
 import { RepoFileWatcher } from './repoFileWatcher';
 import { RepoManager } from './repoManager';
-import { ErrorInfo, GitConfigLocation, GitGraphViewInitialState, GitPushBranchMode, GitRepoSet, LoadGitGraphViewTo, RequestMessage, ResponseMessage, TabIconColourTheme } from './types';
+import {
+	ErrorInfo,
+	GitConfigLocation,
+	GitGraphViewInitialState,
+	GitPushBranchMode,
+	GitRepoSet,
+	LoadGitGraphViewTo,
+	RequestMessage,
+	ResponseMessage,
+	TabIconColourTheme,
+	WorkspaceFolderPaths
+} from './types';
 import {
 	UNABLE_TO_FIND_GIT_MSG,
 	UNCOMMITTED,
@@ -16,9 +27,11 @@ import {
 	copyToClipboard,
 	createPullRequest,
 	getNonce,
+	getPathFromUri,
 	openExtensionSettings,
 	openExternalUrl,
 	openFile,
+	pathWithTrailingSlash,
 	showErrorMessage,
 	viewDiff,
 	viewDiffWithWorkingFile,
@@ -165,6 +178,12 @@ export class GitGraphView extends Disposable {
 				} else {
 					this.respondLoadRepos(event.repos, loadViewTo);
 				}
+			}),
+
+			// Send the repositories again when the workspace folders change, as the workspace folders in each repository are sent with them
+			vscode.workspace.onDidChangeWorkspaceFolders(() => {
+				if (!this.panel.visible || !this.isGraphViewLoaded) return;
+				this.respondLoadRepos(this.repoManager.getRepos(), null);
 			}),
 
 			// Subscribe to events triggered when an avatar is available
@@ -473,7 +492,8 @@ export class GitGraphView extends Disposable {
 						msg.remotes,
 						msg.hideRemotes,
 						msg.stashes,
-						msg.simplifyByDecoration
+						msg.simplifyByDecoration,
+						msg.pathFilter
 					))
 				});
 				break;
@@ -757,6 +777,7 @@ export class GitGraphView extends Disposable {
 				onRepoLoad: config.onRepoLoad,
 				referenceLabels: config.referenceLabels,
 				repoDropdownOrder: config.repoDropdownOrder,
+				showPathFilter: config.showPathFilter,
 				showRemoteBranches: config.showRemoteBranches,
 				showStashes: config.showStashes,
 				showTags: config.showTags,
@@ -766,7 +787,8 @@ export class GitGraphView extends Disposable {
 			loadViewTo: this.loadViewTo,
 			repos: this.repoManager.getRepos(),
 			loadRepoInfoRefreshId: this.loadRepoInfoRefreshId,
-			loadCommitsRefreshId: this.loadCommitsRefreshId
+			loadCommitsRefreshId: this.loadCommitsRefreshId,
+			workspaceFolderPaths: getWorkspaceFolderPaths(this.repoManager.getRepos())
 		};
 		const globalState = this.extensionState.getGlobalViewState();
 		const workspaceState = this.extensionState.getWorkspaceViewState();
@@ -791,6 +813,7 @@ export class GitGraphView extends Disposable {
 				<div id="controls">
 					<span id="repoControl"><span class="unselectable">Repo: </span><div id="repoDropdown" class="dropdown"></div></span>
 					<span id="branchControl"><span class="unselectable">Branches: </span><div id="branchDropdown" class="dropdown"></div></span>
+					<span id="pathFilterControl"${initialState.config.showPathFilter ? '' : ' style="display:none"'} title="Only show the commits that modified these paths. Type paths (comma separated) into the dropdown's filter and press Enter, or right click a file or folder in the Explorer and select &quot;Filter in Git Graph&quot;."><span class="unselectable">Paths: </span><div id="pathFilterDropdown" class="dropdown"></div></span>
 					<label id="showRemoteBranchesControl"><input type="checkbox" id="showRemoteBranchesCheckbox" tabindex="-1"><span class="customCheckbox"></span>Show Remote Branches</label>
 					<label id="simplifyByDecorationControl" title="Only show commits that are referenced by a branch or tag"><input type="checkbox" id="simplifyByDecorationCheckbox" tabindex="-1"><span class="customCheckbox"></span>Simplify</label>
 					<div id="findBtn" title="Find"></div>
@@ -876,9 +899,25 @@ export class GitGraphView extends Disposable {
 			command: 'loadRepos',
 			repos: repos,
 			lastActiveRepo: this.extensionState.getLastActiveRepo(),
-			loadViewTo: loadViewTo
+			loadViewTo: loadViewTo,
+			workspaceFolderPaths: getWorkspaceFolderPaths(repos)
 		});
 	}
+}
+
+/**
+ * Get the paths (relative to the repository) of the workspace folders that are in each repository.
+ * @param repos The set of known repositories.
+ * @returns The workspace folder paths in each repository (excluding workspace folders that are the root of the repository).
+ */
+function getWorkspaceFolderPaths(repos: GitRepoSet): WorkspaceFolderPaths {
+	const workspaceFolders = (vscode.workspace.workspaceFolders || []).map((workspaceFolder) => getPathFromUri(workspaceFolder.uri));
+	const workspaceFolderPaths: { [repo: string]: string[] } = {};
+	Object.keys(repos).forEach((repo) => {
+		const repoPath = pathWithTrailingSlash(repo);
+		workspaceFolderPaths[repo] = workspaceFolders.filter((folder) => folder.startsWith(repoPath)).map((folder) => folder.substring(repoPath.length));
+	});
+	return workspaceFolderPaths;
 }
 
 /**

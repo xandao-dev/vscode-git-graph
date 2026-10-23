@@ -751,6 +751,13 @@ export class Graph {
 			let branch = new Branch(this.getAvailableColour(startAt));
 			vertex.addToBranch(branch, lastPoint.x);
 			vertex.registerUnavailablePoint(lastPoint.x, vertex, branch);
+			if (parentVertex === null) {
+				// The vertex has no parents (e.g. a commit that created the filtered paths), so the branch ends at the vertex
+				branch.setEnd(startAt);
+				this.branches.push(branch);
+				this.availableColours[branch.getColour()] = startAt;
+				return;
+			}
 			for (i = startAt + 1; i < this.vertices.length; i++) {
 				curVertex = this.vertices[i];
 				curPoint = parentVertex === curVertex && !parentVertex.isNotOnBranch() ? curVertex.getPoint() : curVertex.getNextPoint();

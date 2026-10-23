@@ -580,6 +580,13 @@ class Config {
 	}
 
 	/**
+	 * Get the value of the `git-graph.showPathFilter` Extension Setting.
+	 */
+	get showPathFilter() {
+		return !!this.config.get('showPathFilter', true);
+	}
+
+	/**
 	 * Get the value of the `git-graph.showStatusBarItem` Extension Setting.
 	 */
 	get showStatusBarItem() {

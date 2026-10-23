@@ -31,6 +31,7 @@ export const DEFAULT_REPO_STATE: GitRepoState = {
 	onlyFollowFirstParent: BooleanOverride.Default,
 	onRepoLoadShowCheckedOutBranch: BooleanOverride.Default,
 	onRepoLoadShowSpecificBranches: null,
+	pathFilter: null,
 	pullRequestConfig: null,
 	showRemoteBranches: true,
 	showRemoteBranchesV2: BooleanOverride.Default,
