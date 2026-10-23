@@ -8442,6 +8442,25 @@ describe('DataSource', () => {
 			expect(utils.getPathFromStr(spyOnUnlinkSync.mock.calls[0][0])).toBe('/path/to/repo/.git/rebase-merge/amend');
 		});
 
+		it('Should edit a commit when GIT_SEQUENCE_EDITOR is set in the environment', async () => {
+			// Setup
+			process.env.GIT_SEQUENCE_EDITOR = 'vim';
+			mockGitSuccessOnce();
+			mockGitSuccessOnce('.git/rebase-merge/amend\n');
+			spyOnExistsSync.mockReturnValueOnce(true);
+			mockGitSuccessOnce();
+			spyOnUnlinkSync.mockImplementationOnce(() => {});
+			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
+
+			// Run
+			const result = await dataSource.editCommit('/path/to/repo', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', null);
+			delete process.env.GIT_SEQUENCE_EDITOR;
+
+			// Assert
+			expect(result).toBe(null);
+			expect(spyOnSpawn.mock.calls[0][2].env.GIT_SEQUENCE_EDITOR).toBeUndefined();
+		});
+
 		it('Should edit a commit (signing any new commits)', async () => {
 			// Setup
 			mockGitSuccessOnce();

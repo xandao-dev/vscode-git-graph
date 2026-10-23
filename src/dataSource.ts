@@ -2394,9 +2394,12 @@ export class DataSource extends Disposable {
 				return reject(UNABLE_TO_FIND_GIT_MSG);
 			}
 
+			const env: NodeJS.ProcessEnv = Object.assign({}, process.env, this.askpassEnv);
+			// GIT_SEQUENCE_EDITOR takes precedence over the sequence.editor config used by the interactive rebases Git Graph runs
+			delete env.GIT_SEQUENCE_EDITOR;
 			const gitProcess = cp.spawn(this.gitExecutable.path, args, {
 				cwd: repo,
-				env: Object.assign({}, process.env, this.askpassEnv)
+				env: env
 			});
 			if (stdin !== null) {
 				gitProcess.stdin.end(stdin);
