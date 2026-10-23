@@ -2504,20 +2504,155 @@ export class GitGraphView {
 				escapeHtml(name) +
 				'</i></b>?',
 			[
-				{ type: DialogInputType.Checkbox, name: 'Launch Interactive Rebase in new Terminal', value: this.config.dialogDefaults.rebase.interactive },
+				{
+					type: DialogInputType.Radio,
+					name: 'Mode',
+					options: [
+						{ name: 'Rebase', value: 'rebase' },
+						{ name: 'Interactive Rebase (Todo Editor)', value: 'todoEditor' },
+						{ name: 'Interactive Rebase (New Terminal)', value: 'terminal' }
+					],
+					default: this.config.dialogDefaults.rebase.interactive ? 'terminal' : 'rebase'
+				},
 				{ type: DialogInputType.Checkbox, name: 'Auto-squash', value: this.config.dialogDefaults.rebase.autosquash, info: 'Only applicable to an interactive rebase.' },
 				{ type: DialogInputType.Checkbox, name: 'Ignore Date', value: this.config.dialogDefaults.rebase.ignoreDate, info: 'Only applicable to a non-interactive rebase.' }
 			],
 			'Yes, rebase',
 			(values) => {
-				let interactive = <boolean>values[0];
-				runAction(
-					{ command: 'rebase', repo: this.currentRepo, obj: obj, actionOn: actionOn, ignoreDate: <boolean>values[2], interactive: interactive, autosquash: <boolean>values[1] },
-					interactive ? 'Launching Interactive Rebase' : 'Rebasing on ' + actionOn
-				);
+				const mode = <string>values[0];
+				if (mode === 'todoEditor') {
+					runAction({ command: 'rebaseTodoList', repo: this.currentRepo, obj: obj, actionOn: actionOn, autosquash: <boolean>values[1] }, 'Loading Rebase Todo List');
+				} else {
+					const interactive = mode === 'terminal';
+					runAction(
+						{ command: 'rebase', repo: this.currentRepo, obj: obj, actionOn: actionOn, ignoreDate: <boolean>values[2], interactive: interactive, autosquash: <boolean>values[1] },
+						interactive ? 'Launching Interactive Rebase' : 'Rebasing on ' + actionOn
+					);
+				}
 			},
 			target
 		);
+	}
+
+	public showRebaseTodoEditor(obj: string, actionOn: GG.RebaseActionOn, entries: ReadonlyArray<GG.RebaseTodoEntry>) {
+		const actions = [GG.RebaseTodoAction.Pick, GG.RebaseTodoAction.Reword, GG.RebaseTodoAction.Edit, GG.RebaseTodoAction.Squash, GG.RebaseTodoAction.Fixup, GG.RebaseTodoAction.Drop];
+		// The message of a squashed commit is added to the message of the commit it's squashed into, excluding any "squash!" / "fixup!" subject
+		const getDefaultMessage = (entry: GG.RebaseTodoEntry, action: GG.RebaseTodoAction) => (action === GG.RebaseTodoAction.Squash ? entry.message.replace(/^(fixup|squash)! .*\n*/, '') : entry.message);
+		const entriesHtml = entries.map(
+			(entry, index) =>
+				'<div class="rebaseTodoEntry" data-index="' +
+				index +
+				'"><div class="rebaseTodoRow"><span class="rebaseTodoDragHandle" title="Drag to reorder">&#x2630;</span><select class="rebaseTodoAction">' +
+				actions.map((action) => '<option value="' + action + '"' + (action === entry.action ? ' selected' : '') + '>' + action + '</option>').join('') +
+				'</select><span class="rebaseTodoHash">' +
+				abbrevCommit(entry.hash) +
+				'</span><span class="rebaseTodoSubject">' +
+				escapeHtml(entry.message.split('\n')[0]) +
+				'</span></div><textarea class="rebaseTodoMessage" rows="3" placeholder="Commit Message">' +
+				escapeHtml(getDefaultMessage(entry, entry.action)) +
+				'</textarea></div>'
+		);
+
+		let todo: GG.RebaseTodoEntry[] = [];
+		dialog.showForm(
+			'Edit the todo list for rebasing ' +
+				(this.gitBranchHead !== null ? '<b><i>' + escapeHtml(this.gitBranchHead) + '</i></b> (the current branch)' : 'the current branch') +
+				' on ' +
+				actionOn.toLowerCase() +
+				' <b><i>' +
+				escapeHtml(actionOn === GG.RebaseActionOn.Branch ? obj : abbrevCommit(obj)) +
+				'</i></b>. The commits are applied from top to bottom, drag them to change their order.' +
+				'<div id="rebaseTodoEditor">' +
+				(entries.length > 0 ? entriesHtml.join('') : '<i>There are no commits to rebase.</i>') +
+				'</div>',
+			[],
+			'Yes, rebase',
+			() => {
+				runAction({ command: 'rebaseWithTodo', repo: this.currentRepo, obj: obj, actionOn: actionOn, entries: todo }, 'Rebasing on ' + actionOn);
+			},
+			null,
+			'Cancel',
+			null,
+			false
+		);
+
+		const editorElem = document.getElementById('rebaseTodoEditor')!,
+			dialogElem = <HTMLElement>editorElem.closest('.dialog'),
+			dialogActionElem = document.getElementById('dialogAction')!,
+			entryElems = <HTMLCollectionOf<HTMLElement>>editorElem.getElementsByClassName('rebaseTodoEntry'),
+			editedMessages: boolean[] = entries.map(() => false);
+
+		// Update the todo list (and its validity) from the editor
+		const updateTodo = () => {
+			let picked = false,
+				invalid: string | null = null;
+			todo = [];
+			for (let i = 0; i < entryElems.length; i++) {
+				const index = parseInt(entryElems[i].dataset.index!),
+					action = <GG.RebaseTodoAction>(<HTMLSelectElement>entryElems[i].getElementsByClassName('rebaseTodoAction')[0]).value,
+					message = (<HTMLTextAreaElement>entryElems[i].getElementsByClassName('rebaseTodoMessage')[0]).value;
+				let entryInvalid = false;
+				if (action === GG.RebaseTodoAction.Squash || action === GG.RebaseTodoAction.Fixup) {
+					entryInvalid = !picked;
+					if (entryInvalid && invalid === null) invalid = "The first commit (that isn't dropped) can't be squashed or fixed up, as there is no commit before it to meld it into.";
+				} else if (action !== GG.RebaseTodoAction.Drop) {
+					picked = true;
+					if (action === GG.RebaseTodoAction.Reword && message.trim() === '') {
+						entryInvalid = true;
+						if (invalid === null) invalid = "The message of a reworded commit can't be empty.";
+					}
+				}
+				entryElems[i].dataset.action = action;
+				alterClass(entryElems[i], 'rebaseTodoInvalid', entryInvalid);
+				todo.push({ hash: entries[index].hash, action: action, message: action === GG.RebaseTodoAction.Reword || action === GG.RebaseTodoAction.Squash ? message : entries[index].message });
+			}
+			alterClass(dialogElem, 'inputInvalid', invalid !== null); // Prevents the dialog from being actioned
+			dialogActionElem.title = invalid !== null ? invalid : '';
+		};
+
+		for (let i = 0; i < entryElems.length; i++) {
+			const entryElem = entryElems[i],
+				index = parseInt(entryElem.dataset.index!),
+				actionElem = <HTMLSelectElement>entryElem.getElementsByClassName('rebaseTodoAction')[0],
+				messageElem = <HTMLTextAreaElement>entryElem.getElementsByClassName('rebaseTodoMessage')[0];
+			actionElem.addEventListener('change', () => {
+				if (!editedMessages[index]) messageElem.value = getDefaultMessage(entries[index], <GG.RebaseTodoAction>actionElem.value);
+				updateTodo();
+			});
+			messageElem.addEventListener('input', () => {
+				editedMessages[index] = true;
+				updateTodo();
+			});
+
+			// Reorder the entries by dragging them by their handle
+			entryElem.getElementsByClassName('rebaseTodoDragHandle')[0].addEventListener('mousedown', (e) => {
+				e.preventDefault();
+				alterClass(entryElem, 'rebaseTodoDragging', true);
+				const onMouseMove = (moveEvent: MouseEvent) => {
+					let insertBeforeElem: HTMLElement | null = null;
+					for (let j = 0; j < entryElems.length; j++) {
+						if (entryElems[j] === entryElem) continue;
+						const rect = entryElems[j].getBoundingClientRect();
+						if (moveEvent.clientY < rect.top + rect.height / 2) {
+							insertBeforeElem = entryElems[j];
+							break;
+						}
+					}
+					if (insertBeforeElem !== entryElem.nextElementSibling) {
+						editorElem.insertBefore(entryElem, insertBeforeElem);
+						updateTodo();
+					}
+				};
+				const onMouseUp = () => {
+					document.removeEventListener('mousemove', onMouseMove);
+					document.removeEventListener('mouseup', onMouseUp);
+					alterClass(entryElem, 'rebaseTodoDragging', false);
+				};
+				document.addEventListener('mousemove', onMouseMove);
+				document.addEventListener('mouseup', onMouseUp);
+			});
+		}
+		updateTodo();
 	}
 
 	/* Table Utils */
@@ -4442,6 +4577,16 @@ window.addEventListener('load', () => {
 				} else {
 					dialog.showError('Unable to Rebase current branch on ' + msg.actionOn, msg.error, null, null);
 				}
+				break;
+			case 'rebaseTodoList':
+				if (msg.entries !== null) {
+					gitGraph.showRebaseTodoEditor(msg.obj, msg.actionOn, msg.entries);
+				} else {
+					dialog.showError('Unable to load the Rebase Todo List', msg.error, null, null);
+				}
+				break;
+			case 'rebaseWithTodo':
+				refreshOrDisplayError(msg.error, 'Unable to Rebase current branch on ' + msg.actionOn);
 				break;
 			case 'refresh':
 				gitGraph.refresh(false);

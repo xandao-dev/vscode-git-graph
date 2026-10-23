@@ -39,6 +39,7 @@ body.vscode-high-contrast .dialog{
 
 .dialogContent > table.dialogForm tr.mediumField td{
 	line-height:22px;
+	vertical-align:top;
 }
 .dialogContent > table.dialogForm tr.largeField td{
 	line-height:27px;
@@ -191,6 +192,134 @@ body.vscode-high-contrast .dialog{
 
 .dialogContextMenu{
 	z-index:43;
+}
+
+
+/* Rebase Todo Editor */
+
+.dialogContent:has(#rebaseTodoEditor){
+	max-width:min(720px, 90vw);
+}
+
+#rebaseTodoEditor{
+	margin-top:10px;
+	max-height:40vh;
+	overflow-y:auto;
+	text-align:left;
+}
+
+.rebaseTodoEntry{
+	padding:2px 6px;
+	border-left:3px solid transparent;
+}
+.rebaseTodoEntry.rebaseTodoDragging{
+	background-color:var(--vscode-list-dropBackground);
+}
+body.vscode-high-contrast .rebaseTodoEntry.rebaseTodoDragging{
+	outline:1px dashed var(--vscode-contrastActiveBorder);
+}
+
+.rebaseTodoRow{
+	display:flex;
+	align-items:center;
+	gap:8px;
+	line-height:22px;
+	white-space:nowrap;
+	-webkit-user-select:none;
+	user-select:none;
+}
+.rebaseTodoEntry[data-action="squash"], .rebaseTodoEntry[data-action="fixup"]{
+	padding-left:22px;
+}
+
+.rebaseTodoDragHandle{
+	cursor:grab;
+	opacity:0.5;
+}
+.rebaseTodoDragHandle:hover, .rebaseTodoDragging .rebaseTodoDragHandle{
+	opacity:1;
+}
+.rebaseTodoDragging .rebaseTodoDragHandle{
+	cursor:grabbing;
+}
+
+.rebaseTodoAction, .rebaseTodoAction option{
+	background-color:var(--vscode-dropdown-background);
+	color:var(--vscode-dropdown-foreground);
+}
+.rebaseTodoAction{
+	border:1px solid var(--vscode-dropdown-border);
+	border-radius:4px;
+	padding:1px 2px;
+	outline-style:none;
+	font-family:var(--vscode-font-family);
+	font-size:12px;
+	cursor:pointer;
+}
+.rebaseTodoAction:focus{
+	border-color:var(--vscode-focusBorder);
+}
+.rebaseTodoEntry[data-action="reword"] .rebaseTodoAction{
+	border-color:var(--vscode-charts-yellow);
+}
+.rebaseTodoEntry[data-action="edit"] .rebaseTodoAction{
+	border-color:var(--vscode-charts-orange);
+}
+.rebaseTodoEntry[data-action="squash"] .rebaseTodoAction, .rebaseTodoEntry[data-action="fixup"] .rebaseTodoAction{
+	border-color:var(--vscode-charts-blue);
+}
+.rebaseTodoEntry[data-action="drop"] .rebaseTodoAction{
+	border-color:var(--vscode-charts-red);
+}
+
+.rebaseTodoHash{
+	font-family:var(--vscode-editor-font-family);
+	opacity:0.75;
+}
+
+.rebaseTodoSubject{
+	flex:1;
+	min-width:0;
+	overflow:hidden;
+	text-overflow:ellipsis;
+}
+
+.rebaseTodoEntry[data-action="drop"] .rebaseTodoHash, .rebaseTodoEntry[data-action="drop"] .rebaseTodoSubject{
+	opacity:0.5;
+	text-decoration:line-through;
+}
+
+.rebaseTodoMessage{
+	display:none;
+	width:100%;
+	margin:4px 0;
+	padding:4px 6px;
+	box-sizing:border-box;
+	resize:vertical;
+	outline-style:none;
+	background-color:var(--vscode-input-background);
+	border:1px solid var(--vscode-input-border, var(--vscode-dropdown-border));
+	border-radius:4px;
+	color:var(--vscode-input-foreground);
+	font-family:var(--vscode-font-family);
+	font-size:13px;
+	line-height:17px;
+}
+.rebaseTodoMessage:focus{
+	border-color:var(--vscode-focusBorder);
+}
+.rebaseTodoMessage::placeholder{
+	color:var(--vscode-input-placeholderForeground);
+}
+.rebaseTodoEntry[data-action="reword"] .rebaseTodoMessage, .rebaseTodoEntry[data-action="squash"] .rebaseTodoMessage{
+	display:block;
+}
+
+.rebaseTodoEntry.rebaseTodoInvalid{
+	border-left-color:var(--vscode-inputValidation-errorBorder);
+}
+.rebaseTodoEntry.rebaseTodoInvalid .rebaseTodoAction, .rebaseTodoEntry.rebaseTodoInvalid .rebaseTodoMessage{
+	border-color:var(--vscode-inputValidation-errorBorder);
 }
 
 

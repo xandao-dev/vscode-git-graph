@@ -1157,6 +1157,42 @@ export interface ResponseRebase extends ResponseWithErrorInfo {
 	readonly interactive: boolean;
 }
 
+export const enum RebaseTodoAction {
+	Pick = 'pick',
+	Reword = 'reword',
+	Edit = 'edit',
+	Squash = 'squash',
+	Fixup = 'fixup',
+	Drop = 'drop'
+}
+export interface RebaseTodoEntry {
+	readonly hash: string;
+	readonly action: RebaseTodoAction;
+	readonly message: string; // The commit's message (in a request, the message to use for reword & squash entries)
+}
+export interface RequestRebaseTodoList extends RepoRequest {
+	readonly command: 'rebaseTodoList';
+	readonly obj: string;
+	readonly actionOn: RebaseActionOn;
+	readonly autosquash: boolean;
+}
+export interface ResponseRebaseTodoList extends ResponseWithErrorInfo {
+	readonly command: 'rebaseTodoList';
+	readonly obj: string;
+	readonly actionOn: RebaseActionOn;
+	readonly entries: ReadonlyArray<RebaseTodoEntry> | null; // Ordered from oldest to newest
+}
+export interface RequestRebaseWithTodo extends RepoRequest {
+	readonly command: 'rebaseWithTodo';
+	readonly obj: string;
+	readonly actionOn: RebaseActionOn;
+	readonly entries: ReadonlyArray<RebaseTodoEntry>;
+}
+export interface ResponseRebaseWithTodo extends ResponseWithErrorInfo {
+	readonly command: 'rebaseWithTodo';
+	readonly actionOn: RebaseActionOn;
+}
+
 export interface ResponseRefresh extends BaseMessage {
 	readonly command: 'refresh';
 }
@@ -1363,6 +1399,8 @@ export type RequestMessage =
 	| RequestPushStash
 	| RequestPushTag
 	| RequestRebase
+	| RequestRebaseTodoList
+	| RequestRebaseWithTodo
 	| RequestRenameBranch
 	| RequestRescanForRepos
 	| RequestResetFileToRevision
@@ -1431,6 +1469,8 @@ export type ResponseMessage =
 	| ResponsePushStash
 	| ResponsePushTag
 	| ResponseRebase
+	| ResponseRebaseTodoList
+	| ResponseRebaseWithTodo
 	| ResponseRefresh
 	| ResponseRenameBranch
 	| ResponseResetFileToRevision

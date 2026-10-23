@@ -11,6 +11,9 @@ export function mockSpyOnSpawn(spyOnSpawn: MockInstance, callback: (onCallbacks:
 		}, 1);
 		return {
 			on: (event: string, callback: (...args: any[]) => void) => (onCallbacks[event] = callback),
+			stdin: {
+				end: vi.fn()
+			},
 			stderr: {
 				on: (event: string, callback: (...args: any[]) => void) => (stderrOnCallbacks[event] = callback)
 			},

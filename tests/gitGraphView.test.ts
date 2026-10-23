@@ -28,6 +28,7 @@ import {
 	PullRequestConfig,
 	PullRequestProvider,
 	RebaseActionOn,
+	RebaseTodoAction,
 	RequestMessage,
 	ResponseMessage,
 	TagType
@@ -3329,6 +3330,69 @@ describe('GitGraphView', () => {
 							actionOn: RebaseActionOn.Branch,
 							interactive: false,
 							error: rebaseResolvedValue
+						}
+					]);
+				});
+			});
+		});
+
+		describe('rebaseTodoList', () => {
+			it('Should get the todo list of an interactive rebase', async () => {
+				// Setup
+				const getRebaseTodoListResolvedValue = { entries: [{ hash: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', action: RebaseTodoAction.Pick, message: 'Subject' }], error: null };
+				const spyOnGetRebaseTodoList = vi.spyOn(dataSource, 'getRebaseTodoList');
+				spyOnGetRebaseTodoList.mockResolvedValueOnce(getRebaseTodoListResolvedValue);
+
+				// Run
+				onDidReceiveMessage({
+					command: 'rebaseTodoList',
+					repo: '/path/to/repo',
+					obj: 'feature',
+					actionOn: RebaseActionOn.Branch,
+					autosquash: true
+				});
+
+				// Assert
+				await waitForExpect(() => {
+					expect(spyOnGetRebaseTodoList).toHaveBeenCalledWith('/path/to/repo', 'feature', true);
+					expect(messages).toStrictEqual([
+						{
+							command: 'rebaseTodoList',
+							obj: 'feature',
+							actionOn: RebaseActionOn.Branch,
+							entries: getRebaseTodoListResolvedValue.entries,
+							error: null
+						}
+					]);
+				});
+			});
+		});
+
+		describe('rebaseWithTodo', () => {
+			it('Should rebase the current branch using an edited todo list', async () => {
+				// Setup
+				const rebaseWithTodoResolvedValue = null;
+				const spyOnRebaseWithTodo = vi.spyOn(dataSource, 'rebaseWithTodo');
+				spyOnRebaseWithTodo.mockResolvedValueOnce(rebaseWithTodoResolvedValue);
+				const entries = [{ hash: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', action: RebaseTodoAction.Reword, message: 'New Subject' }];
+
+				// Run
+				onDidReceiveMessage({
+					command: 'rebaseWithTodo',
+					repo: '/path/to/repo',
+					obj: 'feature',
+					actionOn: RebaseActionOn.Branch,
+					entries: entries
+				});
+
+				// Assert
+				await waitForExpect(() => {
+					expect(spyOnRebaseWithTodo).toHaveBeenCalledWith('/path/to/repo', 'feature', entries);
+					expect(messages).toStrictEqual([
+						{
+							command: 'rebaseWithTodo',
+							actionOn: RebaseActionOn.Branch,
+							error: rebaseWithTodoResolvedValue
 						}
 					]);
 				});

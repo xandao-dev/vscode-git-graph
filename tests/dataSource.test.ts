@@ -16,7 +16,7 @@ import * as path from 'path';
 import { ConfigurationChangeEvent } from 'vscode';
 import { DataSource, GitConfigKey } from '../src/dataSource';
 import { Logger } from '../src/logger';
-import { CommitOrdering, GitConfigLocation, GitPushBranchMode, GitResetMode, GitSignature, GitSignatureStatus, MergeActionOn, RebaseActionOn, TagType } from '../src/types';
+import { CommitOrdering, GitConfigLocation, GitPushBranchMode, GitResetMode, GitSignature, GitSignatureStatus, MergeActionOn, RebaseActionOn, RebaseTodoAction, TagType } from '../src/types';
 import * as utils from '../src/utils';
 import { EventEmitter } from '../src/utils/event';
 
@@ -7365,6 +7365,338 @@ describe('DataSource', () => {
 			expect(result).toBe(
 				'Unable to find a Git executable. Either: Set the Visual Studio Code Setting "git.path" to the path and filename of an existing Git executable, or install Git and restart Visual Studio Code.'
 			);
+		});
+	});
+
+	const mockGitRebaseCommits = (commits: ReadonlyArray<[string, string, string]>) => {
+		mockGitSuccessOnce('.git/rebase-merge\n.git/rebase-apply\n.git/MERGE_HEAD\n.git/CHERRY_PICK_HEAD\n.git/REVERT_HEAD\n');
+		mockGitSuccessOnce(commits.map((commit) => commit.join('XX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPb') + '\n\0').join(''));
+	};
+
+	describe('getRebaseTodoList', () => {
+		let spyOnExistsSync: MockInstance;
+		beforeAll(() => {
+			spyOnExistsSync = vi.spyOn(fs, 'existsSync');
+		});
+		afterAll(() => {
+			spyOnExistsSync.mockRestore();
+		});
+
+		it('Should return the todo list of an interactive rebase', async () => {
+			// Setup
+			mockGitRebaseCommits([
+				['1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2', 'Subject 1\n\nBody 1\n'],
+				['2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', 'Subject 2\n']
+			]);
+
+			// Run
+			const result = await dataSource.getRebaseTodoList('/path/to/repo', 'develop', false);
+
+			// Assert
+			expect(result).toStrictEqual({
+				entries: [
+					{ hash: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', action: RebaseTodoAction.Pick, message: 'Subject 1\n\nBody 1' },
+					{ hash: '2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c', action: RebaseTodoAction.Pick, message: 'Subject 2' }
+				],
+				error: null
+			});
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(
+				1,
+				'/path/to/git',
+				['rev-parse', '--git-path', 'rebase-merge', '--git-path', 'rebase-apply', '--git-path', 'MERGE_HEAD', '--git-path', 'CHERRY_PICK_HEAD', '--git-path', 'REVERT_HEAD'],
+				expect.objectContaining({ cwd: '/path/to/repo' })
+			);
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(
+				2,
+				'/path/to/git',
+				[
+					'-c',
+					'log.showSignature=false',
+					'log',
+					'--reverse',
+					'--topo-order',
+					'--cherry-pick',
+					'--right-only',
+					'-z',
+					'--format=%HXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPb%PXX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPb%B',
+					'develop...HEAD',
+					'--'
+				],
+				expect.objectContaining({ cwd: '/path/to/repo' })
+			);
+			expect(spyOnExistsSync).toHaveBeenCalledTimes(5);
+			expect(utils.getPathFromStr(spyOnExistsSync.mock.calls[0][0])).toBe('/path/to/repo/.git/rebase-merge');
+		});
+
+		it('Should return the todo list of an interactive rebase, rearranged for autosquash', async () => {
+			// Setup
+			mockGitRebaseCommits([
+				['1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2', 'Subject 1\n'],
+				['2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', 'Subject 2\n'],
+				['3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d', '2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c', 'fixup! Subject 1\n'],
+				['4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e', '3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d', 'squash! 2b3c4d5e\n\nBody\n'],
+				['5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f', '4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e', 'fixup! fixup! Subj\n'],
+				['6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a', '5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f', 'fixup! Unknown\n']
+			]);
+
+			// Run
+			const result = await dataSource.getRebaseTodoList('/path/to/repo', 'develop', true);
+
+			// Assert
+			expect(result).toStrictEqual({
+				entries: [
+					{ hash: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', action: RebaseTodoAction.Pick, message: 'Subject 1' },
+					{ hash: '3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d', action: RebaseTodoAction.Fixup, message: 'fixup! Subject 1' },
+					{ hash: '5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f', action: RebaseTodoAction.Fixup, message: 'fixup! fixup! Subj' },
+					{ hash: '2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c', action: RebaseTodoAction.Pick, message: 'Subject 2' },
+					{ hash: '4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e', action: RebaseTodoAction.Squash, message: 'squash! 2b3c4d5e\n\nBody' },
+					{ hash: '6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a', action: RebaseTodoAction.Pick, message: 'fixup! Unknown' }
+				],
+				error: null
+			});
+		});
+
+		it('Should return an error message when another operation is in progress', async () => {
+			// Setup
+			mockGitSuccessOnce('.git/rebase-merge\n.git/rebase-apply\n.git/MERGE_HEAD\n.git/CHERRY_PICK_HEAD\n.git/REVERT_HEAD\n');
+			spyOnExistsSync.mockReturnValueOnce(false);
+			spyOnExistsSync.mockReturnValueOnce(false);
+			spyOnExistsSync.mockReturnValueOnce(true);
+
+			// Run
+			const result = await dataSource.getRebaseTodoList('/path/to/repo', 'develop', false);
+
+			// Assert
+			expect(result).toStrictEqual({ entries: null, error: 'A merge is in progress. Continue or abort it before starting a rebase.' });
+			expect(spyOnSpawn).toHaveBeenCalledTimes(1);
+			expect(utils.getPathFromStr(spyOnExistsSync.mock.calls[2][0])).toBe('/path/to/repo/.git/MERGE_HEAD');
+		});
+
+		it('Should return an error message when a merge commit would be rebased', async () => {
+			// Setup
+			mockGitRebaseCommits([
+				['1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2', 'Subject 1\n'],
+				['2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3', 'Merge branch\n']
+			]);
+
+			// Run
+			const result = await dataSource.getRebaseTodoList('/path/to/repo', 'develop', false);
+
+			// Assert
+			expect(result).toStrictEqual({ entries: null, error: "Merge commit 2b3c4d5e would be rebased, which isn't supported by the Todo Editor (an interactive rebase drops merge commits)." });
+		});
+
+		it('Should return an error message thrown by git', async () => {
+			// Setup
+			mockGitSuccessOnce('.git/rebase-merge\n.git/rebase-apply\n.git/MERGE_HEAD\n.git/CHERRY_PICK_HEAD\n.git/REVERT_HEAD\n');
+			mockGitThrowingErrorOnce();
+
+			// Run
+			const result = await dataSource.getRebaseTodoList('/path/to/repo', 'develop', false);
+
+			// Assert
+			expect(result).toStrictEqual({ entries: null, error: 'error message' });
+		});
+	});
+
+	describe('rebaseWithTodo', () => {
+		const getStdin = (call: number) => spyOnSpawn.mock.results[call - 1].value.stdin.end.mock.calls[0][0];
+
+		it('Should rebase the current branch using the edited todo list', async () => {
+			// Setup
+			mockGitRebaseCommits([
+				['1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2', 'Subject 1\n'],
+				['2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', 'Subject 2\n'],
+				['3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d', '2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c', 'Subject 3\n'],
+				['4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e', '3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d', 'Subject 4\n'],
+				['5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f', '4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e', 'Subject 5\n'],
+				['6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a', '5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f', 'Subject 6\n']
+			]);
+			mockGitSuccessOnce('a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1\n');
+			mockGitSuccessOnce('b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2\n');
+			mockGitSuccessOnce('c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3\n');
+			mockGitSuccessOnce();
+			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
+
+			// Run
+			const result = await dataSource.rebaseWithTodo('/path/to/repo', 'develop', [
+				{ hash: '3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d', action: RebaseTodoAction.Reword, message: 'New "$(subject)" `3`\n' },
+				{ hash: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', action: RebaseTodoAction.Pick, message: 'Subject 1' },
+				{ hash: '6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a', action: RebaseTodoAction.Drop, message: 'Subject 6' },
+				{ hash: '2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c', action: RebaseTodoAction.Squash, message: ' Subject 2 ' },
+				{ hash: '4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e', action: RebaseTodoAction.Fixup, message: 'Subject 4' },
+				{ hash: '5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f', action: RebaseTodoAction.Edit, message: 'Subject 5' }
+			]);
+
+			// Assert
+			expect(result).toBe(null);
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(3, '/path/to/git', ['hash-object', '-w', '--stdin'], expect.objectContaining({ cwd: '/path/to/repo' }));
+			expect(getStdin(3)).toBe('New "$(subject)" `3`');
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(4, '/path/to/git', ['hash-object', '-w', '--stdin'], expect.objectContaining({ cwd: '/path/to/repo' }));
+			expect(getStdin(4)).toBe('Subject 1\n\nSubject 2');
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(5, '/path/to/git', ['hash-object', '-w', '--stdin'], expect.objectContaining({ cwd: '/path/to/repo' }));
+			expect(getStdin(5)).toBe(
+				'pick 3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d\n' +
+					'exec git cat-file blob a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1 | git commit --amend --allow-empty --no-verify -F -\n' +
+					'pick 1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b\n' +
+					'drop 6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a\n' +
+					'fixup 2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c\n' +
+					'fixup 4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e\n' +
+					'exec git cat-file blob b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2 | git commit --amend --allow-empty --no-verify -F -\n' +
+					'edit 5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f\n'
+			);
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(
+				6,
+				'/path/to/git',
+				['-c', 'sequence.editor=git cat-file blob c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3 >', 'rebase', '--interactive', 'develop'],
+				expect.objectContaining({ cwd: '/path/to/repo' })
+			);
+		});
+
+		it('Should rebase the current branch using the edited todo list (signing any new commits)', async () => {
+			// Setup
+			mockGitRebaseCommits([['1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2', 'Subject 1\n']]);
+			mockGitSuccessOnce('a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1\n');
+			mockGitSuccessOnce('b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2\n');
+			mockGitSuccessOnce();
+			vscode.mockExtensionSettingReturnValue('repository.sign.commits', true);
+
+			// Run
+			const result = await dataSource.rebaseWithTodo('/path/to/repo', 'develop', [{ hash: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', action: RebaseTodoAction.Reword, message: 'New Subject' }]);
+
+			// Assert
+			expect(result).toBe(null);
+			expect(getStdin(4)).toBe(
+				'pick 1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b\nexec git cat-file blob a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1 | git commit --amend --allow-empty --no-verify -S -F -\n'
+			);
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(
+				5,
+				'/path/to/git',
+				['-c', 'sequence.editor=git cat-file blob b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2 >', 'rebase', '--interactive', '-S', 'develop'],
+				expect.objectContaining({ cwd: '/path/to/repo' })
+			);
+		});
+
+		it('Should rebase the current branch using a "noop" todo list when there are no commits to rebase', async () => {
+			// Setup
+			mockGitRebaseCommits([]);
+			mockGitSuccessOnce('a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1\n');
+			mockGitSuccessOnce();
+			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
+
+			// Run
+			const result = await dataSource.rebaseWithTodo('/path/to/repo', 'develop', []);
+
+			// Assert
+			expect(result).toBe(null);
+			expect(getStdin(3)).toBe('noop\n');
+		});
+
+		it('Should return an error message when the commits being rebased have changed', async () => {
+			// Setup
+			mockGitRebaseCommits([
+				['1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2', 'Subject 1\n'],
+				['2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', 'Subject 2\n']
+			]);
+
+			// Run
+			const result = await dataSource.rebaseWithTodo('/path/to/repo', 'develop', [
+				{ hash: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', action: RebaseTodoAction.Pick, message: 'Subject 1' },
+				{ hash: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', action: RebaseTodoAction.Pick, message: 'Subject 1' }
+			]);
+
+			// Assert
+			expect(result).toBe('The commits being rebased have changed since the todo list was loaded.');
+			expect(spyOnSpawn).toHaveBeenCalledTimes(2);
+		});
+
+		it('Should return an error message when the first commit is squashed', async () => {
+			// Setup
+			mockGitRebaseCommits([
+				['1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2', 'Subject 1\n'],
+				['2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', 'Subject 2\n']
+			]);
+			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
+
+			// Run
+			const result = await dataSource.rebaseWithTodo('/path/to/repo', 'develop', [
+				{ hash: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', action: RebaseTodoAction.Drop, message: 'Subject 1' },
+				{ hash: '2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c', action: RebaseTodoAction.Fixup, message: 'Subject 2' }
+			]);
+
+			// Assert
+			expect(result).toBe("Commit 2b3c4d5e can't be squashed, as no commit is picked before it.");
+			expect(spyOnSpawn).toHaveBeenCalledTimes(2);
+		});
+
+		it('Should return an error message when the message of a reworded commit is empty', async () => {
+			// Setup
+			mockGitRebaseCommits([['1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2', 'Subject 1\n']]);
+			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
+
+			// Run
+			const result = await dataSource.rebaseWithTodo('/path/to/repo', 'develop', [{ hash: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', action: RebaseTodoAction.Reword, message: ' \n' }]);
+
+			// Assert
+			expect(result).toBe('The message of reworded commit 1a2b3c4d is empty.');
+			expect(spyOnSpawn).toHaveBeenCalledTimes(2);
+		});
+
+		it('Should return an error message when an action is unknown', async () => {
+			// Setup
+			mockGitRebaseCommits([['1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2', 'Subject 1\n']]);
+			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
+
+			// Run
+			const result = await dataSource.rebaseWithTodo('/path/to/repo', 'develop', [{ hash: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', action: <RebaseTodoAction>'exec rm -rf', message: 'Subject 1' }]);
+
+			// Assert
+			expect(result).toBe('Unknown rebase todo action "exec rm -rf".');
+			expect(spyOnSpawn).toHaveBeenCalledTimes(2);
+		});
+
+		it('Should return an error message when another operation is in progress', async () => {
+			// Setup
+			mockGitSuccessOnce('.git/rebase-merge\n.git/rebase-apply\n.git/MERGE_HEAD\n.git/CHERRY_PICK_HEAD\n.git/REVERT_HEAD\n');
+			const spyOnExistsSync = vi.spyOn(fs, 'existsSync');
+			spyOnExistsSync.mockReturnValueOnce(true);
+
+			// Run
+			const result = await dataSource.rebaseWithTodo('/path/to/repo', 'develop', []);
+
+			// Assert
+			expect(result).toBe('A rebase is in progress. Continue or abort it before starting a rebase.');
+			expect(spyOnSpawn).toHaveBeenCalledTimes(1);
+			spyOnExistsSync.mockRestore();
+		});
+
+		it('Should return an error message thrown by git when writing a blob', async () => {
+			// Setup
+			mockGitRebaseCommits([['1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2', 'Subject 1\n']]);
+			mockGitThrowingErrorOnce();
+			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
+
+			// Run
+			const result = await dataSource.rebaseWithTodo('/path/to/repo', 'develop', [{ hash: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', action: RebaseTodoAction.Pick, message: 'Subject 1' }]);
+
+			// Assert
+			expect(result).toBe('error message');
+			expect(spyOnSpawn).toHaveBeenCalledTimes(3);
+		});
+
+		it('Should return an error message thrown by git when rebasing', async () => {
+			// Setup
+			mockGitRebaseCommits([['1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', 'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2', 'Subject 1\n']]);
+			mockGitSuccessOnce('a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1\n');
+			mockGitThrowingErrorOnce();
+			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
+
+			// Run
+			const result = await dataSource.rebaseWithTodo('/path/to/repo', 'develop', [{ hash: '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', action: RebaseTodoAction.Pick, message: 'Subject 1' }]);
+
+			// Assert
+			expect(result).toBe('error message');
+			expect(spyOnSpawn).toHaveBeenCalledTimes(4);
 		});
 	});
 

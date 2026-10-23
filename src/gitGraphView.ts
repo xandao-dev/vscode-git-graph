@@ -623,6 +623,21 @@ export class GitGraphView extends Disposable {
 					error: await this.dataSource.rebase(msg.repo, msg.obj, msg.actionOn, msg.ignoreDate, msg.interactive, msg.autosquash)
 				});
 				break;
+			case 'rebaseTodoList':
+				this.sendMessage({
+					command: 'rebaseTodoList',
+					obj: msg.obj,
+					actionOn: msg.actionOn,
+					...(await this.dataSource.getRebaseTodoList(msg.repo, msg.obj, msg.autosquash))
+				});
+				break;
+			case 'rebaseWithTodo':
+				this.sendMessage({
+					command: 'rebaseWithTodo',
+					actionOn: msg.actionOn,
+					error: await this.dataSource.rebaseWithTodo(msg.repo, msg.obj, msg.entries)
+				});
+				break;
 			case 'renameBranch':
 				this.sendMessage({
 					command: 'renameBranch',
