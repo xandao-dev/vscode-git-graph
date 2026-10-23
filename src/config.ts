@@ -65,6 +65,7 @@ class Config {
 	get commitDetailsView(): CommitDetailsViewConfig {
 		return {
 			autoCenter: !!this.getRenamedExtensionSetting('commitDetailsView.autoCenter', 'autoCenterCommitDetailsView', true),
+			autoScroll: !!this.config.get('commitDetailsView.autoScroll', true),
 			fileTreeCompactFolders: !!this.getRenamedExtensionSetting('commitDetailsView.fileView.fileTree.compactFolders', 'commitDetailsViewFileTreeCompactFolders', true),
 			fileViewType: this.getRenamedExtensionSetting<string>('commitDetailsView.fileView.type', 'defaultFileViewType', 'File Tree') === 'File List' ? FileViewType.List : FileViewType.Tree,
 			location:
@@ -94,7 +95,23 @@ class Config {
 				unselectInBranchesDropdown: true,
 				copyName: true
 			},
-			commit: { addTag: true, createBranch: true, checkout: true, cherrypick: true, revert: true, drop: true, edit: true, merge: true, rebase: true, reset: true, copyHash: true, copySubject: true },
+			commit: {
+				addTag: true,
+				createBranch: true,
+				checkout: true,
+				cherrypick: true,
+				revert: true,
+				drop: true,
+				edit: true,
+				fixup: true,
+				squashSelected: true,
+				dropSelected: true,
+				merge: true,
+				rebase: true,
+				reset: true,
+				copyHash: true,
+				copySubject: true
+			},
 			commitDetailsViewFile: {
 				viewDiff: true,
 				viewFileAtThisRevision: true,
@@ -194,9 +211,9 @@ class Config {
 	get defaultColumnVisibility(): DefaultColumnVisibility {
 		let obj: any = this.config.get('defaultColumnVisibility', {});
 		if (typeof obj === 'object' && obj !== null && typeof obj['Date'] === 'boolean' && typeof obj['Author'] === 'boolean' && typeof obj['Commit'] === 'boolean') {
-			return { author: obj['Author'], commit: obj['Commit'], date: obj['Date'] };
+			return { author: obj['Author'], commit: obj['Commit'], date: obj['Date'], signature: obj['Signature'] === true };
 		} else {
-			return { author: true, commit: true, date: true };
+			return { author: true, commit: true, date: true, signature: false };
 		}
 	}
 
@@ -237,6 +254,7 @@ class Config {
 				referenceInputSpaceSubstitution: refInputSpaceSubstitution === 'Hyphen' ? '-' : refInputSpaceSubstitution === 'Underscore' ? '_' : null
 			},
 			merge: {
+				allowUnrelatedHistories: !!this.config.get('dialog.merge.allowUnrelatedHistories', false),
 				noCommit: !!this.config.get('dialog.merge.noCommit', false),
 				noFastForward: !!this.config.get('dialog.merge.noFastForward', true),
 				squash: !!this.config.get('dialog.merge.squashCommits', false)
@@ -249,6 +267,7 @@ class Config {
 				squash: !!this.config.get('dialog.pullBranch.squashCommits', false)
 			},
 			rebase: {
+				autosquash: !!this.config.get('dialog.rebase.autosquash', false),
 				ignoreDate: !!this.config.get('dialog.rebase.ignoreDate', true),
 				interactive: !!this.config.get('dialog.rebase.launchInteractiveRebase', false)
 			},
@@ -534,6 +553,13 @@ class Config {
 	}
 
 	/**
+	 * Get the value of the `git-graph.repository.simplifyByDecoration` Extension Setting.
+	 */
+	get simplifyByDecoration() {
+		return !!this.config.get('repository.simplifyByDecoration', false);
+	}
+
+	/**
 	 * Get the value of the `git-graph.repository.useMailmap` Extension Setting.
 	 */
 	get useMailmap() {
@@ -556,10 +582,24 @@ class Config {
 	}
 
 	/**
+	 * Get the value of the `git-graph.showPathFilter` Extension Setting.
+	 */
+	get showPathFilter() {
+		return !!this.config.get('showPathFilter', true);
+	}
+
+	/**
 	 * Get the value of the `git-graph.showStatusBarItem` Extension Setting.
 	 */
 	get showStatusBarItem() {
 		return !!this.config.get('showStatusBarItem', true);
+	}
+
+	/**
+	 * Get the value of the `git-graph.stickyHeader` Extension Setting.
+	 */
+	get stickyHeader() {
+		return !!this.config.get('stickyHeader', true);
 	}
 
 	/**

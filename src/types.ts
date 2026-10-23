@@ -11,6 +11,8 @@ export interface GitCommit {
 	readonly tags: ReadonlyArray<GitCommitTag>;
 	readonly remotes: ReadonlyArray<GitCommitRemote>;
 	readonly stash: GitCommitStash | null; // null => not a stash, otherwise => stash info
+	readonly isPathFilterMatch: boolean; // FALSE => The commit didn't modify the filtered paths, and is only included to connect the commits that did
+	readonly signature: GitSignature | null; // null => not signed, or the signature status wasn't requested
 }
 
 export interface GitCommitTag {
@@ -224,11 +226,13 @@ export interface GitRepoState {
 	onlyFollowFirstParent: BooleanOverride;
 	onRepoLoadShowCheckedOutBranch: BooleanOverride;
 	onRepoLoadShowSpecificBranches: string[] | null;
+	pathFilter: string | null;
 	pullRequestConfig: PullRequestConfig | null;
 	showRemoteBranches: boolean;
 	showRemoteBranchesV2: BooleanOverride;
 	showStashes: BooleanOverride;
 	showTags: BooleanOverride;
+	simplifyByDecoration: BooleanOverride;
 	workspaceFolderIndex: number | null;
 }
 
@@ -241,6 +245,7 @@ export interface GitGraphViewInitialState {
 	readonly repos: GitRepoSet;
 	readonly loadRepoInfoRefreshId: number;
 	readonly loadCommitsRefreshId: number;
+	readonly workspaceFolderPaths: WorkspaceFolderPaths;
 }
 
 export interface GitGraphViewConfig {
@@ -269,9 +274,12 @@ export interface GitGraphViewConfig {
 	readonly onRepoLoad: OnRepoLoadConfig;
 	readonly referenceLabels: ReferenceLabelsConfig;
 	readonly repoDropdownOrder: RepoDropdownOrder;
+	readonly showPathFilter: boolean;
 	readonly showRemoteBranches: boolean;
 	readonly showStashes: boolean;
 	readonly showTags: boolean;
+	readonly simplifyByDecoration: boolean;
+	readonly stickyHeader: boolean;
 }
 
 export interface GitGraphViewGlobalState {
@@ -288,6 +296,7 @@ export interface GitGraphViewWorkspaceState {
 
 export interface CommitDetailsViewConfig {
 	readonly autoCenter: boolean;
+	readonly autoScroll: boolean;
 	readonly fileTreeCompactFolders: boolean;
 	readonly fileViewType: FileViewType;
 	readonly location: CommitDetailsViewLocation;
@@ -314,7 +323,10 @@ export type LoadGitGraphViewTo = {
 		readonly compareWithHash: string | null;
 	};
 	readonly runCommandOnLoad?: 'fetch';
+	readonly pathFilter?: string | null;
 } | null;
+
+export type WorkspaceFolderPaths = { readonly [repo: string]: ReadonlyArray<string> }; // The paths (relative to the repository) of the workspace folders that are in each repository
 
 export interface MuteCommitsConfig {
 	readonly commitsNotAncestorsOfHead: boolean;
@@ -375,6 +387,9 @@ export interface ContextMenuActionsVisibility {
 		readonly revert: boolean;
 		readonly drop: boolean;
 		readonly edit: boolean;
+		readonly fixup: boolean;
+		readonly squashSelected: boolean;
+		readonly dropSelected: boolean;
 		readonly merge: boolean;
 		readonly rebase: boolean;
 		readonly reset: boolean;
@@ -463,6 +478,7 @@ export interface DefaultColumnVisibility {
 	readonly date: boolean;
 	readonly author: boolean;
 	readonly commit: boolean;
+	readonly signature: boolean;
 }
 
 export interface DialogDefaults {
@@ -494,6 +510,7 @@ export interface DialogDefaults {
 		readonly referenceInputSpaceSubstitution: string | null;
 	};
 	readonly merge: {
+		readonly allowUnrelatedHistories: boolean;
 		readonly noCommit: boolean;
 		readonly noFastForward: boolean;
 		readonly squash: boolean;
@@ -506,6 +523,7 @@ export interface DialogDefaults {
 		readonly squash: boolean;
 	};
 	readonly rebase: {
+		readonly autosquash: boolean;
 		readonly ignoreDate: boolean;
 		readonly interactive: boolean;
 	};
@@ -693,6 +711,7 @@ export interface RequestCommitDetails extends RepoRequest {
 	readonly command: 'commitDetails';
 	readonly commitHash: string;
 	readonly hasParents: boolean;
+	readonly parentIndex: number; // The (1-based) index of the parent that the commit's changes are diffed against
 	readonly stash: GitCommitStash | null; // null => request is for a commit, otherwise => request is for a stash
 	readonly avatarEmail: string | null; // string => fetch avatar with the given email, null => don't fetch avatar
 	readonly refresh: boolean;
@@ -700,6 +719,7 @@ export interface RequestCommitDetails extends RepoRequest {
 export interface ResponseCommitDetails extends ResponseWithErrorInfo {
 	readonly command: 'commitDetails';
 	readonly commitDetails: GitCommitDetails | null;
+	readonly parentIndex: number;
 	readonly avatar: string | null;
 	readonly codeReview: CodeReview | null;
 	readonly refresh: boolean;
@@ -853,6 +873,14 @@ export interface ResponseDropCommit extends ResponseWithErrorInfo {
 	readonly command: 'dropCommit';
 }
 
+export interface RequestDropCommits extends RepoRequest {
+	readonly command: 'dropCommits';
+	readonly commitHashes: ReadonlyArray<string>; // Ordered from newest to oldest
+}
+export interface ResponseDropCommits extends ResponseWithErrorInfo {
+	readonly command: 'dropCommits';
+}
+
 export interface RequestDropStash extends RepoRequest {
 	readonly command: 'dropStash';
 	readonly selector: string;
@@ -940,6 +968,14 @@ export interface ResponseFetchIntoLocalBranch extends ResponseWithErrorInfo {
 	readonly command: 'fetchIntoLocalBranch';
 }
 
+export interface RequestFixupCommit extends RepoRequest {
+	readonly command: 'fixupCommit';
+	readonly commitHash: string;
+}
+export interface ResponseFixupCommit extends ResponseWithErrorInfo {
+	readonly command: 'fixupCommit';
+}
+
 export interface RequestLoadCommits extends RepoRequest {
 	readonly command: 'loadCommits';
 	readonly refreshId: number;
@@ -953,6 +989,9 @@ export interface RequestLoadCommits extends RepoRequest {
 	readonly remotes: ReadonlyArray<string>;
 	readonly hideRemotes: ReadonlyArray<string>;
 	readonly stashes: ReadonlyArray<GitStash>;
+	readonly simplifyByDecoration: boolean;
+	readonly pathFilter: string | null;
+	readonly showSignatures: boolean;
 }
 export interface ResponseLoadCommits extends ResponseWithErrorInfo {
 	readonly command: 'loadCommits';
@@ -1009,6 +1048,7 @@ export interface ResponseLoadRepos extends BaseMessage {
 	readonly repos: GitRepoSet;
 	readonly lastActiveRepo: string | null;
 	readonly loadViewTo: LoadGitGraphViewTo;
+	readonly workspaceFolderPaths: WorkspaceFolderPaths;
 }
 
 export const enum MergeActionOn {
@@ -1021,7 +1061,9 @@ export interface RequestMerge extends RepoRequest {
 	readonly obj: string;
 	readonly actionOn: MergeActionOn;
 	readonly createNewCommit: boolean;
+	readonly allowUnrelatedHistories: boolean;
 	readonly squash: boolean;
+	readonly noVerify: boolean;
 	readonly noCommit: boolean;
 }
 export interface ResponseMerge extends ResponseWithErrorInfo {
@@ -1113,6 +1155,7 @@ export interface RequestPullBranch extends RepoRequest {
 	readonly remote: string;
 	readonly createNewCommit: boolean;
 	readonly squash: boolean;
+	readonly noVerify: boolean;
 }
 export interface ResponsePullBranch extends ResponseWithErrorInfo {
 	readonly command: 'pullBranch';
@@ -1124,6 +1167,7 @@ export interface RequestPushBranch extends RepoRequest {
 	readonly remotes: string[];
 	readonly setUpstream: boolean;
 	readonly mode: GitPushBranchMode;
+	readonly noVerify: boolean;
 	readonly willUpdateBranchConfig: boolean;
 }
 export interface ResponsePushBranch extends ResponseWithMultiErrorInfo {
@@ -1165,11 +1209,48 @@ export interface RequestRebase extends RepoRequest {
 	readonly actionOn: RebaseActionOn;
 	readonly ignoreDate: boolean;
 	readonly interactive: boolean;
+	readonly autosquash: boolean;
 }
 export interface ResponseRebase extends ResponseWithErrorInfo {
 	readonly command: 'rebase';
 	readonly actionOn: RebaseActionOn;
 	readonly interactive: boolean;
+}
+
+export const enum RebaseTodoAction {
+	Pick = 'pick',
+	Reword = 'reword',
+	Edit = 'edit',
+	Squash = 'squash',
+	Fixup = 'fixup',
+	Drop = 'drop'
+}
+export interface RebaseTodoEntry {
+	readonly hash: string;
+	readonly action: RebaseTodoAction;
+	readonly message: string; // The commit's message (in a request, the message to use for reword & squash entries)
+}
+export interface RequestRebaseTodoList extends RepoRequest {
+	readonly command: 'rebaseTodoList';
+	readonly obj: string;
+	readonly actionOn: RebaseActionOn;
+	readonly autosquash: boolean;
+}
+export interface ResponseRebaseTodoList extends ResponseWithErrorInfo {
+	readonly command: 'rebaseTodoList';
+	readonly obj: string;
+	readonly actionOn: RebaseActionOn;
+	readonly entries: ReadonlyArray<RebaseTodoEntry> | null; // Ordered from oldest to newest
+}
+export interface RequestRebaseWithTodo extends RepoRequest {
+	readonly command: 'rebaseWithTodo';
+	readonly obj: string;
+	readonly actionOn: RebaseActionOn;
+	readonly entries: ReadonlyArray<RebaseTodoEntry>;
+}
+export interface ResponseRebaseWithTodo extends ResponseWithErrorInfo {
+	readonly command: 'rebaseWithTodo';
+	readonly actionOn: RebaseActionOn;
 }
 
 export interface ResponseRefresh extends BaseMessage {
@@ -1251,6 +1332,16 @@ export interface ResponseSetWorkspaceViewState extends ResponseWithErrorInfo {
 export interface RequestShowErrorDialog extends BaseMessage {
 	readonly command: 'showErrorMessage';
 	readonly message: string;
+}
+
+export interface RequestSquashCommits extends RepoRequest {
+	readonly command: 'squashCommits';
+	readonly commitHashes: ReadonlyArray<string>; // Ordered from newest to oldest
+	readonly message: string;
+	readonly noVerify: boolean;
+}
+export interface ResponseSquashCommits extends ResponseWithErrorInfo {
+	readonly command: 'squashCommits';
 }
 
 export interface RequestStartCodeReview extends RepoRequest {
@@ -1352,6 +1443,7 @@ export type RequestMessage =
 	| RequestDeleteTag
 	| RequestDeleteUserDetails
 	| RequestDropCommit
+	| RequestDropCommits
 	| RequestDropStash
 	| RequestEditCommit
 	| RequestEditRemote
@@ -1361,6 +1453,7 @@ export type RequestMessage =
 	| RequestFetch
 	| RequestFetchAvatar
 	| RequestFetchIntoLocalBranch
+	| RequestFixupCommit
 	| RequestLoadCommits
 	| RequestLoadConfig
 	| RequestLoadRepoInfo
@@ -1381,6 +1474,8 @@ export type RequestMessage =
 	| RequestPushStash
 	| RequestPushTag
 	| RequestRebase
+	| RequestRebaseTodoList
+	| RequestRebaseWithTodo
 	| RequestRemoveWorktrees
 	| RequestRenameBranch
 	| RequestRescanForRepos
@@ -1391,6 +1486,7 @@ export type RequestMessage =
 	| RequestSetRepoState
 	| RequestSetWorkspaceViewState
 	| RequestShowErrorDialog
+	| RequestSquashCommits
 	| RequestStartCodeReview
 	| RequestTagDetails
 	| RequestUpdateCodeReview
@@ -1423,6 +1519,7 @@ export type ResponseMessage =
 	| ResponseDeleteTag
 	| ResponseDeleteUserDetails
 	| ResponseDropCommit
+	| ResponseDropCommits
 	| ResponseDropStash
 	| ResponseEditCommit
 	| ResponseEditRemote
@@ -1431,6 +1528,7 @@ export type ResponseMessage =
 	| ResponseFetch
 	| ResponseFetchAvatar
 	| ResponseFetchIntoLocalBranch
+	| ResponseFixupCommit
 	| ResponseLoadCommits
 	| ResponseLoadConfig
 	| ResponseLoadRepoInfo
@@ -1451,6 +1549,8 @@ export type ResponseMessage =
 	| ResponsePushStash
 	| ResponsePushTag
 	| ResponseRebase
+	| ResponseRebaseTodoList
+	| ResponseRebaseWithTodo
 	| ResponseRefresh
 	| ResponseRemoveWorktrees
 	| ResponseRenameBranch
@@ -1459,6 +1559,7 @@ export type ResponseMessage =
 	| ResponseRevertCommit
 	| ResponseSetGlobalViewState
 	| ResponseSetWorkspaceViewState
+	| ResponseSquashCommits
 	| ResponseStartCodeReview
 	| ResponseTagDetails
 	| ResponseUpdateCodeReview

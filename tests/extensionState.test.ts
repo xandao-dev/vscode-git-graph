@@ -70,11 +70,13 @@ describe('ExtensionState', () => {
 				onlyFollowFirstParent: BooleanOverride.Disabled,
 				onRepoLoadShowCheckedOutBranch: BooleanOverride.Enabled,
 				onRepoLoadShowSpecificBranches: ['master'],
+				pathFilter: null,
 				pullRequestConfig: null,
 				showRemoteBranches: true,
 				showRemoteBranchesV2: BooleanOverride.Enabled,
 				showStashes: BooleanOverride.Enabled,
 				showTags: BooleanOverride.Enabled,
+				simplifyByDecoration: BooleanOverride.Default,
 				workspaceFolderIndex: 0
 			};
 			extensionContext.workspaceState.get.mockReturnValueOnce({
@@ -118,11 +120,13 @@ describe('ExtensionState', () => {
 					onlyFollowFirstParent: BooleanOverride.Default,
 					onRepoLoadShowCheckedOutBranch: BooleanOverride.Default,
 					onRepoLoadShowSpecificBranches: null,
+					pathFilter: null,
 					pullRequestConfig: null,
 					showRemoteBranches: true,
 					showRemoteBranchesV2: BooleanOverride.Default,
 					showStashes: BooleanOverride.Default,
 					showTags: BooleanOverride.Default,
+					simplifyByDecoration: BooleanOverride.Default,
 					workspaceFolderIndex: null
 				}
 			});
@@ -156,11 +160,13 @@ describe('ExtensionState', () => {
 					onlyFollowFirstParent: BooleanOverride.Default,
 					onRepoLoadShowCheckedOutBranch: BooleanOverride.Default,
 					onRepoLoadShowSpecificBranches: null,
+					pathFilter: null,
 					pullRequestConfig: null,
 					showRemoteBranches: true,
 					showRemoteBranchesV2: BooleanOverride.Default,
 					showStashes: BooleanOverride.Default,
 					showTags: BooleanOverride.Default,
+					simplifyByDecoration: BooleanOverride.Default,
 					workspaceFolderIndex: null
 				}
 			});
@@ -194,11 +200,13 @@ describe('ExtensionState', () => {
 					onlyFollowFirstParent: BooleanOverride.Default,
 					onRepoLoadShowCheckedOutBranch: BooleanOverride.Default,
 					onRepoLoadShowSpecificBranches: null,
+					pathFilter: null,
 					pullRequestConfig: null,
 					showRemoteBranches: false,
 					showRemoteBranchesV2: BooleanOverride.Disabled,
 					showStashes: BooleanOverride.Default,
 					showTags: BooleanOverride.Default,
+					simplifyByDecoration: BooleanOverride.Default,
 					workspaceFolderIndex: null
 				}
 			});
@@ -232,11 +240,13 @@ describe('ExtensionState', () => {
 					onlyFollowFirstParent: BooleanOverride.Default,
 					onRepoLoadShowCheckedOutBranch: BooleanOverride.Default,
 					onRepoLoadShowSpecificBranches: null,
+					pathFilter: null,
 					pullRequestConfig: null,
 					showRemoteBranches: false,
 					showRemoteBranchesV2: BooleanOverride.Default,
 					showStashes: BooleanOverride.Default,
 					showTags: BooleanOverride.Default,
+					simplifyByDecoration: BooleanOverride.Default,
 					workspaceFolderIndex: null
 				}
 			});
@@ -270,11 +280,13 @@ describe('ExtensionState', () => {
 					onlyFollowFirstParent: BooleanOverride.Default,
 					onRepoLoadShowCheckedOutBranch: BooleanOverride.Default,
 					onRepoLoadShowSpecificBranches: null,
+					pathFilter: null,
 					pullRequestConfig: null,
 					showRemoteBranches: true,
 					showRemoteBranchesV2: BooleanOverride.Enabled,
 					showStashes: BooleanOverride.Default,
 					showTags: BooleanOverride.Default,
+					simplifyByDecoration: BooleanOverride.Default,
 					workspaceFolderIndex: null
 				}
 			});
@@ -311,11 +323,13 @@ describe('ExtensionState', () => {
 					onlyFollowFirstParent: BooleanOverride.Default,
 					onRepoLoadShowCheckedOutBranch: BooleanOverride.Default,
 					onRepoLoadShowSpecificBranches: null,
+					pathFilter: null,
 					pullRequestConfig: null,
 					showRemoteBranches: true,
 					showRemoteBranchesV2: BooleanOverride.Default,
 					showStashes: BooleanOverride.Default,
 					showTags: BooleanOverride.Default,
+					simplifyByDecoration: BooleanOverride.Default,
 					workspaceFolderIndex: null
 				},
 				'/path/to/repo-2': {
@@ -332,11 +346,13 @@ describe('ExtensionState', () => {
 					onlyFollowFirstParent: BooleanOverride.Default,
 					onRepoLoadShowCheckedOutBranch: BooleanOverride.Default,
 					onRepoLoadShowSpecificBranches: null,
+					pathFilter: null,
 					pullRequestConfig: null,
 					showRemoteBranches: false,
 					showRemoteBranchesV2: BooleanOverride.Disabled,
 					showStashes: BooleanOverride.Default,
 					showTags: BooleanOverride.Default,
+					simplifyByDecoration: BooleanOverride.Default,
 					workspaceFolderIndex: null
 				}
 			});

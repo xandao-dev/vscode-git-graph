@@ -244,7 +244,9 @@ export function insertWorktreeUncommittedChanges(commits: ReadonlyArray<GitCommi
 			heads: [],
 			tags: [],
 			remotes: [],
-			stash: null
+			stash: null,
+			isPathFilterMatch: true,
+			signature: null
 		});
 	}
 	return result;

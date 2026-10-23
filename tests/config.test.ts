@@ -110,6 +110,65 @@ describe('Config', () => {
 			});
 		});
 
+		describe('autoScroll', () => {
+			it('Should return TRUE when the configuration value is TRUE', () => {
+				// Setup
+				vscode.mockExtensionSettingReturnValue('commitDetailsView.autoScroll', true);
+
+				// Run
+				const value = config.commitDetailsView.autoScroll;
+
+				// Assert
+				expect(workspaceConfiguration.get).toBeCalledWith('commitDetailsView.autoScroll', true);
+				expect(value).toBe(true);
+			});
+
+			it('Should return FALSE when the configuration value is FALSE', () => {
+				// Setup
+				vscode.mockExtensionSettingReturnValue('commitDetailsView.autoScroll', false);
+
+				// Run
+				const value = config.commitDetailsView.autoScroll;
+
+				// Assert
+				expect(workspaceConfiguration.get).toBeCalledWith('commitDetailsView.autoScroll', true);
+				expect(value).toBe(false);
+			});
+
+			it('Should return TRUE when the configuration value is truthy', () => {
+				// Setup
+				vscode.mockExtensionSettingReturnValue('commitDetailsView.autoScroll', 5);
+
+				// Run
+				const value = config.commitDetailsView.autoScroll;
+
+				// Assert
+				expect(workspaceConfiguration.get).toBeCalledWith('commitDetailsView.autoScroll', true);
+				expect(value).toBe(true);
+			});
+
+			it('Should return FALSE when the configuration value is falsy', () => {
+				// Setup
+				vscode.mockExtensionSettingReturnValue('commitDetailsView.autoScroll', 0);
+
+				// Run
+				const value = config.commitDetailsView.autoScroll;
+
+				// Assert
+				expect(workspaceConfiguration.get).toBeCalledWith('commitDetailsView.autoScroll', true);
+				expect(value).toBe(false);
+			});
+
+			it('Should return the default value (TRUE) when the configuration value is unknown', () => {
+				// Run
+				const value = config.commitDetailsView.autoScroll;
+
+				// Assert
+				expect(workspaceConfiguration.get).toBeCalledWith('commitDetailsView.autoScroll', true);
+				expect(value).toBe(true);
+			});
+		});
+
 		describe('fileTreeCompactFolders', () => {
 			it('Should return TRUE when the configuration value is TRUE', () => {
 				// Setup
@@ -297,6 +356,9 @@ describe('Config', () => {
 					revert: true,
 					drop: true,
 					edit: true,
+					fixup: true,
+					squashSelected: true,
+					dropSelected: true,
 					merge: true,
 					rebase: true,
 					reset: true,
@@ -380,6 +442,9 @@ describe('Config', () => {
 					revert: true,
 					drop: true,
 					edit: true,
+					fixup: true,
+					squashSelected: true,
+					dropSelected: true,
 					merge: true,
 					rebase: true,
 					reset: true,
@@ -481,6 +546,9 @@ describe('Config', () => {
 					revert: true,
 					drop: true,
 					edit: true,
+					fixup: true,
+					squashSelected: true,
+					dropSelected: true,
 					merge: true,
 					rebase: true,
 					reset: true,
@@ -779,7 +847,7 @@ describe('Config', () => {
 
 			// Assert
 			expect(workspaceConfiguration.get).toBeCalledWith('defaultColumnVisibility', {});
-			expect(value).toStrictEqual({ date: false, author: true, commit: true });
+			expect(value).toStrictEqual({ date: false, author: true, commit: true, signature: false });
 		});
 
 		it('Should successfully parse the configuration value (Author column disabled)', () => {
@@ -791,7 +859,7 @@ describe('Config', () => {
 
 			// Assert
 			expect(workspaceConfiguration.get).toBeCalledWith('defaultColumnVisibility', {});
-			expect(value).toStrictEqual({ date: true, author: false, commit: true });
+			expect(value).toStrictEqual({ date: true, author: false, commit: true, signature: false });
 		});
 
 		it('Should successfully parse the configuration value (Commit  column disabled)', () => {
@@ -803,7 +871,31 @@ describe('Config', () => {
 
 			// Assert
 			expect(workspaceConfiguration.get).toBeCalledWith('defaultColumnVisibility', {});
-			expect(value).toStrictEqual({ date: true, author: true, commit: false });
+			expect(value).toStrictEqual({ date: true, author: true, commit: false, signature: false });
+		});
+
+		it('Should successfully parse the configuration value (Signature column enabled)', () => {
+			// Setup
+			vscode.mockExtensionSettingReturnValue('defaultColumnVisibility', { Date: true, Author: true, Commit: true, Signature: true });
+
+			// Run
+			const value = config.defaultColumnVisibility;
+
+			// Assert
+			expect(workspaceConfiguration.get).toBeCalledWith('defaultColumnVisibility', {});
+			expect(value).toStrictEqual({ date: true, author: true, commit: true, signature: true });
+		});
+
+		it('Should hide the Signature column when its value is not a boolean', () => {
+			// Setup
+			vscode.mockExtensionSettingReturnValue('defaultColumnVisibility', { Date: true, Author: false, Commit: true, Signature: 5 });
+
+			// Run
+			const value = config.defaultColumnVisibility;
+
+			// Assert
+			expect(workspaceConfiguration.get).toBeCalledWith('defaultColumnVisibility', {});
+			expect(value).toStrictEqual({ date: true, author: false, commit: true, signature: false });
 		});
 
 		it('Should return the default value when the configuration value is invalid (not an object)', () => {
@@ -815,7 +907,7 @@ describe('Config', () => {
 
 			// Assert
 			expect(workspaceConfiguration.get).toBeCalledWith('defaultColumnVisibility', {});
-			expect(value).toStrictEqual({ date: true, author: true, commit: true });
+			expect(value).toStrictEqual({ date: true, author: true, commit: true, signature: false });
 		});
 
 		it('Should return the default value when the configuration value is invalid (NULL)', () => {
@@ -827,7 +919,7 @@ describe('Config', () => {
 
 			// Assert
 			expect(workspaceConfiguration.get).toBeCalledWith('defaultColumnVisibility', {});
-			expect(value).toStrictEqual({ date: true, author: true, commit: true });
+			expect(value).toStrictEqual({ date: true, author: true, commit: true, signature: false });
 		});
 
 		it('Should return the default value when the configuration value is invalid (column value is not a boolean)', () => {
@@ -839,7 +931,7 @@ describe('Config', () => {
 
 			// Assert
 			expect(workspaceConfiguration.get).toBeCalledWith('defaultColumnVisibility', {});
-			expect(value).toStrictEqual({ date: true, author: true, commit: true });
+			expect(value).toStrictEqual({ date: true, author: true, commit: true, signature: false });
 		});
 
 		it('Should return the default value when the configuration value is not set', () => {
@@ -848,7 +940,7 @@ describe('Config', () => {
 
 			// Assert
 			expect(workspaceConfiguration.get).toBeCalledWith('defaultColumnVisibility', {});
-			expect(value).toStrictEqual({ date: true, author: true, commit: true });
+			expect(value).toStrictEqual({ date: true, author: true, commit: true, signature: false });
 		});
 	});
 
@@ -865,12 +957,14 @@ describe('Config', () => {
 				'dialog.fetchIntoLocalBranch.forceFetch',
 				'dialog.fetchRemote.prune',
 				'dialog.fetchRemote.pruneTags',
+				'dialog.merge.allowUnrelatedHistories',
 				'dialog.merge.noCommit',
 				'dialog.merge.noFastForward',
 				'dialog.merge.squashCommits',
 				'dialog.popStash.reinstateIndex',
 				'dialog.pullBranch.noFastForward',
 				'dialog.pullBranch.squashCommits',
+				'dialog.rebase.autosquash',
 				'dialog.rebase.ignoreDate',
 				'dialog.rebase.launchInteractiveRebase',
 				'dialog.stashUncommittedChanges.includeUntracked'
@@ -891,12 +985,14 @@ describe('Config', () => {
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.fetchRemote.prune', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.fetchRemote.pruneTags', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.general.referenceInputSpaceSubstitution', 'None');
+			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.allowUnrelatedHistories', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.noCommit', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.noFastForward', true);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.squashCommits', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.popStash.reinstateIndex', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.pullBranch.noFastForward', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.pullBranch.squashCommits', false);
+			expect(workspaceConfiguration.get).toBeCalledWith('dialog.rebase.autosquash', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.rebase.ignoreDate', true);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.rebase.launchInteractiveRebase', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.resetCurrentBranchToCommit.mode', 'Mixed');
@@ -931,6 +1027,7 @@ describe('Config', () => {
 					referenceInputSpaceSubstitution: null
 				},
 				merge: {
+					allowUnrelatedHistories: true,
 					noCommit: true,
 					noFastForward: true,
 					squash: true
@@ -943,6 +1040,7 @@ describe('Config', () => {
 					squash: true
 				},
 				rebase: {
+					autosquash: true,
 					ignoreDate: true,
 					interactive: true
 				},
@@ -970,12 +1068,14 @@ describe('Config', () => {
 				'dialog.fetchIntoLocalBranch.forceFetch',
 				'dialog.fetchRemote.prune',
 				'dialog.fetchRemote.pruneTags',
+				'dialog.merge.allowUnrelatedHistories',
 				'dialog.merge.noCommit',
 				'dialog.merge.noFastForward',
 				'dialog.merge.squashCommits',
 				'dialog.popStash.reinstateIndex',
 				'dialog.pullBranch.noFastForward',
 				'dialog.pullBranch.squashCommits',
+				'dialog.rebase.autosquash',
 				'dialog.rebase.ignoreDate',
 				'dialog.rebase.launchInteractiveRebase',
 				'dialog.stashUncommittedChanges.includeUntracked'
@@ -996,12 +1096,14 @@ describe('Config', () => {
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.fetchRemote.prune', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.fetchRemote.pruneTags', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.general.referenceInputSpaceSubstitution', 'None');
+			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.allowUnrelatedHistories', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.noCommit', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.noFastForward', true);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.squashCommits', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.popStash.reinstateIndex', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.pullBranch.noFastForward', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.pullBranch.squashCommits', false);
+			expect(workspaceConfiguration.get).toBeCalledWith('dialog.rebase.autosquash', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.rebase.ignoreDate', true);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.rebase.launchInteractiveRebase', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.resetCurrentBranchToCommit.mode', 'Mixed');
@@ -1036,6 +1138,7 @@ describe('Config', () => {
 					referenceInputSpaceSubstitution: null
 				},
 				merge: {
+					allowUnrelatedHistories: false,
 					noCommit: false,
 					noFastForward: false,
 					squash: false
@@ -1048,6 +1151,7 @@ describe('Config', () => {
 					squash: false
 				},
 				rebase: {
+					autosquash: false,
 					ignoreDate: false,
 					interactive: false
 				},
@@ -1075,12 +1179,14 @@ describe('Config', () => {
 				'dialog.fetchIntoLocalBranch.forceFetch',
 				'dialog.fetchRemote.prune',
 				'dialog.fetchRemote.pruneTags',
+				'dialog.merge.allowUnrelatedHistories',
 				'dialog.merge.noCommit',
 				'dialog.merge.noFastForward',
 				'dialog.merge.squashCommits',
 				'dialog.popStash.reinstateIndex',
 				'dialog.pullBranch.noFastForward',
 				'dialog.pullBranch.squashCommits',
+				'dialog.rebase.autosquash',
 				'dialog.rebase.ignoreDate',
 				'dialog.rebase.launchInteractiveRebase',
 				'dialog.stashUncommittedChanges.includeUntracked'
@@ -1101,12 +1207,14 @@ describe('Config', () => {
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.fetchRemote.prune', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.fetchRemote.pruneTags', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.general.referenceInputSpaceSubstitution', 'None');
+			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.allowUnrelatedHistories', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.noCommit', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.noFastForward', true);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.squashCommits', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.popStash.reinstateIndex', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.pullBranch.noFastForward', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.pullBranch.squashCommits', false);
+			expect(workspaceConfiguration.get).toBeCalledWith('dialog.rebase.autosquash', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.rebase.ignoreDate', true);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.rebase.launchInteractiveRebase', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.resetCurrentBranchToCommit.mode', 'Mixed');
@@ -1141,6 +1249,7 @@ describe('Config', () => {
 					referenceInputSpaceSubstitution: null
 				},
 				merge: {
+					allowUnrelatedHistories: true,
 					noCommit: true,
 					noFastForward: true,
 					squash: true
@@ -1153,6 +1262,7 @@ describe('Config', () => {
 					squash: true
 				},
 				rebase: {
+					autosquash: true,
 					ignoreDate: true,
 					interactive: true
 				},
@@ -1180,12 +1290,14 @@ describe('Config', () => {
 				'dialog.fetchIntoLocalBranch.forceFetch',
 				'dialog.fetchRemote.prune',
 				'dialog.fetchRemote.pruneTags',
+				'dialog.merge.allowUnrelatedHistories',
 				'dialog.merge.noCommit',
 				'dialog.merge.noFastForward',
 				'dialog.merge.squashCommits',
 				'dialog.popStash.reinstateIndex',
 				'dialog.pullBranch.noFastForward',
 				'dialog.pullBranch.squashCommits',
+				'dialog.rebase.autosquash',
 				'dialog.rebase.ignoreDate',
 				'dialog.rebase.launchInteractiveRebase',
 				'dialog.stashUncommittedChanges.includeUntracked'
@@ -1206,12 +1318,14 @@ describe('Config', () => {
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.fetchRemote.prune', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.fetchRemote.pruneTags', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.general.referenceInputSpaceSubstitution', 'None');
+			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.allowUnrelatedHistories', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.noCommit', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.noFastForward', true);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.squashCommits', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.popStash.reinstateIndex', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.pullBranch.noFastForward', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.pullBranch.squashCommits', false);
+			expect(workspaceConfiguration.get).toBeCalledWith('dialog.rebase.autosquash', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.rebase.ignoreDate', true);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.rebase.launchInteractiveRebase', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.resetCurrentBranchToCommit.mode', 'Mixed');
@@ -1246,6 +1360,7 @@ describe('Config', () => {
 					referenceInputSpaceSubstitution: null
 				},
 				merge: {
+					allowUnrelatedHistories: false,
 					noCommit: false,
 					noFastForward: false,
 					squash: false
@@ -1258,6 +1373,7 @@ describe('Config', () => {
 					squash: false
 				},
 				rebase: {
+					autosquash: false,
 					ignoreDate: false,
 					interactive: false
 				},
@@ -1292,12 +1408,14 @@ describe('Config', () => {
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.fetchRemote.prune', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.fetchRemote.pruneTags', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.general.referenceInputSpaceSubstitution', 'None');
+			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.allowUnrelatedHistories', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.noCommit', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.noFastForward', true);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.squashCommits', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.popStash.reinstateIndex', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.pullBranch.noFastForward', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.pullBranch.squashCommits', false);
+			expect(workspaceConfiguration.get).toBeCalledWith('dialog.rebase.autosquash', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.rebase.ignoreDate', true);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.rebase.launchInteractiveRebase', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.resetCurrentBranchToCommit.mode', 'Mixed');
@@ -1332,6 +1450,7 @@ describe('Config', () => {
 					referenceInputSpaceSubstitution: null
 				},
 				merge: {
+					allowUnrelatedHistories: false,
 					noCommit: false,
 					noFastForward: true,
 					squash: false
@@ -1344,6 +1463,7 @@ describe('Config', () => {
 					squash: false
 				},
 				rebase: {
+					autosquash: false,
 					ignoreDate: true,
 					interactive: false
 				},
@@ -1375,12 +1495,14 @@ describe('Config', () => {
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.fetchRemote.prune', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.fetchRemote.pruneTags', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.general.referenceInputSpaceSubstitution', 'None');
+			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.allowUnrelatedHistories', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.noCommit', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.noFastForward', true);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.merge.squashCommits', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.popStash.reinstateIndex', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.pullBranch.noFastForward', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.pullBranch.squashCommits', false);
+			expect(workspaceConfiguration.get).toBeCalledWith('dialog.rebase.autosquash', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.rebase.ignoreDate', true);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.rebase.launchInteractiveRebase', false);
 			expect(workspaceConfiguration.get).toBeCalledWith('dialog.resetCurrentBranchToCommit.mode', 'Mixed');
@@ -1415,6 +1537,7 @@ describe('Config', () => {
 					referenceInputSpaceSubstitution: null
 				},
 				merge: {
+					allowUnrelatedHistories: false,
 					noCommit: false,
 					noFastForward: true,
 					squash: false
@@ -1427,6 +1550,7 @@ describe('Config', () => {
 					squash: false
 				},
 				rebase: {
+					autosquash: false,
 					ignoreDate: true,
 					interactive: false
 				},
@@ -2897,7 +3021,11 @@ describe('Config', () => {
 
 	describe('retainContextWhenHidden', testBooleanExtensionSetting('retainContextWhenHidden', 'retainContextWhenHidden', true));
 
+	describe('showPathFilter', testBooleanExtensionSetting('showPathFilter', 'showPathFilter', true));
+
 	describe('showStatusBarItem', testBooleanExtensionSetting('showStatusBarItem', 'showStatusBarItem', true));
+
+	describe('stickyHeader', testBooleanExtensionSetting('stickyHeader', 'stickyHeader', true));
 
 	describe('tabIconColourTheme', () => {
 		it('Should return TabIconColourTheme.Colour when the configuration value is "colour"', () => {

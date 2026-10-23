@@ -319,7 +319,7 @@ export class FindWidget {
 						}
 						if (colVisibility.commit && commit.hash.search(findPattern) === 0 && !findPattern.test(abbrevCommit(commit.hash)) && textElems.length > 0) {
 							// The commit matches on more than the abbreviated commit, so the commit should be highlighted
-							let commitNode = textElems[textElems.length - 1]; // Commit is always the last column if it is visible
+							let commitNode = textElems[textElems.length - 1]; // Commit is always the last column with text if it is visible (the Signature column only contains an icon)
 							commitNode.parentNode!.replaceChild(FindWidget.createMatchElem(commitNode.textContent!), commitNode);
 						}
 						if (zeroLengthMatch) break;

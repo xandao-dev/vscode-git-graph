@@ -26,6 +26,8 @@ import {
 	CLASS_ACTIVE,
 	CLASS_BRANCH_LABELS_ALIGNED_TO_GRAPH,
 	CLASS_COMMIT_DETAILS_OPEN,
+	CLASS_COMMIT_SELECTED,
+	CLASS_DISABLED,
 	CLASS_ENABLED,
 	CLASS_FETCH_SUPPORTED,
 	CLASS_PENDING_REVIEW,
@@ -34,12 +36,14 @@ import {
 	CLASS_REF_REMOTE,
 	CLASS_REF_STASH,
 	CLASS_REF_TAG,
+	CLASS_STICKY_HEADER,
 	CLASS_TAG_LABELS_RIGHT_ALIGNED,
 	CLASS_WORKTREES_PANEL_OPEN,
 	COLUMN_AUTO,
 	COLUMN_HIDDEN,
 	COLUMN_LEFT_RIGHT_PADDING,
 	COLUMN_MIN_WIDTH,
+	CSS_PROP_CONTROLS_HEIGHT,
 	CSS_PROP_EDITOR_FONT_FAMILY,
 	CSS_PROP_FIND_MATCH_HIGHLIGHT_BACKGROUND,
 	CSS_PROP_FONT_FAMILY,
@@ -68,6 +72,7 @@ import {
 	getCommitElems,
 	getRepoName,
 	getSortedRepositoryPaths,
+	getStickyHeaderHeight,
 	getVSCodeStyle,
 	handledEvent,
 	insertAfter,
@@ -100,6 +105,7 @@ export class GitGraphView {
 	private onlyFollowFirstParent: boolean = false;
 	private avatars: AvatarImageCollection = {};
 	private currentBranches: string[] | null = null;
+	private workspaceFolderPaths: GG.WorkspaceFolderPaths;
 
 	private currentRepo!: string;
 	private currentRepoLoading: boolean = true;
@@ -120,6 +126,7 @@ export class GitGraphView {
 
 	private moreCommitsAvailable: boolean = false;
 	private expandedCommit: ExpandedCommit | null = null;
+	private selectedCommits: string[] = [];
 	private maxCommits: number;
 	private scrollTop = 0;
 	private renderedGitBranchHead: string | null = null;
@@ -133,6 +140,7 @@ export class GitGraphView {
 	private readonly settingsWidget: SettingsWidget;
 	private readonly repoDropdown: Dropdown;
 	private readonly branchDropdown: Dropdown;
+	private readonly pathFilterDropdown: Dropdown;
 
 	private readonly viewElem: HTMLElement;
 	private readonly controlsElem: HTMLElement;
@@ -141,11 +149,13 @@ export class GitGraphView {
 	private readonly showRemoteBranchesElem: HTMLInputElement;
 	private readonly worktreesCheckboxElem: HTMLInputElement;
 	private readonly worktreesPanelElem: HTMLElement;
+	private readonly simplifyByDecorationElem: HTMLInputElement;
 	private readonly refreshBtnElem: HTMLElement;
 	private readonly scrollShadowElem: HTMLElement;
 
 	constructor(viewElem: HTMLElement, prevState: WebViewState | null) {
 		this.gitRepos = initialState.repos;
+		this.workspaceFolderPaths = initialState.workspaceFolderPaths;
 		this.config = initialState.config;
 		this.maxCommits = this.config.initialLoadCommits;
 		this.viewElem = viewElem;
@@ -183,9 +193,24 @@ export class GitGraphView {
 			this.requestLoadRepoInfoAndCommits(true, true);
 		});
 
+		this.pathFilterDropdown = new Dropdown(
+			'pathFilterDropdown',
+			false,
+			false,
+			'Paths',
+			(values) => this.setPathFilter(values[0] !== SHOW_ALL_BRANCHES ? values[0] : null),
+			(value) => this.setPathFilter(value)
+		);
+
 		this.showRemoteBranchesElem = <HTMLInputElement>document.getElementById('showRemoteBranchesCheckbox')!;
 		this.showRemoteBranchesElem.addEventListener('change', () => {
 			this.saveRepoStateValue(this.currentRepo, 'showRemoteBranchesV2', this.showRemoteBranchesElem.checked ? GG.BooleanOverride.Enabled : GG.BooleanOverride.Disabled);
+			this.refresh(true);
+		});
+
+		this.simplifyByDecorationElem = <HTMLInputElement>document.getElementById('simplifyByDecorationCheckbox')!;
+		this.simplifyByDecorationElem.addEventListener('change', () => {
+			this.saveRepoStateValue(this.currentRepo, 'simplifyByDecoration', this.simplifyByDecorationElem.checked ? GG.BooleanOverride.Enabled : GG.BooleanOverride.Disabled);
 			this.refresh(true);
 		});
 
@@ -202,8 +227,10 @@ export class GitGraphView {
 
 		alterClass(document.body, CLASS_BRANCH_LABELS_ALIGNED_TO_GRAPH, this.config.referenceLabels.branchLabelsAlignedToGraph);
 		alterClass(document.body, CLASS_TAG_LABELS_RIGHT_ALIGNED, this.config.referenceLabels.tagLabelsOnRight);
+		alterClass(document.body, CLASS_STICKY_HEADER, this.config.stickyHeader);
 
 		this.observeWindowSizeChanges();
+		this.observeStickyHeaderSize();
 		this.observeWebviewStyleChanges();
 		this.observeViewScroll();
 		this.observeKeyboardEvents();
@@ -216,6 +243,7 @@ export class GitGraphView {
 			this.currentBranches = prevState.currentBranches;
 			this.maxCommits = prevState.maxCommits;
 			this.expandedCommit = prevState.expandedCommit;
+			this.selectedCommits = prevState.selectedCommits || [];
 			this.avatars = prevState.avatars;
 			this.gitConfig = prevState.gitConfig;
 			this.worktreesPanelOpen = prevState.worktreesPanelOpen === true;
@@ -224,6 +252,7 @@ export class GitGraphView {
 			this.findWidget.restoreState(prevState.findWidget);
 			this.settingsWidget.restoreState(prevState.settingsWidget);
 			this.showRemoteBranchesElem.checked = getShowRemoteBranches(this.gitRepos[prevState.currentRepo].showRemoteBranchesV2);
+			this.simplifyByDecorationElem.checked = getSimplifyByDecoration(this.gitRepos[prevState.currentRepo].simplifyByDecoration);
 		}
 
 		let loadViewTo = initialState.loadViewTo;
@@ -231,7 +260,7 @@ export class GitGraphView {
 			loadViewTo = { repo: prevState.currentRepo };
 		}
 
-		if (!this.loadRepos(this.gitRepos, initialState.lastActiveRepo, loadViewTo)) {
+		if (!this.loadRepos(this.gitRepos, initialState.lastActiveRepo, loadViewTo, this.workspaceFolderPaths)) {
 			if (prevState) {
 				this.scrollTop = prevState.scrollTop;
 				this.viewElem.scroll(0, this.scrollTop);
@@ -265,8 +294,9 @@ export class GitGraphView {
 
 	/* Loading Data */
 
-	public loadRepos(repos: GG.GitRepoSet, lastActiveRepo: string | null, loadViewTo: GG.LoadGitGraphViewTo) {
+	public loadRepos(repos: GG.GitRepoSet, lastActiveRepo: string | null, loadViewTo: GG.LoadGitGraphViewTo, workspaceFolderPaths: GG.WorkspaceFolderPaths) {
 		this.gitRepos = repos;
+		this.workspaceFolderPaths = workspaceFolderPaths;
 		this.saveState();
 
 		let newRepo: string;
@@ -292,10 +322,22 @@ export class GitGraphView {
 			this.loadViewTo = null;
 		}
 
+		const loadPathFilter = this.loadViewTo !== null ? this.loadViewTo.pathFilter : undefined;
+		if (typeof loadPathFilter !== 'undefined') {
+			this.gitRepos[newRepo].pathFilter = loadPathFilter;
+			sendMessage({ command: 'setRepoState', repo: newRepo, state: this.gitRepos[newRepo] });
+		}
+
 		if (this.currentRepo !== newRepo) {
 			this.loadRepo(newRepo);
 			return true;
+		} else if (typeof loadPathFilter !== 'undefined') {
+			this.renderPathFilterDropdown();
+			this.maxCommits = this.config.initialLoadCommits;
+			this.refresh(true);
+			return true;
 		} else {
+			this.renderPathFilterDropdown();
 			this.finaliseRepoLoad(false);
 			return false;
 		}
@@ -305,6 +347,8 @@ export class GitGraphView {
 		this.currentRepo = repo;
 		this.currentRepoLoading = true;
 		this.showRemoteBranchesElem.checked = getShowRemoteBranches(this.gitRepos[this.currentRepo].showRemoteBranchesV2);
+		this.simplifyByDecorationElem.checked = getSimplifyByDecoration(this.gitRepos[this.currentRepo].simplifyByDecoration);
+		this.renderPathFilterDropdown();
 		this.maxCommits = this.config.initialLoadCommits;
 		this.gitConfig = null;
 		this.gitRemotes = [];
@@ -313,6 +357,7 @@ export class GitGraphView {
 		this.currentBranches = null;
 		this.renderFetchButton();
 		this.closeCommitDetails(false);
+		this.selectedCommits = [];
 		this.settingsWidget.close();
 		this.saveState();
 		this.refresh(true);
@@ -414,6 +459,9 @@ export class GitGraphView {
 					arraysEqual(a.tags, b.tags, (a, b) => a.name === b.name && a.annotated === b.annotated) &&
 					arraysEqual(a.remotes, b.remotes, (a, b) => a.name === b.name && a.remote === b.remote) &&
 					arraysStrictlyEqual(a.parents, b.parents) &&
+					a.isPathFilterMatch === b.isPathFilterMatch &&
+					((a.signature === null && b.signature === null) ||
+						(a.signature !== null && b.signature !== null && a.signature.status === b.signature.status && a.signature.signer === b.signature.signer && a.signature.key === b.signature.key)) &&
 					((a.stash === null && b.stash === null) || (a.stash !== null && b.stash !== null && a.stash.selector === b.stash.selector))
 			) &&
 			arraysEqual(this.worktrees, worktrees, areWorktreesEqual) &&
@@ -427,7 +475,7 @@ export class GitGraphView {
 					if (this.expandedCommit.compareWithHash === null) {
 						// Commit Details View is open
 						if (this.expandedCommit.commitHash === UNCOMMITTED) {
-							this.requestCommitDetails(this.expandedCommit.commitHash, true);
+							this.requestCommitDetails(this.expandedCommit.commitHash, this.expandedCommit.parentIndex, true);
 						}
 					} else {
 						// Commit Comparison is open
@@ -480,6 +528,7 @@ export class GitGraphView {
 		if (this.expandedCommit !== null && (!expandedCommitVisible || (this.expandedCommit.compareWithHash !== null && !expandedCompareWithCommitVisible))) {
 			this.closeCommitDetails(false);
 		}
+		this.selectedCommits = this.selectedCommits.filter((hash) => typeof this.commitLookup[hash] === 'number');
 
 		this.saveState();
 
@@ -725,6 +774,7 @@ export class GitGraphView {
 
 	private requestLoadCommits() {
 		const repoState = this.gitRepos[this.currentRepo];
+		const pathFilter = this.getPathFilter();
 		sendMessage({
 			command: 'loadCommits',
 			repo: this.currentRepo,
@@ -738,7 +788,10 @@ export class GitGraphView {
 			commitOrdering: getCommitOrdering(repoState.commitOrdering),
 			remotes: this.gitRemotes,
 			hideRemotes: repoState.hideRemotes,
-			stashes: this.gitStashes
+			stashes: this.gitStashes,
+			simplifyByDecoration: pathFilter === null && getSimplifyByDecoration(repoState.simplifyByDecoration),
+			pathFilter: pathFilter,
+			showSignatures: this.getColumnVisibility().signature
 		});
 	}
 
@@ -781,13 +834,14 @@ export class GitGraphView {
 		this.settingsWidget.refresh();
 	}
 
-	public requestCommitDetails(hash: string, refresh: boolean) {
+	public requestCommitDetails(hash: string, parentIndex: number, refresh: boolean) {
 		let commit = this.commits[this.commitLookup[hash]];
 		sendMessage({
 			command: 'commitDetails',
 			repo: this.currentRepo,
 			commitHash: hash,
 			hasParents: commit.parents.length > 0,
+			parentIndex: parentIndex,
 			stash: commit.stash,
 			avatarEmail: this.config.fetchAvatars && hash !== UNCOMMITTED ? commit.email : null,
 			refresh: refresh
@@ -849,6 +903,7 @@ export class GitGraphView {
 			maxCommits: this.maxCommits,
 			onlyFollowFirstParent: this.onlyFollowFirstParent,
 			expandedCommit: expandedCommit,
+			selectedCommits: this.selectedCommits,
 			scrollTop: this.scrollTop,
 			findWidget: this.findWidget.getState(),
 			settingsWidget: this.settingsWidget.getState(),
@@ -862,15 +917,16 @@ export class GitGraphView {
 	}
 
 	private saveColumnWidths(columnWidths: GG.ColumnWidth[]) {
-		this.gitRepos[this.currentRepo].columnWidths = [columnWidths[0], columnWidths[2], columnWidths[3], columnWidths[4]];
+		this.gitRepos[this.currentRepo].columnWidths = [columnWidths[0], columnWidths[2], columnWidths[3], columnWidths[4], columnWidths[5]];
 		this.saveRepoState();
 	}
 
-	private saveExpandedCommitLoading(index: number, commitHash: string, commitElem: HTMLElement, compareWithHash: string | null, compareWithElem: HTMLElement | null) {
+	private saveExpandedCommitLoading(index: number, commitHash: string, commitElem: HTMLElement, compareWithHash: string | null, compareWithElem: HTMLElement | null, parentIndex: number = 1) {
 		this.expandedCommit = {
 			index: index,
 			commitHash: commitHash,
 			commitElem: commitElem,
+			parentIndex: parentIndex,
 			compareWithHash: compareWithHash,
 			compareWithElem: compareWithElem,
 			commitDetails: null,
@@ -890,6 +946,25 @@ export class GitGraphView {
 			}
 		};
 		this.saveState();
+	}
+
+	/**
+	 * Get the path filter of the current repository.
+	 * @returns The path filter, or NULL if the current repository isn't filtered by paths.
+	 */
+	private getPathFilter() {
+		return this.config.showPathFilter ? this.gitRepos[this.currentRepo].pathFilter : null;
+	}
+
+	/**
+	 * Filter the current repository by paths.
+	 * @param pathFilter The comma separated paths to filter by, or NULL to show all commits.
+	 */
+	private setPathFilter(pathFilter: string | null) {
+		this.saveRepoStateValue(this.currentRepo, 'pathFilter', pathFilter);
+		this.renderPathFilterDropdown();
+		this.maxCommits = this.config.initialLoadCommits;
+		this.refresh(true);
 	}
 
 	public saveRepoStateValue<K extends keyof GG.GitRepoState>(repo: string, key: K, value: GG.GitRepoState[K]) {
@@ -948,6 +1023,7 @@ export class GitGraphView {
 			(colVisibility.date ? '<th class="tableColHeader dateCol" data-col="2">Date</th>' : '') +
 			(colVisibility.author ? '<th class="tableColHeader authorCol" data-col="3">Author</th>' : '') +
 			(colVisibility.commit ? '<th class="tableColHeader" data-col="4">Commit</th>' : '') +
+			(colVisibility.signature ? '<th class="tableColHeader signatureCol" data-col="5">Signature</th>' : '') +
 			'</tr>';
 
 		for (let i = 0; i < this.commits.length; i++) {
@@ -1067,7 +1143,8 @@ export class GitGraphView {
 			html +=
 				'<tr class="commit' +
 				(commit.hash === currentHash ? ' current' : '') +
-				(mutedCommits[i] ? ' mute' : '') +
+				(mutedCommits[i] || !commit.isPathFilterMatch ? ' mute' : '') +
+				(this.selectedCommits.includes(commit.hash) ? ' ' + CLASS_COMMIT_SELECTED : '') +
 				'"' +
 				(commit.hash !== UNCOMMITTED ? '' : ' id="uncommittedChanges"') +
 				' data-id="' +
@@ -1096,6 +1173,7 @@ export class GitGraphView {
 						'</td>'
 					: '') +
 				(colVisibility.commit ? '<td class="text" title="' + escapeHtml(commit.hash) + '">' + (uncommittedWorktree !== null ? UNCOMMITTED : abbrevCommit(commit.hash)) + '</td>' : '') +
+				(colVisibility.signature ? '<td class="signatureCol text">' + (commit.signature !== null ? generateSignatureHtml(commit.signature) : '') + '</td>' : '') +
 				'</tr>';
 		}
 		this.tableElem.innerHTML = '<table>' + html + '</table>';
@@ -1127,12 +1205,20 @@ export class GitGraphView {
 				if (expandedCommit.compareWithHash === null) {
 					// Commit Details View is open
 					if (!expandedCommit.loading && expandedCommit.commitDetails !== null && expandedCommit.fileTree !== null) {
-						this.showCommitDetails(expandedCommit.commitDetails, expandedCommit.fileTree, expandedCommit.avatar, expandedCommit.codeReview, expandedCommit.lastViewedFile, true);
+						this.showCommitDetails(
+							expandedCommit.commitDetails,
+							expandedCommit.parentIndex,
+							expandedCommit.fileTree,
+							expandedCommit.avatar,
+							expandedCommit.codeReview,
+							expandedCommit.lastViewedFile,
+							true
+						);
 						if (expandedCommit.commitHash === UNCOMMITTED) {
-							this.requestCommitDetails(expandedCommit.commitHash, true);
+							this.requestCommitDetails(expandedCommit.commitHash, expandedCommit.parentIndex, true);
 						}
 					} else {
-						this.loadCommitDetails(commitElem);
+						this.loadCommitDetails(commitElem, expandedCommit.parentIndex);
 					}
 				} else {
 					// Commit Comparison is open
@@ -1166,7 +1252,8 @@ export class GitGraphView {
 			'</b></td>' +
 			(colVisibility.date ? '<td class="dateCol text" title="' + date.title + '">' + date.formatted + '</td>' : '') +
 			(colVisibility.author ? '<td class="authorCol text" title="* <>">*</td>' : '') +
-			(colVisibility.commit ? '<td class="text" title="*">*</td>' : '');
+			(colVisibility.commit ? '<td class="text" title="*">*</td>' : '') +
+			(colVisibility.signature ? '<td class="signatureCol text"></td>' : '');
 	}
 
 	private renderFetchButton() {
@@ -1316,6 +1403,17 @@ export class GitGraphView {
 		this.worktreesPanelElem.innerHTML = html;
 	}
 
+	private renderPathFilterDropdown() {
+		const pathFilter = this.getPathFilter();
+		const paths = (this.workspaceFolderPaths[this.currentRepo] || []).slice();
+		if (pathFilter !== null && !paths.includes(pathFilter)) paths.push(pathFilter);
+		this.pathFilterDropdown.setOptions([{ name: 'Show All', value: SHOW_ALL_BRANCHES }, ...paths.map((path) => ({ name: path, value: path }))], [pathFilter !== null ? pathFilter : SHOW_ALL_BRANCHES]);
+
+		// Simplify By Decoration can't be combined with a path filter
+		this.simplifyByDecorationElem.disabled = pathFilter !== null;
+		alterClass(document.getElementById('simplifyByDecorationControl')!, CLASS_DISABLED, pathFilter !== null);
+	}
+
 	/* Context Menu Generation */
 
 	private getBranchContextMenuActions(target: DialogTarget & RefTarget): ContextMenuActions {
@@ -1400,6 +1498,7 @@ export class GitGraphView {
 						const multipleRemotes = this.gitRemotes.length > 1;
 						const inputs: DialogInput[] = [
 							{ type: DialogInputType.Checkbox, name: 'Set Upstream', value: true },
+							{ type: DialogInputType.Checkbox, name: 'No Verify', value: false, info: 'Skip the pre-push hook.' },
 							{
 								type: DialogInputType.Radio,
 								name: 'Push Mode',
@@ -1440,7 +1539,8 @@ export class GitGraphView {
 										branchName: refName,
 										remotes: remotes,
 										setUpstream: setUpstream,
-										mode: <GG.GitPushBranchMode>values[1],
+										mode: <GG.GitPushBranchMode>values[2],
+										noVerify: <boolean>values[1],
 										willUpdateBranchConfig:
 											setUpstream &&
 											remotes.length > 0 &&
@@ -1677,6 +1777,13 @@ export class GitGraphView {
 					onClick: () => {
 						runAction({ command: 'commitMessage', repo: this.currentRepo, commitHash: hash }, 'Retrieving Commit Message');
 					}
+				},
+				{
+					title: 'Fixup this Commit',
+					visible: visibility.fixup,
+					onClick: () => {
+						runAction({ command: 'fixupCommit', repo: this.currentRepo, commitHash: hash }, 'Committing Fixup');
+					}
 				}
 			],
 			[
@@ -1805,11 +1912,28 @@ export class GitGraphView {
 									name: 'Squash Commits',
 									value: this.config.dialogDefaults.pullBranch.squash,
 									info: 'Create a single commit on the current branch whose effect is the same as merging this remote branch.'
+								},
+								{
+									type: DialogInputType.Checkbox,
+									name: 'No Verify',
+									value: false,
+									info: 'Skip Git hooks when creating the squash commit. Only applies when "Squash Commits" is enabled.'
 								}
 							],
 							'Yes, pull',
 							(values) => {
-								runAction({ command: 'pullBranch', repo: this.currentRepo, branchName: branchName, remote: remote, createNewCommit: <boolean>values[0], squash: <boolean>values[1] }, 'Pulling Branch');
+								runAction(
+									{
+										command: 'pullBranch',
+										repo: this.currentRepo,
+										branchName: branchName,
+										remote: remote,
+										createNewCommit: <boolean>values[0],
+										squash: <boolean>values[1],
+										noVerify: <boolean>values[2]
+									},
+									'Pulling Branch'
+								);
 							},
 							target
 						);
@@ -1870,6 +1994,59 @@ export class GitGraphView {
 					visible: visibility.copyName,
 					onClick: () => {
 						sendMessage({ command: 'copyToClipboard', type: 'Branch Name', data: refName });
+					}
+				}
+			]
+		];
+	}
+
+	private getSelectedCommitsContextMenuActions(target: DialogTarget & CommitTarget): ContextMenuActions {
+		const visibility = this.config.contextMenuActionsVisibility.commit;
+		const hashes = this.selectedCommits.slice().sort((a, b) => this.commitLookup[a] - this.commitLookup[b]); // Ordered from newest to oldest
+		const rebasePossible = hashes.every((hash) => this.graph.dropCommitPossible(this.commitLookup[hash]));
+		const consecutive = hashes.every((hash, i) => i === 0 || this.commits[this.commitLookup[hashes[i - 1]]].parents[0] === hash);
+		const onlyFollowFirstParentNote = this.onlyFollowFirstParent
+			? '<br/><i>Note: By enabling "Only follow the first parent of commits", some commits may have been hidden from the Git Graph View that could affect the outcome of performing this action.</i>'
+			: '';
+		return [
+			[
+				{
+					title: 'Squash Selected Commits' + ELLIPSIS,
+					visible: visibility.squashSelected && rebasePossible && consecutive,
+					onClick: () => {
+						dialog.showForm(
+							'Are you sure you want to squash the ' +
+								hashes.length +
+								' selected commits (<b><i>' +
+								abbrevCommit(hashes[hashes.length - 1]) +
+								'</i></b> to <b><i>' +
+								abbrevCommit(hashes[0]) +
+								'</i></b>) into a single commit?' +
+								onlyFollowFirstParentNote,
+							[
+								{ type: DialogInputType.TextArea, name: 'Message', default: this.commits[this.commitLookup[hashes[0]]].message, info: 'The message of the squashed commit.' },
+								{ type: DialogInputType.Checkbox, name: 'No Verify', value: false, info: 'Skip the pre-commit and commit-msg hooks when committing the squashed commit.' }
+							],
+							'Yes, squash',
+							(values) => {
+								runAction({ command: 'squashCommits', repo: this.currentRepo, commitHashes: hashes, message: (<string>values[0]).trim(), noVerify: <boolean>values[1] }, 'Squashing Commits');
+							},
+							target
+						);
+					}
+				},
+				{
+					title: 'Drop Selected Commits' + ELLIPSIS,
+					visible: visibility.dropSelected && rebasePossible,
+					onClick: () => {
+						dialog.showConfirmation(
+							'Are you sure you want to permanently drop the ' + hashes.length + ' selected commits?' + onlyFollowFirstParentNote,
+							'Yes, drop',
+							() => {
+								runAction({ command: 'dropCommits', repo: this.currentRepo, commitHashes: hashes }, 'Dropping Commits');
+							},
+							target
+						);
 					}
 				}
 			]
@@ -2458,9 +2635,21 @@ export class GitGraphView {
 				{ type: DialogInputType.Checkbox, name: 'Create a new commit even if fast-forward is possible', value: this.config.dialogDefaults.merge.noFastForward },
 				{
 					type: DialogInputType.Checkbox,
+					name: 'Allow unrelated histories',
+					value: this.config.dialogDefaults.merge.allowUnrelatedHistories,
+					info: 'Allow merging branches from two completely different repositories or branches.'
+				},
+				{
+					type: DialogInputType.Checkbox,
 					name: 'Squash Commits',
 					value: this.config.dialogDefaults.merge.squash,
 					info: 'Create a single commit on the current branch whose effect is the same as merging this ' + actionOn.toLowerCase() + '.'
+				},
+				{
+					type: DialogInputType.Checkbox,
+					name: 'No Verify',
+					value: false,
+					info: 'Skip Git hooks when creating the squash commit. Only applies when "Squash Commits" is enabled.'
 				},
 				{
 					type: DialogInputType.Checkbox,
@@ -2472,7 +2661,17 @@ export class GitGraphView {
 			'Yes, merge',
 			(values) => {
 				runAction(
-					{ command: 'merge', repo: this.currentRepo, obj: obj, actionOn: actionOn, createNewCommit: <boolean>values[0], squash: <boolean>values[1], noCommit: <boolean>values[2] },
+					{
+						command: 'merge',
+						repo: this.currentRepo,
+						obj: obj,
+						actionOn: actionOn,
+						createNewCommit: <boolean>values[0],
+						allowUnrelatedHistories: <boolean>values[1],
+						squash: <boolean>values[2],
+						noVerify: <boolean>values[3],
+						noCommit: <boolean>values[4]
+					},
 					'Merging ' + actionOn
 				);
 			},
@@ -2490,16 +2689,31 @@ export class GitGraphView {
 				escapeHtml(name) +
 				'</i></b>?',
 			[
-				{ type: DialogInputType.Checkbox, name: 'Launch Interactive Rebase in new Terminal', value: this.config.dialogDefaults.rebase.interactive },
+				{
+					type: DialogInputType.Radio,
+					name: 'Mode',
+					options: [
+						{ name: 'Rebase', value: 'rebase' },
+						{ name: 'Interactive Rebase (Todo Editor)', value: 'todoEditor' },
+						{ name: 'Interactive Rebase (New Terminal)', value: 'terminal' }
+					],
+					default: this.config.dialogDefaults.rebase.interactive ? 'terminal' : 'rebase'
+				},
+				{ type: DialogInputType.Checkbox, name: 'Auto-squash', value: this.config.dialogDefaults.rebase.autosquash, info: 'Only applicable to an interactive rebase.' },
 				{ type: DialogInputType.Checkbox, name: 'Ignore Date', value: this.config.dialogDefaults.rebase.ignoreDate, info: 'Only applicable to a non-interactive rebase.' }
 			],
 			'Yes, rebase',
 			(values) => {
-				let interactive = <boolean>values[0];
-				runAction(
-					{ command: 'rebase', repo: this.currentRepo, obj: obj, actionOn: actionOn, ignoreDate: <boolean>values[1], interactive: interactive },
-					interactive ? 'Launching Interactive Rebase' : 'Rebasing on ' + actionOn
-				);
+				const mode = <string>values[0];
+				if (mode === 'todoEditor') {
+					runAction({ command: 'rebaseTodoList', repo: this.currentRepo, obj: obj, actionOn: actionOn, autosquash: <boolean>values[1] }, 'Loading Rebase Todo List');
+				} else {
+					const interactive = mode === 'terminal';
+					runAction(
+						{ command: 'rebase', repo: this.currentRepo, obj: obj, actionOn: actionOn, ignoreDate: <boolean>values[2], interactive: interactive, autosquash: <boolean>values[1] },
+						interactive ? 'Launching Interactive Rebase' : 'Rebasing on ' + actionOn
+					);
+				}
 			},
 			target
 		);
@@ -2722,6 +2936,127 @@ export class GitGraphView {
 		);
 	}
 
+	public showRebaseTodoEditor(obj: string, actionOn: GG.RebaseActionOn, entries: ReadonlyArray<GG.RebaseTodoEntry>) {
+		const actions = [GG.RebaseTodoAction.Pick, GG.RebaseTodoAction.Reword, GG.RebaseTodoAction.Edit, GG.RebaseTodoAction.Squash, GG.RebaseTodoAction.Fixup, GG.RebaseTodoAction.Drop];
+		// The message of a squashed commit is added to the message of the commit it's squashed into, excluding any "squash!" / "fixup!" subject
+		const getDefaultMessage = (entry: GG.RebaseTodoEntry, action: GG.RebaseTodoAction) => (action === GG.RebaseTodoAction.Squash ? entry.message.replace(/^(fixup|squash)! .*\n*/, '') : entry.message);
+		const entriesHtml = entries.map(
+			(entry, index) =>
+				'<div class="rebaseTodoEntry" data-index="' +
+				index +
+				'"><div class="rebaseTodoRow"><span class="rebaseTodoDragHandle" title="Drag to reorder">&#x2630;</span><select class="rebaseTodoAction">' +
+				actions.map((action) => '<option value="' + action + '"' + (action === entry.action ? ' selected' : '') + '>' + action + '</option>').join('') +
+				'</select><span class="rebaseTodoHash">' +
+				abbrevCommit(entry.hash) +
+				'</span><span class="rebaseTodoSubject">' +
+				escapeHtml(entry.message.split('\n')[0]) +
+				'</span></div><textarea class="rebaseTodoMessage" rows="3" placeholder="Commit Message">' +
+				escapeHtml(getDefaultMessage(entry, entry.action)) +
+				'</textarea></div>'
+		);
+
+		let todo: GG.RebaseTodoEntry[] = [];
+		dialog.showForm(
+			'Edit the todo list for rebasing ' +
+				(this.gitBranchHead !== null ? '<b><i>' + escapeHtml(this.gitBranchHead) + '</i></b> (the current branch)' : 'the current branch') +
+				' on ' +
+				actionOn.toLowerCase() +
+				' <b><i>' +
+				escapeHtml(actionOn === GG.RebaseActionOn.Branch ? obj : abbrevCommit(obj)) +
+				'</i></b>. The commits are applied from top to bottom, drag them to change their order.' +
+				'<div id="rebaseTodoEditor">' +
+				(entries.length > 0 ? entriesHtml.join('') : '<i>There are no commits to rebase.</i>') +
+				'</div>',
+			[],
+			'Yes, rebase',
+			() => {
+				runAction({ command: 'rebaseWithTodo', repo: this.currentRepo, obj: obj, actionOn: actionOn, entries: todo }, 'Rebasing on ' + actionOn);
+			},
+			null,
+			'Cancel',
+			null,
+			false
+		);
+
+		const editorElem = document.getElementById('rebaseTodoEditor')!,
+			dialogElem = <HTMLElement>editorElem.closest('.dialog'),
+			dialogActionElem = document.getElementById('dialogAction')!,
+			entryElems = <HTMLCollectionOf<HTMLElement>>editorElem.getElementsByClassName('rebaseTodoEntry'),
+			editedMessages: boolean[] = entries.map(() => false);
+
+		// Update the todo list (and its validity) from the editor
+		const updateTodo = () => {
+			let picked = false,
+				invalid: string | null = null;
+			todo = [];
+			for (let i = 0; i < entryElems.length; i++) {
+				const index = parseInt(entryElems[i].dataset.index!),
+					action = <GG.RebaseTodoAction>(<HTMLSelectElement>entryElems[i].getElementsByClassName('rebaseTodoAction')[0]).value,
+					message = (<HTMLTextAreaElement>entryElems[i].getElementsByClassName('rebaseTodoMessage')[0]).value;
+				let entryInvalid = false;
+				if (action === GG.RebaseTodoAction.Squash || action === GG.RebaseTodoAction.Fixup) {
+					entryInvalid = !picked;
+					if (entryInvalid && invalid === null) invalid = "The first commit (that isn't dropped) can't be squashed or fixed up, as there is no commit before it to meld it into.";
+				} else if (action !== GG.RebaseTodoAction.Drop) {
+					picked = true;
+					if (action === GG.RebaseTodoAction.Reword && message.trim() === '') {
+						entryInvalid = true;
+						if (invalid === null) invalid = "The message of a reworded commit can't be empty.";
+					}
+				}
+				entryElems[i].dataset.action = action;
+				alterClass(entryElems[i], 'rebaseTodoInvalid', entryInvalid);
+				todo.push({ hash: entries[index].hash, action: action, message: action === GG.RebaseTodoAction.Reword || action === GG.RebaseTodoAction.Squash ? message : entries[index].message });
+			}
+			alterClass(dialogElem, 'inputInvalid', invalid !== null); // Prevents the dialog from being actioned
+			dialogActionElem.title = invalid !== null ? invalid : '';
+		};
+
+		for (let i = 0; i < entryElems.length; i++) {
+			const entryElem = entryElems[i],
+				index = parseInt(entryElem.dataset.index!),
+				actionElem = <HTMLSelectElement>entryElem.getElementsByClassName('rebaseTodoAction')[0],
+				messageElem = <HTMLTextAreaElement>entryElem.getElementsByClassName('rebaseTodoMessage')[0];
+			actionElem.addEventListener('change', () => {
+				if (!editedMessages[index]) messageElem.value = getDefaultMessage(entries[index], <GG.RebaseTodoAction>actionElem.value);
+				updateTodo();
+			});
+			messageElem.addEventListener('input', () => {
+				editedMessages[index] = true;
+				updateTodo();
+			});
+
+			// Reorder the entries by dragging them by their handle
+			entryElem.getElementsByClassName('rebaseTodoDragHandle')[0].addEventListener('mousedown', (e) => {
+				e.preventDefault();
+				alterClass(entryElem, 'rebaseTodoDragging', true);
+				const onMouseMove = (moveEvent: MouseEvent) => {
+					let insertBeforeElem: HTMLElement | null = null;
+					for (let j = 0; j < entryElems.length; j++) {
+						if (entryElems[j] === entryElem) continue;
+						const rect = entryElems[j].getBoundingClientRect();
+						if (moveEvent.clientY < rect.top + rect.height / 2) {
+							insertBeforeElem = entryElems[j];
+							break;
+						}
+					}
+					if (insertBeforeElem !== entryElem.nextElementSibling) {
+						editorElem.insertBefore(entryElem, insertBeforeElem);
+						updateTodo();
+					}
+				};
+				const onMouseUp = () => {
+					document.removeEventListener('mousemove', onMouseMove);
+					document.removeEventListener('mouseup', onMouseUp);
+					alterClass(entryElem, 'rebaseTodoDragging', false);
+				};
+				document.addEventListener('mousemove', onMouseMove);
+				document.addEventListener('mouseup', onMouseUp);
+			});
+		}
+		updateTodo();
+	}
+
 	/* Table Utils */
 
 	private makeTableResizable() {
@@ -2753,10 +3088,18 @@ export class GitGraphView {
 		if (cWidths === null) {
 			// Initialise auto column layout if it is the first time viewing the repo.
 			let defaults = this.config.defaultColumnVisibility;
-			columnWidths = [COLUMN_AUTO, COLUMN_AUTO, defaults.date ? COLUMN_AUTO : COLUMN_HIDDEN, defaults.author ? COLUMN_AUTO : COLUMN_HIDDEN, defaults.commit ? COLUMN_AUTO : COLUMN_HIDDEN];
+			columnWidths = [
+				COLUMN_AUTO,
+				COLUMN_AUTO,
+				defaults.date ? COLUMN_AUTO : COLUMN_HIDDEN,
+				defaults.author ? COLUMN_AUTO : COLUMN_HIDDEN,
+				defaults.commit ? COLUMN_AUTO : COLUMN_HIDDEN,
+				defaults.signature ? COLUMN_AUTO : COLUMN_HIDDEN
+			];
 			this.saveColumnWidths(columnWidths);
 		} else {
-			columnWidths = [cWidths[0], COLUMN_AUTO, cWidths[1], cWidths[2], cWidths[3]];
+			// The Signature column is hidden for repositories with column widths saved before it existed
+			columnWidths = [cWidths[0], COLUMN_AUTO, cWidths[1], cWidths[2], cWidths[3], cWidths.length > 4 ? cWidths[4] : COLUMN_HIDDEN];
 		}
 
 		if (columnWidths[0] !== COLUMN_AUTO) {
@@ -2873,6 +3216,16 @@ export class GitGraphView {
 							visible: true,
 							checked: columnWidths[4] !== COLUMN_HIDDEN,
 							onClick: () => toggleColumnState(4, 80)
+						},
+						{
+							title: 'Signature',
+							visible: true,
+							checked: columnWidths[5] !== COLUMN_HIDDEN,
+							onClick: () => {
+								toggleColumnState(5, 80);
+								// The signature status of commits is only loaded while the column is visible
+								if (columnWidths[5] !== COLUMN_HIDDEN) this.refresh(false);
+							}
 						}
 					],
 					[
@@ -2907,16 +3260,21 @@ export class GitGraphView {
 	public getColumnVisibility() {
 		let colWidths = this.gitRepos[this.currentRepo].columnWidths;
 		if (colWidths !== null) {
-			return { date: colWidths[1] !== COLUMN_HIDDEN, author: colWidths[2] !== COLUMN_HIDDEN, commit: colWidths[3] !== COLUMN_HIDDEN };
+			return {
+				date: colWidths[1] !== COLUMN_HIDDEN,
+				author: colWidths[2] !== COLUMN_HIDDEN,
+				commit: colWidths[3] !== COLUMN_HIDDEN,
+				signature: colWidths.length > 4 && colWidths[4] !== COLUMN_HIDDEN
+			};
 		} else {
 			let defaults = this.config.defaultColumnVisibility;
-			return { date: defaults.date, author: defaults.author, commit: defaults.commit };
+			return { date: defaults.date, author: defaults.author, commit: defaults.commit, signature: defaults.signature };
 		}
 	}
 
 	private getNumColumns() {
 		let colVisibility = this.getColumnVisibility();
-		return 2 + (colVisibility.date ? 1 : 0) + (colVisibility.author ? 1 : 0) + (colVisibility.commit ? 1 : 0);
+		return 2 + (colVisibility.date ? 1 : 0) + (colVisibility.author ? 1 : 0) + (colVisibility.commit ? 1 : 0) + (colVisibility.signature ? 1 : 0);
 	}
 
 	/**
@@ -2955,9 +3313,10 @@ export class GitGraphView {
 		const elem = findCommitElemWithId(getCommitElems(), this.getCommitId(hash));
 		if (elem === null) return;
 
-		let elemTop = this.controlsElem.clientHeight + elem.offsetTop;
-		if (alwaysCenterCommit || elemTop - 8 < this.viewElem.scrollTop || elemTop + 32 - this.viewElem.clientHeight > this.viewElem.scrollTop) {
-			this.viewElem.scroll(0, this.controlsElem.clientHeight + elem.offsetTop + 12 - this.viewElem.clientHeight / 2);
+		let elemTop = this.controlsElem.clientHeight + elem.offsetTop,
+			stickyHeaderHeight = getStickyHeaderHeight();
+		if (alwaysCenterCommit || elemTop - 8 - stickyHeaderHeight < this.viewElem.scrollTop || elemTop + 32 - this.viewElem.clientHeight > this.viewElem.scrollTop) {
+			this.viewElem.scroll(0, this.controlsElem.clientHeight + elem.offsetTop + 12 - (this.viewElem.clientHeight + stickyHeaderHeight) / 2);
 		}
 
 		if (flash && !elem.classList.contains('flash')) {
@@ -2988,6 +3347,19 @@ export class GitGraphView {
 				windowHeight = window.outerHeight;
 			}
 		});
+	}
+
+	private observeStickyHeaderSize() {
+		if (!this.config.stickyHeader) return;
+
+		// The column headers stick beneath the Control Bar, whose height changes when its controls wrap onto multiple lines
+		const observer = new ResizeObserver(() => {
+			document.body.style.setProperty(CSS_PROP_CONTROLS_HEIGHT, this.controlsElem.offsetHeight + 'px');
+			this.scrollShadowElem.style.top = getStickyHeaderHeight() + 'px';
+			this.scrollShadowElem.style.width = this.controlsElem.offsetWidth + 'px';
+		});
+		observer.observe(this.controlsElem);
+		observer.observe(this.tableElem);
 	}
 
 	private observeWebviewStyleChanges() {
@@ -3110,7 +3482,10 @@ export class GitGraphView {
 				if (newHashIndex > -1) {
 					handledEvent(e);
 					const elem = findCommitElemWithId(getCommitElems(), newHashIndex);
-					if (elem !== null) this.loadCommitDetails(elem);
+					if (elem !== null) {
+						this.setSelectedCommits([]);
+						this.loadCommitDetails(elem);
+					}
 				}
 			} else if (e.key && (e.ctrlKey || e.metaKey)) {
 				const key = e.key.toLowerCase(),
@@ -3143,8 +3518,9 @@ export class GitGraphView {
 				} else if (this.findWidget.isVisible()) {
 					this.findWidget.close();
 					handledEvent(e);
-				} else if (this.expandedCommit !== null) {
+				} else if (this.expandedCommit !== null || this.selectedCommits.length > 0) {
 					this.closeCommitDetails(true);
+					this.setSelectedCommits([]);
 					handledEvent(e);
 				}
 			}
@@ -3175,6 +3551,7 @@ export class GitGraphView {
 			const isExternalUrl = isExternalUrlElem(eventTarget),
 				isInternalUrl = isInternalUrlElem(eventTarget);
 			if (isExternalUrl || isInternalUrl) {
+				const parentIndex = typeof (<HTMLElement>eventTarget).dataset.parent === 'string' ? parseInt((<HTMLElement>eventTarget).dataset.parent!) : null;
 				const viewElem: HTMLElement | null = eventTarget.closest('#view');
 				let eventElem: HTMLElement | null;
 
@@ -3225,6 +3602,13 @@ export class GitGraphView {
 								onClick: () => followInternalLink(e)
 							},
 							{
+								title: 'View Changes with this Parent',
+								visible: parentIndex !== null && this.expandedCommit !== null && parentIndex !== this.expandedCommit.parentIndex,
+								onClick: () => {
+									if (this.expandedCommit !== null && this.expandedCommit.commitElem !== null) this.loadCommitDetails(this.expandedCommit.commitElem, parentIndex!);
+								}
+							},
+							{
 								title: 'Copy URL to Clipboard',
 								visible: isExternalUrl,
 								onClick: () => {
@@ -3264,24 +3648,33 @@ export class GitGraphView {
 				}
 			} else if ((eventElem = eventTarget.closest('.commit')) !== null) {
 				// .commit was clicked
-				if (this.expandedCommit !== null) {
+				if (e.ctrlKey || e.metaKey || e.shiftKey) {
 					const commit = this.getCommitOfElem(eventElem);
 					if (commit === null) return;
 
+					this.selectCommit(commit.hash, e.shiftKey);
+				} else if (this.expandedCommit !== null) {
+					const commit = this.getCommitOfElem(eventElem);
+					if (commit === null) return;
+
+					this.setSelectedCommits([]);
 					if (this.expandedCommit.commitHash === commit.hash) {
 						this.closeCommitDetails(true);
-					} else if ((<MouseEvent>e).ctrlKey || (<MouseEvent>e).metaKey) {
-						if (this.expandedCommit.compareWithHash === commit.hash) {
-							this.closeCommitComparison(true);
-						} else if (this.expandedCommit.commitElem !== null) {
-							this.loadCommitComparison(this.expandedCommit.commitElem, eventElem);
-						}
 					} else {
 						this.loadCommitDetails(eventElem);
 					}
 				} else {
+					this.setSelectedCommits([]);
 					this.loadCommitDetails(eventElem);
 				}
+			}
+		});
+
+		// Register Mouse Down Event Handler
+		this.tableElem.addEventListener('mousedown', (e: MouseEvent) => {
+			if (e.shiftKey && e.target !== null && (<Element>e.target).closest('.commit') !== null) {
+				// Prevent Shift + Click from selecting the text between the commits, as it's used to select a range of commits
+				e.preventDefault();
 			}
 		});
 
@@ -3407,6 +3800,8 @@ export class GitGraphView {
 				} else if (commit.stash !== null) {
 					target.ref = commit.stash.selector;
 					actions = this.getStashContextMenuActions(<RefTarget>target);
+				} else if (this.selectedCommits.length > 1 && this.selectedCommits.includes(commit.hash)) {
+					actions = this.getSelectedCommitsContextMenuActions(target);
 				} else {
 					actions = this.getCommitContextMenuActions(target);
 				}
@@ -3454,17 +3849,79 @@ export class GitGraphView {
 		});
 	}
 
+	/* Commit Selection */
+
+	/**
+	 * Update the selected commits after a commit was clicked while holding Ctrl / Cmd or Shift, and update the Commit Details View
+	 * to match them: the details of one selected commit are shown, two selected commits are compared, and otherwise it's closed.
+	 * @param hash The hash of the commit that was clicked.
+	 * @param selectRange TRUE => Select the range of commits from the first selected commit to the clicked commit, FALSE => Toggle whether the clicked commit is selected.
+	 */
+	private selectCommit(hash: string, selectRange: boolean) {
+		let selectedCommits = this.selectedCommits.slice();
+		if (selectedCommits.length === 0 && this.expandedCommit !== null) {
+			// Start the selection with the commit(s) shown in the Commit Details View
+			selectedCommits.push(this.expandedCommit.commitHash);
+			if (this.expandedCommit.compareWithHash !== null) selectedCommits.push(this.expandedCommit.compareWithHash);
+		}
+
+		if (selectRange && selectedCommits.length > 0) {
+			const anchorIndex = this.commitLookup[selectedCommits[0]],
+				index = this.commitLookup[hash],
+				step = index < anchorIndex ? -1 : 1;
+			selectedCommits = [];
+			for (let i = anchorIndex; i !== index + step; i += step) {
+				selectedCommits.push(this.commits[i].hash);
+			}
+		} else if (selectedCommits.includes(hash)) {
+			selectedCommits = selectedCommits.filter((selectedHash) => selectedHash !== hash);
+		} else {
+			selectedCommits.push(hash);
+		}
+		this.setSelectedCommits(selectedCommits);
+
+		const commitElems = getCommitElems();
+		const commitElem = selectedCommits.length > 0 ? findCommitElemWithId(commitElems, this.getCommitId(selectedCommits[0])) : null;
+		const compareWithElem = selectedCommits.length === 2 ? findCommitElemWithId(commitElems, this.getCommitId(selectedCommits[1])) : null;
+		if (selectedCommits.length === 1 && commitElem !== null) {
+			if (this.expandedCommit !== null && this.expandedCommit.commitHash === selectedCommits[0]) {
+				this.closeCommitComparison(true);
+			} else {
+				this.loadCommitDetails(commitElem);
+			}
+		} else if (commitElem !== null && compareWithElem !== null) {
+			this.loadCommitComparison(commitElem, compareWithElem);
+		} else {
+			this.closeCommitDetails(true);
+		}
+	}
+
+	/**
+	 * Set the selected commits, and update which commits are highlighted as selected.
+	 * @param selectedCommits The hashes of the selected commits.
+	 */
+	private setSelectedCommits(selectedCommits: string[]) {
+		if (this.selectedCommits.length === 0 && selectedCommits.length === 0) return;
+
+		this.selectedCommits = selectedCommits;
+		const commitElems = getCommitElems();
+		for (let i = 0; i < commitElems.length; i++) {
+			alterClass(commitElems[i], CLASS_COMMIT_SELECTED, selectedCommits.includes(this.commits[parseInt(commitElems[i].dataset.id!)].hash));
+		}
+		this.saveState();
+	}
+
 	/* Commit Details View */
 
-	public loadCommitDetails(commitElem: HTMLElement) {
+	public loadCommitDetails(commitElem: HTMLElement, parentIndex: number = 1) {
 		const commit = this.getCommitOfElem(commitElem);
 		if (commit === null || commit.hash.startsWith(UNCOMMITTED_WORKTREE_PREFIX)) return;
 
 		this.closeCommitDetails(false);
-		this.saveExpandedCommitLoading(parseInt(commitElem.dataset.id!), commit.hash, commitElem, null, null);
+		this.saveExpandedCommitLoading(parseInt(commitElem.dataset.id!), commit.hash, commitElem, null, null, parentIndex);
 		commitElem.classList.add(CLASS_COMMIT_DETAILS_OPEN);
 		this.renderCommitDetailsView(false);
-		this.requestCommitDetails(commit.hash, false);
+		this.requestCommitDetails(commit.hash, parentIndex, false);
 	}
 
 	public closeCommitDetails(saveAndRender: boolean) {
@@ -3495,9 +3952,24 @@ export class GitGraphView {
 		}
 	}
 
-	public showCommitDetails(commitDetails: GG.GitCommitDetails, fileTree: FileTreeFolder, avatar: string | null, codeReview: GG.CodeReview | null, lastViewedFile: string | null, refresh: boolean) {
+	public showCommitDetails(
+		commitDetails: GG.GitCommitDetails,
+		parentIndex: number,
+		fileTree: FileTreeFolder,
+		avatar: string | null,
+		codeReview: GG.CodeReview | null,
+		lastViewedFile: string | null,
+		refresh: boolean
+	) {
 		const expandedCommit = this.expandedCommit;
-		if (expandedCommit === null || expandedCommit.commitElem === null || expandedCommit.commitHash !== commitDetails.hash || expandedCommit.compareWithHash !== null) return;
+		if (
+			expandedCommit === null ||
+			expandedCommit.commitElem === null ||
+			expandedCommit.commitHash !== commitDetails.hash ||
+			expandedCommit.compareWithHash !== null ||
+			expandedCommit.parentIndex !== parentIndex
+		)
+			return;
 
 		if (!this.isCdvDocked()) {
 			const elem = document.getElementById('cdv');
@@ -3527,6 +3999,7 @@ export class GitGraphView {
 			i,
 			j,
 			path,
+			key,
 			absPath,
 			cur: FileTreeFolder;
 		let files: FileTreeFolder = { type: 'folder', name: '', folderPath: '', contents: contents, open: true, reviewed: true };
@@ -3536,20 +4009,21 @@ export class GitGraphView {
 			path = gitFiles[i].newFilePath.split('/');
 			absPath = this.currentRepo;
 			for (j = 0; j < path.length; j++) {
+				key = getFileTreeKey(path[j]);
 				absPath += '/' + path[j];
 				if (typeof this.gitRepos[absPath] !== 'undefined') {
-					if (typeof cur.contents[path[j]] === 'undefined') {
-						cur.contents[path[j]] = { type: 'repo', name: path[j], path: absPath };
+					if (typeof cur.contents[key] === 'undefined') {
+						cur.contents[key] = { type: 'repo', name: path[j], path: absPath };
 					}
 					break;
 				} else if (j < path.length - 1) {
-					if (typeof cur.contents[path[j]] === 'undefined') {
+					if (typeof cur.contents[key] === 'undefined') {
 						contents = {};
-						cur.contents[path[j]] = { type: 'folder', name: path[j], folderPath: absPath.substring(this.currentRepo.length + 1), contents: contents, open: true, reviewed: true };
+						cur.contents[key] = { type: 'folder', name: path[j], folderPath: absPath.substring(this.currentRepo.length + 1), contents: contents, open: true, reviewed: true };
 					}
-					cur = <FileTreeFolder>cur.contents[path[j]];
+					cur = <FileTreeFolder>cur.contents[key];
 				} else if (path[j] !== '') {
-					cur.contents[path[j]] = { type: 'file', name: path[j], index: i, reviewed: codeReview === null || !codeReview.remainingFiles.includes(gitFiles[i].newFilePath) };
+					cur.contents[key] = { type: 'file', name: path[j], index: i, reviewed: codeReview === null || !codeReview.remainingFiles.includes(gitFiles[i].newFilePath) };
 				}
 			}
 		}
@@ -3592,7 +4066,7 @@ export class GitGraphView {
 			if (expandedCommit.commitElem !== null) {
 				this.saveExpandedCommitLoading(expandedCommit.index, expandedCommit.commitHash, expandedCommit.commitElem, null, null);
 				this.renderCommitDetailsView(false);
-				this.requestCommitDetails(expandedCommit.commitHash, false);
+				this.requestCommitDetails(expandedCommit.commitHash, 1, false);
 			} else {
 				this.closeCommitDetails(true);
 			}
@@ -3645,8 +4119,9 @@ export class GitGraphView {
 			html = '<div id="cdvContent">',
 			isDocked = this.isCdvDocked();
 		const commitOrder = this.getCommitOrder(expandedCommit.commitHash, expandedCommit.compareWithHash === null ? expandedCommit.commitHash : expandedCommit.compareWithHash);
-		const codeReviewPossible = !expandedCommit.loading && commitOrder.to !== UNCOMMITTED;
+		const codeReviewPossible = !expandedCommit.loading && commitOrder.to !== UNCOMMITTED && expandedCommit.parentIndex === 1;
 		const externalDiffPossible = !expandedCommit.loading && (expandedCommit.compareWithHash !== null || this.commits[this.commitLookup[expandedCommit.commitHash]].parents.length > 0);
+		const diffParents = this.getCdvDiffParents(expandedCommit);
 
 		if (elem === null) {
 			elem = document.createElement(isDocked ? 'div' : 'tr');
@@ -3684,11 +4159,22 @@ export class GitGraphView {
 					const parents =
 						commitDetails.parents.length > 0
 							? commitDetails.parents
-									.map((parent) => {
+									.map((parent, i) => {
 										const escapedParent = escapeHtml(parent);
-										return typeof this.commitLookup[parent] === 'number'
-											? '<span class="' + CLASS_INTERNAL_URL + '" data-type="commit" data-value="' + escapedParent + '" tabindex="-1">' + escapedParent + '</span>'
-											: escapedParent;
+										const isDiffParent = diffParents.length > 1 && diffParents[i] === parent;
+										const parentHtml =
+											typeof this.commitLookup[parent] === 'number'
+												? '<span class="' +
+													CLASS_INTERNAL_URL +
+													'" data-type="commit" data-value="' +
+													escapedParent +
+													'"' +
+													(isDiffParent ? ' data-parent="' + (i + 1) + '"' : '') +
+													' tabindex="-1">' +
+													escapedParent +
+													'</span>'
+												: escapedParent;
+										return isDiffParent && i + 1 === expandedCommit.parentIndex ? '<b>' + parentHtml + '</b>' : parentHtml;
 									})
 									.join(', ')
 							: 'None';
@@ -3756,33 +4242,36 @@ export class GitGraphView {
 					'</div>'
 				: '') +
 			(externalDiffPossible ? '<div id="cdvExternalDiff" class="cdvControlBtn">' + SVG_ICONS.linkExternal + '</div>' : '') +
+			(diffParents.length > 1 ? '<div id="cdvChooseParent" class="cdvControlBtn" title="View Changes with an Alternate Parent' + ELLIPSIS + '">' + SVG_ICONS.merge + '</div>' : '') +
 			'</div><div class="cdvHeightResize"></div>';
 
 		elem.innerHTML = isDocked ? html : '<td><div class="cdvHeightResize"></div></td><td colspan="' + (this.getNumColumns() - 1) + '">' + html + '</td>';
 		if (!expandedCommit.loading) this.setCdvDivider();
 		if (!isDocked) this.renderGraph();
 
-		if (!refresh) {
+		if (!refresh && this.config.commitDetailsView.autoScroll) {
 			if (isDocked) {
-				let elemTop = this.controlsElem.clientHeight + expandedCommit.commitElem.offsetTop;
-				if (elemTop - 8 < this.viewElem.scrollTop) {
+				let elemTop = this.controlsElem.clientHeight + expandedCommit.commitElem.offsetTop,
+					stickyHeaderHeight = getStickyHeaderHeight();
+				if (elemTop - 8 - stickyHeaderHeight < this.viewElem.scrollTop) {
 					// Commit is above what is visible on screen
-					this.viewElem.scroll(0, elemTop - 8);
+					this.viewElem.scroll(0, elemTop - 8 - stickyHeaderHeight);
 				} else if (elemTop - this.viewElem.clientHeight + 32 > this.viewElem.scrollTop) {
 					// Commit is below what is visible on screen
 					this.viewElem.scroll(0, elemTop - this.viewElem.clientHeight + 32);
 				}
 			} else {
 				let elemTop = this.controlsElem.clientHeight + elem.offsetTop,
-					cdvHeight = this.gitRepos[this.currentRepo].cdvHeight;
+					cdvHeight = this.gitRepos[this.currentRepo].cdvHeight,
+					stickyHeaderHeight = getStickyHeaderHeight();
 				if (this.config.commitDetailsView.autoCenter) {
 					// Center Commit Detail View setting is enabled
-					// elemTop - commit height [24px] + (commit details view height + commit height [24px]) / 2 - (view height) / 2
-					this.viewElem.scroll(0, elemTop - 12 + (cdvHeight - this.viewElem.clientHeight) / 2);
-				} else if (elemTop - 32 < this.viewElem.scrollTop) {
+					// elemTop - commit height [24px] + (commit details view height + commit height [24px]) / 2 - (view height + sticky header height) / 2
+					this.viewElem.scroll(0, elemTop - 12 + (cdvHeight - this.viewElem.clientHeight - stickyHeaderHeight) / 2);
+				} else if (elemTop - 32 - stickyHeaderHeight < this.viewElem.scrollTop) {
 					// Commit Detail View is opening above what is visible on screen
-					// elemTop - commit height [24px] - desired gap from top [8px] < view scroll offset
-					this.viewElem.scroll(0, elemTop - 32);
+					// elemTop - commit height [24px] - desired gap from top [8px] - sticky header height < view scroll offset
+					this.viewElem.scroll(0, elemTop - 32 - stickyHeaderHeight);
 				} else if (elemTop + cdvHeight - this.viewElem.clientHeight + 8 > this.viewElem.scrollTop) {
 					// Commit Detail View is opening below what is visible on screen
 					// elemTop + commit details view height + desired gap from bottom [8px] - view height > view scroll offset
@@ -3872,11 +4361,40 @@ export class GitGraphView {
 						{
 							command: 'openExternalDirDiff',
 							repo: this.currentRepo,
-							fromHash: commitOrder.from,
+							fromHash: expandedCommit.parentIndex > 1 ? expandedCommit.commitDetails!.parents[expandedCommit.parentIndex - 1] : commitOrder.from,
 							toHash: commitOrder.to,
 							isGui: this.gitConfig.guiDiffTool !== null
 						},
 						'Opening External Directory Diff'
+					);
+				});
+			}
+
+			if (diffParents.length > 1) {
+				document.getElementById('cdvChooseParent')!.addEventListener('click', (e) => {
+					const expandedCommit = this.expandedCommit;
+					if (expandedCommit === null || expandedCommit.commitElem === null) return;
+					handledEvent(e);
+
+					const target: ContextMenuTarget & CommitTarget = {
+						type: TargetType.CommitDetailsView,
+						hash: expandedCommit.commitHash,
+						index: this.commitLookup[expandedCommit.commitHash],
+						elem: <HTMLElement>e.currentTarget
+					};
+					contextMenu.show(
+						[
+							diffParents.map((parent, i) => ({
+								title: escapeHtml(abbrevCommit(parent) + (typeof this.commitLookup[parent] === 'number' ? ': ' + this.commits[this.commitLookup[parent]].message : '')),
+								visible: true,
+								checked: i + 1 === expandedCommit.parentIndex,
+								onClick: () => this.loadCommitDetails(expandedCommit.commitElem!, i + 1)
+							}))
+						],
+						true,
+						target,
+						e,
+						this.isCdvDocked() ? document.body : this.viewElem
 					);
 				});
 			}
@@ -4047,6 +4565,17 @@ export class GitGraphView {
 		}
 	}
 
+	/**
+	 * Get the parents of the commit open in the Commit Details View, that its changes can be viewed against.
+	 * @param expandedCommit The expanded commit.
+	 * @returns The hashes of the parents. A stash's untracked files commit is excluded, as its files are always listed as untracked files.
+	 */
+	private getCdvDiffParents(expandedCommit: ExpandedCommit) {
+		if (expandedCommit.compareWithHash !== null || expandedCommit.commitDetails === null) return [];
+		const stash = this.commits[this.commitLookup[expandedCommit.commitHash]].stash;
+		return expandedCommit.commitDetails.parents.filter((parent) => stash === null || parent !== stash.untrackedFilesHash);
+	}
+
 	private getFileViewType() {
 		return this.gitRepos[this.currentRepo].fileViewType === GG.FileViewType.Default ? this.config.commitDetailsView.fileViewType : this.gitRepos[this.currentRepo].fileViewType;
 	}
@@ -4110,9 +4639,13 @@ export class GitGraphView {
 					toHash = commit.stash.untrackedFilesHash!;
 					fileStatus = GG.GitFileStatus.Added;
 				} else {
-					fromHash = commit.stash.baseHash;
+					fromHash = expandedCommit.parentIndex > 1 ? expandedCommit.commitDetails!.parents[expandedCommit.parentIndex - 1] : commit.stash.baseHash;
 					toHash = expandedCommit.commitHash;
 				}
+			} else if (expandedCommit.parentIndex > 1) {
+				// Single Commit, viewed against an alternate parent
+				fromHash = expandedCommit.commitDetails!.parents[expandedCommit.parentIndex - 1];
+				toHash = expandedCommit.commitHash;
 			} else {
 				// Single Commit
 				fromHash = expandedCommit.commitHash;
@@ -4198,9 +4731,14 @@ export class GitGraphView {
 
 		addListenerToClass('fileTreeRepo', 'click', (e) => {
 			if (e.target === null) return;
-			this.loadRepos(this.gitRepos, null, {
-				repo: decodeURIComponent((<HTMLElement>(<Element>e.target).closest('.fileTreeRepo')).dataset.path!)
-			});
+			this.loadRepos(
+				this.gitRepos,
+				null,
+				{
+					repo: decodeURIComponent((<HTMLElement>(<Element>e.target).closest('.fileTreeRepo')).dataset.path!)
+				},
+				this.workspaceFolderPaths
+			);
 		});
 
 		addListenerToClass('fileTreeFile', 'click', (e) => {
@@ -4449,6 +4987,7 @@ window.addEventListener('load', () => {
 				if (msg.commitDetails !== null) {
 					gitGraph.showCommitDetails(
 						msg.commitDetails,
+						msg.parentIndex,
 						gitGraph.createFileTree(msg.commitDetails.fileChanges, msg.codeReview),
 						msg.avatar,
 						msg.codeReview,
@@ -4528,6 +5067,9 @@ window.addEventListener('load', () => {
 			case 'dropCommit':
 				refreshOrDisplayError(msg.error, 'Unable to Drop Commit');
 				break;
+			case 'dropCommits':
+				refreshOrDisplayError(msg.error, 'Unable to Drop Commits');
+				break;
 			case 'dropStash':
 				refreshOrDisplayError(msg.error, 'Unable to Drop Stash');
 				break;
@@ -4554,6 +5096,9 @@ window.addEventListener('load', () => {
 			case 'fetchIntoLocalBranch':
 				refreshOrDisplayError(msg.error, 'Unable to Fetch into Local Branch');
 				break;
+			case 'fixupCommit':
+				refreshOrDisplayError(msg.error, 'Unable to Fixup Commit');
+				break;
 			case 'loadCommits':
 				gitGraph.processLoadCommitsResponse(msg);
 				break;
@@ -4564,7 +5109,7 @@ window.addEventListener('load', () => {
 				gitGraph.processLoadRepoInfoResponse(msg);
 				break;
 			case 'loadRepos':
-				gitGraph.loadRepos(msg.repos, msg.lastActiveRepo, msg.loadViewTo);
+				gitGraph.loadRepos(msg.repos, msg.lastActiveRepo, msg.loadViewTo, msg.workspaceFolderPaths);
 				break;
 			case 'loadWorktreeCleanup':
 				if (msg.error === null) {
@@ -4630,6 +5175,16 @@ window.addEventListener('load', () => {
 					dialog.showError('Unable to Rebase current branch on ' + msg.actionOn, msg.error, null, null);
 				}
 				break;
+			case 'rebaseTodoList':
+				if (msg.entries !== null) {
+					gitGraph.showRebaseTodoEditor(msg.obj, msg.actionOn, msg.entries);
+				} else {
+					dialog.showError('Unable to load the Rebase Todo List', msg.error, null, null);
+				}
+				break;
+			case 'rebaseWithTodo':
+				refreshOrDisplayError(msg.error, 'Unable to Rebase current branch on ' + msg.actionOn);
+				break;
 			case 'refresh':
 				gitGraph.refresh(false);
 				break;
@@ -4653,6 +5208,9 @@ window.addEventListener('load', () => {
 				break;
 			case 'setWorkspaceViewState':
 				finishOrDisplayError(msg.error, 'Unable to save the Workspace View State');
+				break;
+			case 'squashCommits':
+				refreshOrDisplayError(msg.error, 'Unable to Squash Commits');
 				break;
 			case 'startCodeReview':
 				if (msg.error === null) {
@@ -4830,6 +5388,11 @@ window.addEventListener('load', () => {
 
 /* File Tree Methods (for the Commit Details & Comparison Views) */
 
+// The keys of a folder's contents are prefixed, so that names like "constructor" or "__proto__" don't collide with the members of Object.prototype
+function getFileTreeKey(name: string) {
+	return 'graph-' + name;
+}
+
 function generateFileViewHtml(
 	folder: FileTreeFolder,
 	gitFiles: ReadonlyArray<GG.GitFileChange>,
@@ -4998,10 +5561,12 @@ function generateFileTreeLeafHtml(name: string, leaf: FileTreeLeaf, gitFiles: Re
 function alterFileTreeFolderOpen(folder: FileTreeFolder, folderPath: string, open: boolean) {
 	let path = folderPath.split('/'),
 		i,
+		key,
 		cur = folder;
 	for (i = 0; i < path.length; i++) {
-		if (typeof cur.contents[path[i]] !== 'undefined') {
-			cur = <FileTreeFolder>cur.contents[path[i]];
+		key = getFileTreeKey(path[i]);
+		if (typeof cur.contents[key] !== 'undefined') {
+			cur = <FileTreeFolder>cur.contents[key];
 			if (i === path.length - 1) cur.open = open;
 		} else {
 			return;
@@ -5012,15 +5577,17 @@ function alterFileTreeFolderOpen(folder: FileTreeFolder, folderPath: string, ope
 function alterFileTreeFileReviewed(folder: FileTreeFolder, filePath: string, reviewed: boolean) {
 	let path = filePath.split('/'),
 		i,
+		key,
 		cur = folder,
 		folders = [folder];
 	for (i = 0; i < path.length; i++) {
-		if (typeof cur.contents[path[i]] !== 'undefined') {
+		key = getFileTreeKey(path[i]);
+		if (typeof cur.contents[key] !== 'undefined') {
 			if (i < path.length - 1) {
-				cur = <FileTreeFolder>cur.contents[path[i]];
+				cur = <FileTreeFolder>cur.contents[key];
 				folders.push(cur);
 			} else {
-				(<FileTreeFile>cur.contents[path[i]]).reviewed = reviewed;
+				(<FileTreeFile>cur.contents[key]).reviewed = reviewed;
 			}
 		} else {
 			break;
@@ -5144,7 +5711,7 @@ function getChildByPathSegment(folder: FileTreeFolder, pathSeg: string) {
 	let cur: FileTreeNode = folder,
 		comps = pathSeg.split('/');
 	for (let i = 0; i < comps.length; i++) {
-		cur = (<FileTreeFolder>cur).contents[comps[i]];
+		cur = (<FileTreeFolder>cur).contents[getFileTreeKey(comps[i])];
 	}
 	return cur;
 }
@@ -5166,6 +5733,10 @@ function getCommitOrdering(repoValue: GG.RepoCommitOrdering): GG.CommitOrdering 
 
 function getShowRemoteBranches(repoValue: GG.BooleanOverride) {
 	return repoValue === GG.BooleanOverride.Default ? initialState.config.showRemoteBranches : repoValue === GG.BooleanOverride.Enabled;
+}
+
+function getSimplifyByDecoration(repoValue: GG.BooleanOverride) {
+	return repoValue === GG.BooleanOverride.Default ? initialState.config.simplifyByDecoration : repoValue === GG.BooleanOverride.Enabled;
 }
 
 export function getShowStashes(repoValue: GG.BooleanOverride) {

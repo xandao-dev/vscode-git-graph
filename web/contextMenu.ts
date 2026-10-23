@@ -125,6 +125,11 @@ export class ContextMenu {
 			e.stopPropagation();
 		});
 
+		menu.addEventListener('contextmenu', (e) => {
+			// The user right-clicked on the context menu => keep the context menu open
+			e.stopPropagation();
+		});
+
 		this.target = target;
 		if (this.target !== null && this.target.type !== TargetType.Repo) {
 			alterClass(this.target.elem, CLASS_CONTEXT_MENU_ACTIVE, true);

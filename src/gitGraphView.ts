@@ -7,7 +7,18 @@ import { ExtensionState } from './extensionState';
 import { Logger } from './logger';
 import { RepoFileWatcher } from './repoFileWatcher';
 import { RepoManager } from './repoManager';
-import { ErrorInfo, GitConfigLocation, GitGraphViewInitialState, GitPushBranchMode, GitRepoSet, LoadGitGraphViewTo, RequestMessage, ResponseMessage, TabIconColourTheme } from './types';
+import {
+	ErrorInfo,
+	GitConfigLocation,
+	GitGraphViewInitialState,
+	GitPushBranchMode,
+	GitRepoSet,
+	LoadGitGraphViewTo,
+	RequestMessage,
+	ResponseMessage,
+	TabIconColourTheme,
+	WorkspaceFolderPaths
+} from './types';
 import {
 	UNABLE_TO_FIND_GIT_MSG,
 	UNCOMMITTED,
@@ -17,12 +28,14 @@ import {
 	createPullRequest,
 	getNonce,
 	getPathFromStr,
+	getPathFromUri,
 	getRepoName,
 	insertWorktreeUncommittedChanges,
 	openExtensionSettings,
 	openExternalUrl,
 	openFile,
 	openWorktreeInNewWindow,
+	pathWithTrailingSlash,
 	showErrorMessage,
 	swapWorkspaceFolderForWorktree,
 	viewDiff,
@@ -172,6 +185,12 @@ export class GitGraphView extends Disposable {
 				}
 			}),
 
+			// Send the repositories again when the workspace folders change, as the workspace folders in each repository are sent with them
+			vscode.workspace.onDidChangeWorkspaceFolders(() => {
+				if (!this.panel.visible || !this.isGraphViewLoaded) return;
+				this.respondLoadRepos(this.repoManager.getRepos(), null);
+			}),
+
 			// Subscribe to events triggered when an avatar is available
 			avatarManager.onAvatar((event) => {
 				this.sendMessage({
@@ -245,7 +264,7 @@ export class GitGraphView extends Disposable {
 			case 'checkoutBranch':
 				errorInfos = [await this.dataSource.checkoutBranch(msg.repo, msg.branchName, msg.remoteBranch)];
 				if (errorInfos[0] === null && msg.pullAfterwards !== null) {
-					errorInfos.push(await this.dataSource.pullBranch(msg.repo, msg.pullAfterwards.branchName, msg.pullAfterwards.remote, msg.pullAfterwards.createNewCommit, msg.pullAfterwards.squash));
+					errorInfos.push(await this.dataSource.pullBranch(msg.repo, msg.pullAfterwards.branchName, msg.pullAfterwards.remote, msg.pullAfterwards.createNewCommit, msg.pullAfterwards.squash, false));
 				}
 				this.sendMessage({
 					command: 'checkoutBranch',
@@ -277,15 +296,17 @@ export class GitGraphView extends Disposable {
 					msg.commitHash === UNCOMMITTED
 						? this.dataSource.getUncommittedDetails(msg.repo)
 						: msg.stash === null
-							? this.dataSource.getCommitDetails(msg.repo, msg.commitHash, msg.hasParents)
-							: this.dataSource.getStashDetails(msg.repo, msg.commitHash, msg.stash),
+							? this.dataSource.getCommitDetails(msg.repo, msg.commitHash, msg.hasParents, msg.parentIndex)
+							: this.dataSource.getStashDetails(msg.repo, msg.commitHash, msg.stash, msg.parentIndex),
 					msg.avatarEmail !== null ? this.avatarManager.getAvatarImage(msg.avatarEmail) : Promise.resolve(null)
 				]);
 				this.sendMessage({
 					command: 'commitDetails',
 					...data[0],
+					parentIndex: msg.parentIndex,
 					avatar: data[1],
-					codeReview: msg.commitHash !== UNCOMMITTED ? this.extensionState.getCodeReview(msg.repo, msg.commitHash) : null,
+					// Code Reviews of a commit are of its changes against the first parent
+					codeReview: msg.commitHash !== UNCOMMITTED && msg.parentIndex === 1 ? this.extensionState.getCodeReview(msg.repo, msg.commitHash) : null,
 					refresh: msg.refresh
 				});
 				break;
@@ -332,7 +353,7 @@ export class GitGraphView extends Disposable {
 				});
 				break;
 			case 'createPullRequest':
-				errorInfos = [msg.push ? await this.dataSource.pushBranch(msg.repo, msg.sourceBranch, msg.sourceRemote, true, GitPushBranchMode.Normal) : null];
+				errorInfos = [msg.push ? await this.dataSource.pushBranch(msg.repo, msg.sourceBranch, msg.sourceRemote, true, GitPushBranchMode.Normal, false) : null];
 				if (errorInfos[0] === null) {
 					errorInfos.push(await createPullRequest(msg.config, msg.sourceOwner, msg.sourceRepo, msg.sourceBranch));
 				}
@@ -412,6 +433,12 @@ export class GitGraphView extends Disposable {
 					error: await this.dataSource.dropCommit(msg.repo, msg.commitHash)
 				});
 				break;
+			case 'dropCommits':
+				this.sendMessage({
+					command: 'dropCommits',
+					error: await this.dataSource.dropCommits(msg.repo, msg.commitHashes)
+				});
+				break;
 			case 'dropStash':
 				this.sendMessage({
 					command: 'dropStash',
@@ -472,6 +499,12 @@ export class GitGraphView extends Disposable {
 					error: await this.dataSource.fetchIntoLocalBranch(msg.repo, msg.remote, msg.remoteBranch, msg.localBranch, msg.force)
 				});
 				break;
+			case 'fixupCommit':
+				this.sendMessage({
+					command: 'fixupCommit',
+					error: await this.dataSource.fixupCommit(msg.repo, msg.commitHash)
+				});
+				break;
 			case 'loadCommits':
 				this.loadCommitsRefreshId = msg.refreshId;
 				const [commitData, worktrees] = await Promise.all([
@@ -486,7 +519,10 @@ export class GitGraphView extends Disposable {
 						msg.commitOrdering,
 						msg.remotes,
 						msg.hideRemotes,
-						msg.stashes
+						msg.stashes,
+						msg.simplifyByDecoration,
+						msg.pathFilter,
+						msg.showSignatures
 					),
 					this.dataSource.getWorktrees(msg.repo)
 				]);
@@ -544,7 +580,7 @@ export class GitGraphView extends Disposable {
 				this.sendMessage({
 					command: 'merge',
 					actionOn: msg.actionOn,
-					error: await this.dataSource.merge(msg.repo, msg.obj, msg.actionOn, msg.createNewCommit, msg.squash, msg.noCommit)
+					error: await this.dataSource.merge(msg.repo, msg.obj, msg.actionOn, msg.createNewCommit, msg.allowUnrelatedHistories, msg.squash, msg.noVerify, msg.noCommit)
 				});
 				break;
 			case 'moveWorktreeBranch':
@@ -612,14 +648,14 @@ export class GitGraphView extends Disposable {
 			case 'pullBranch':
 				this.sendMessage({
 					command: 'pullBranch',
-					error: await this.dataSource.pullBranch(msg.repo, msg.branchName, msg.remote, msg.createNewCommit, msg.squash)
+					error: await this.dataSource.pullBranch(msg.repo, msg.branchName, msg.remote, msg.createNewCommit, msg.squash, msg.noVerify)
 				});
 				break;
 			case 'pushBranch':
 				this.sendMessage({
 					command: 'pushBranch',
 					willUpdateBranchConfig: msg.willUpdateBranchConfig,
-					errors: await this.dataSource.pushBranchToMultipleRemotes(msg.repo, msg.branchName, msg.remotes, msg.setUpstream, msg.mode)
+					errors: await this.dataSource.pushBranchToMultipleRemotes(msg.repo, msg.branchName, msg.remotes, msg.setUpstream, msg.mode, msg.noVerify)
 				});
 				break;
 			case 'pushStash':
@@ -643,7 +679,22 @@ export class GitGraphView extends Disposable {
 					command: 'rebase',
 					actionOn: msg.actionOn,
 					interactive: msg.interactive,
-					error: await this.dataSource.rebase(msg.repo, msg.obj, msg.actionOn, msg.ignoreDate, msg.interactive)
+					error: await this.dataSource.rebase(msg.repo, msg.obj, msg.actionOn, msg.ignoreDate, msg.interactive, msg.autosquash)
+				});
+				break;
+			case 'rebaseTodoList':
+				this.sendMessage({
+					command: 'rebaseTodoList',
+					obj: msg.obj,
+					actionOn: msg.actionOn,
+					...(await this.dataSource.getRebaseTodoList(msg.repo, msg.obj, msg.autosquash))
+				});
+				break;
+			case 'rebaseWithTodo':
+				this.sendMessage({
+					command: 'rebaseWithTodo',
+					actionOn: msg.actionOn,
+					error: await this.dataSource.rebaseWithTodo(msg.repo, msg.obj, msg.entries)
 				});
 				break;
 			case 'removeWorktrees':
@@ -698,6 +749,12 @@ export class GitGraphView extends Disposable {
 				break;
 			case 'showErrorMessage':
 				showErrorMessage(msg.message);
+				break;
+			case 'squashCommits':
+				this.sendMessage({
+					command: 'squashCommits',
+					error: await this.dataSource.squashCommits(msg.repo, msg.commitHashes, msg.message, msg.noVerify)
+				});
 				break;
 			case 'startCodeReview':
 				this.sendMessage({
@@ -812,15 +869,19 @@ export class GitGraphView extends Disposable {
 				onRepoLoad: config.onRepoLoad,
 				referenceLabels: config.referenceLabels,
 				repoDropdownOrder: config.repoDropdownOrder,
+				showPathFilter: config.showPathFilter,
 				showRemoteBranches: config.showRemoteBranches,
 				showStashes: config.showStashes,
-				showTags: config.showTags
+				showTags: config.showTags,
+				simplifyByDecoration: config.simplifyByDecoration,
+				stickyHeader: config.stickyHeader
 			},
 			lastActiveRepo: this.extensionState.getLastActiveRepo(),
 			loadViewTo: this.loadViewTo,
 			repos: this.repoManager.getRepos(),
 			loadRepoInfoRefreshId: this.loadRepoInfoRefreshId,
-			loadCommitsRefreshId: this.loadCommitsRefreshId
+			loadCommitsRefreshId: this.loadCommitsRefreshId,
+			workspaceFolderPaths: getWorkspaceFolderPaths(this.repoManager.getRepos())
 		};
 		const globalState = this.extensionState.getGlobalViewState();
 		const workspaceState = this.extensionState.getWorkspaceViewState();
@@ -845,7 +906,9 @@ export class GitGraphView extends Disposable {
 				<div id="controls">
 					<span id="repoControl"><span class="unselectable">Repo: </span><div id="repoDropdown" class="dropdown"></div></span>
 					<span id="branchControl"><span class="unselectable">Branches: </span><div id="branchDropdown" class="dropdown"></div></span>
+					<span id="pathFilterControl"${initialState.config.showPathFilter ? '' : ' style="display:none"'} title="Only show the commits that modified these paths. Type paths (comma separated) into the dropdown's filter and press Enter, or right click a file or folder in the Explorer and select &quot;Filter in Git Graph&quot;."><span class="unselectable">Paths: </span><div id="pathFilterDropdown" class="dropdown"></div></span>
 					<label id="showRemoteBranchesControl"><input type="checkbox" id="showRemoteBranchesCheckbox" tabindex="-1"><span class="customCheckbox"></span>Show Remote Branches</label>
+					<label id="simplifyByDecorationControl" title="Only show commits that are referenced by a branch or tag"><input type="checkbox" id="simplifyByDecorationCheckbox" tabindex="-1"><span class="customCheckbox"></span>Simplify</label>
 					<label id="worktreesControl"><input type="checkbox" id="worktreesCheckbox" tabindex="-1"><span class="customCheckbox"></span>Worktrees</label>
 					<div id="findBtn" title="Find"></div>
 					<div id="terminalBtn" title="Open a Terminal for this Repository"></div>
@@ -858,9 +921,9 @@ export class GitGraphView extends Disposable {
 					<div id="commitTable"></div>
 				</div>
 				<div id="footer"></div>
+				<div id="scrollShadow"></div>
 			</div>
 			<div id="worktreesPanel"></div>
-			<div id="scrollShadow"></div>
 			<script nonce="${nonce}">var initialState = ${JSON.stringify(initialState)}, globalState = ${JSON.stringify(globalState)}, workspaceState = ${JSON.stringify(workspaceState)};</script>
 			<script nonce="${nonce}" src="${this.getMediaUri('out.min.js')}"></script>
 			</body>`;
@@ -931,9 +994,25 @@ export class GitGraphView extends Disposable {
 			command: 'loadRepos',
 			repos: repos,
 			lastActiveRepo: this.extensionState.getLastActiveRepo(),
-			loadViewTo: loadViewTo
+			loadViewTo: loadViewTo,
+			workspaceFolderPaths: getWorkspaceFolderPaths(repos)
 		});
 	}
+}
+
+/**
+ * Get the paths (relative to the repository) of the workspace folders that are in each repository.
+ * @param repos The set of known repositories.
+ * @returns The workspace folder paths in each repository (excluding workspace folders that are the root of the repository).
+ */
+function getWorkspaceFolderPaths(repos: GitRepoSet): WorkspaceFolderPaths {
+	const workspaceFolders = (vscode.workspace.workspaceFolders || []).map((workspaceFolder) => getPathFromUri(workspaceFolder.uri));
+	const workspaceFolderPaths: { [repo: string]: string[] } = {};
+	Object.keys(repos).forEach((repo) => {
+		const repoPath = pathWithTrailingSlash(repo);
+		workspaceFolderPaths[repo] = workspaceFolders.filter((folder) => folder.startsWith(repoPath)).map((folder) => folder.substring(repoPath.length));
+	});
+	return workspaceFolderPaths;
 }
 
 /**

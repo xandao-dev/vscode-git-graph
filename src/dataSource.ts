@@ -29,6 +29,8 @@ import {
 	GitWorktree,
 	MergeActionOn,
 	RebaseActionOn,
+	RebaseTodoAction,
+	RebaseTodoEntry,
 	SquashMessageFormat,
 	TagType,
 	Writeable
@@ -59,6 +61,7 @@ const REMOTE_HEAD_BRANCH_REGEXP = /^remotes\/.*\/HEAD$/;
 const GIT_LOG_SEPARATOR = 'XX7Nal-YARtTpjCikii9nJxER19D6diSyk-AWkPb';
 const NULL_HASH_REGEX = /^0+$/;
 const WORKTREE_AGENT_FOLDERS = [{ folder: '/.claude/worktrees/', agent: 'Claude Code' }];
+const AUTOSQUASH_SUBJECT_REGEXP = /^(fixup|squash)! /;
 
 export const enum GitConfigKey {
 	DiffGuiTool = 'diff.guitool',
@@ -215,6 +218,9 @@ export class DataSource extends Disposable {
 	 * @param remotes An array of known remotes.
 	 * @param hideRemotes An array of hidden remotes.
 	 * @param stashes An array of all stashes in the repository.
+	 * @param simplifyByDecoration Only return commits that are referenced by a branch or tag (ignored when filtering by paths, as they can't be combined).
+	 * @param pathFilter A comma separated list of paths to only return the commits that modified them, or NULL (no path filter).
+	 * @param showSignatures Include the signature status of each commit (Git has to verify every signature, so this is only requested when it's displayed).
 	 * @returns The commits in the repository.
 	 */
 	public getCommits(
@@ -228,10 +234,20 @@ export class DataSource extends Disposable {
 		commitOrdering: CommitOrdering,
 		remotes: ReadonlyArray<string>,
 		hideRemotes: ReadonlyArray<string>,
-		stashes: ReadonlyArray<GitStash>
+		stashes: ReadonlyArray<GitStash>,
+		simplifyByDecoration: boolean,
+		pathFilter: string | null,
+		showSignatures: boolean
 	): Promise<GitCommitData> {
 		const config = getConfig();
-		return Promise.all([
+		const paths =
+			pathFilter !== null
+				? pathFilter
+						.split(',')
+						.map((filterPath) => filterPath.trim())
+						.filter((filterPath) => filterPath !== '')
+				: [];
+		const getLog = (simplifyMerges: boolean, includeSignatures: boolean) =>
 			this.getLog(
 				repo,
 				branches,
@@ -243,16 +259,25 @@ export class DataSource extends Disposable {
 				commitOrdering,
 				remotes,
 				hideRemotes,
-				stashes
-			),
+				stashes,
+				simplifyByDecoration && paths.length === 0,
+				paths,
+				simplifyMerges,
+				includeSignatures
+			);
+		return Promise.all([
+			getLog(paths.length > 0, showSignatures),
 			this.getRefs(repo, showRemoteBranches, config.showRemoteHeads, hideRemotes).then(
 				(refData: GitRefData) => refData,
 				(errorMessage: string) => errorMessage
-			)
+			),
+			// The commits that modified the paths, the other commits returned when filtering by paths are only included to connect them in the graph
+			paths.length > 0 ? getLog(false, false).then((commits) => new Set(commits.map((commit) => commit.hash))) : null
 		])
 			.then(async (results) => {
 				let commits: GitCommitRecord[] = results[0],
 					refData: GitRefData | string = results[1],
+					pathFilterMatches = results[2],
 					i;
 				let moreCommitsAvailable = commits.length === maxCommits + 1;
 				if (moreCommitsAvailable) commits.pop();
@@ -269,6 +294,15 @@ export class DataSource extends Disposable {
 					}
 				}
 
+				if (pathFilterMatches !== null && branches === null && refData.head !== null && !commits.some((commit) => commit.hash === refData.head)) {
+					// The checked-out commit didn't modify the paths, include it so that it (and any uncommitted changes) are still displayed
+					const head = (await this.getLog(repo, [refData.head], 1, false, false, false, false, commitOrdering, [], [], [], false, [], false, showSignatures))[0];
+					const headParents = head.parents.filter((parent) => commits.some((commit) => commit.hash === parent));
+					let insertAt = 0;
+					while (insertAt < commits.length && commits[insertAt].date > head.date && !headParents.includes(commits[insertAt].hash)) insertAt++;
+					commits.splice(insertAt, 0, { ...head, parents: headParents });
+				}
+
 				if (refData.head !== null && config.showUncommittedChanges) {
 					for (i = 0; i < commits.length; i++) {
 						if (refData.head === commits[i].hash) {
@@ -280,7 +314,8 @@ export class DataSource extends Disposable {
 									author: '*',
 									email: '',
 									date: Math.round(new Date().getTime() / 1000),
-									message: 'Uncommitted Changes (' + numUncommittedChanges + ')'
+									message: 'Uncommitted Changes (' + numUncommittedChanges + ')',
+									signature: null
 								});
 							}
 							break;
@@ -293,7 +328,14 @@ export class DataSource extends Disposable {
 
 				for (i = 0; i < commits.length; i++) {
 					commitLookup[commits[i].hash] = i;
-					commitNodes.push({ ...commits[i], heads: [], tags: [], remotes: [], stash: null });
+					commitNodes.push({
+						...commits[i],
+						heads: [],
+						tags: [],
+						remotes: [],
+						stash: null,
+						isPathFilterMatch: pathFilterMatches === null || pathFilterMatches.has(commits[i].hash) || commits[i].hash === UNCOMMITTED
+					});
 				}
 
 				/* Insert Stashes */
@@ -326,12 +368,28 @@ export class DataSource extends Disposable {
 							selector: stash.selector,
 							baseHash: stash.baseHash,
 							untrackedFilesHash: stash.untrackedFilesHash
-						}
+						},
+						isPathFilterMatch: true,
+						signature: null
 					});
 				}
 				for (i = 0; i < commitNodes.length; i++) {
 					// Correct commit lookup after stashes have been spliced in
 					commitLookup[commitNodes[i].hash] = i;
+				}
+
+				/* Move references to commits that aren't displayed (because they didn't modify the paths) to their nearest displayed ancestor */
+				if (pathFilterMatches !== null && commits.length > 0) {
+					const annotatedTags = new Set(refData.tags.filter((tag) => tag.annotated).map((tag) => tag.name));
+					const refHashes = [...refData.heads, ...(showTags ? refData.tags.filter((tag) => tag.annotated || !annotatedTags.has(tag.name)) : []), ...refData.remotes]
+						.map((ref) => ref.hash)
+						.filter((hash) => typeof commitLookup[hash] !== 'number');
+					if (refHashes.length > 0) {
+						const oldestDate = commits.reduce((date, commit) => Math.min(date, commit.date), commits[0].date);
+						const ancestors = await this.getNearestAncestorsInSet(repo, unique(refHashes), commitLookup, oldestDate);
+						// Point the references' commits at their ancestors in the commit lookup, so they are annotated on them below
+						Object.keys(ancestors).forEach((hash) => (commitLookup[hash] = commitLookup[ancestors[hash]]));
+					}
 				}
 
 				/* Annotate Heads */
@@ -437,10 +495,11 @@ export class DataSource extends Disposable {
 	 * @param repo The path of the repository.
 	 * @param commitHash The hash of the commit open in the Commit Details View.
 	 * @param hasParents Does the commit have parents
+	 * @param parentIndex The (1-based) index of the parent that the commit's changes are diffed against.
 	 * @returns The commit details.
 	 */
-	public getCommitDetails(repo: string, commitHash: string, hasParents: boolean): Promise<GitCommitDetailsData> {
-		const fromCommit = commitHash + (hasParents ? '^' : '');
+	public getCommitDetails(repo: string, commitHash: string, hasParents: boolean, parentIndex: number): Promise<GitCommitDetailsData> {
+		const fromCommit = commitHash + (hasParents ? '^' + parentIndex : '');
 		return Promise.all([this.getCommitDetailsBase(repo, commitHash), this.getDiffNameStatus(repo, fromCommit, commitHash), this.getDiffNumStat(repo, fromCommit, commitHash)])
 			.then((results) => {
 				results[0].fileChanges = generateFileChanges(results[1], results[2], null);
@@ -456,13 +515,15 @@ export class DataSource extends Disposable {
 	 * @param repo The path of the repository.
 	 * @param commitHash The hash of the stash commit open in the Commit Details View.
 	 * @param stash The stash.
+	 * @param parentIndex The (1-based) index of the parent that the stash's changes are diffed against.
 	 * @returns The stash details.
 	 */
-	public getStashDetails(repo: string, commitHash: string, stash: GitCommitStash): Promise<GitCommitDetailsData> {
+	public getStashDetails(repo: string, commitHash: string, stash: GitCommitStash, parentIndex: number): Promise<GitCommitDetailsData> {
+		const fromCommit = commitHash + '^' + parentIndex;
 		return Promise.all([
 			this.getCommitDetailsBase(repo, commitHash),
-			this.getDiffNameStatus(repo, stash.baseHash, commitHash),
-			this.getDiffNumStat(repo, stash.baseHash, commitHash),
+			this.getDiffNameStatus(repo, fromCommit, commitHash),
+			this.getDiffNumStat(repo, fromCommit, commitHash),
 			stash.untrackedFilesHash !== null ? this.getDiffNameStatus(repo, stash.untrackedFilesHash, stash.untrackedFilesHash) : Promise.resolve([]),
 			stash.untrackedFilesHash !== null ? this.getDiffNumStat(repo, stash.untrackedFilesHash, stash.untrackedFilesHash) : Promise.resolve([])
 		])
@@ -946,13 +1007,15 @@ export class DataSource extends Disposable {
 	 * @param remote The remote to push the branch to.
 	 * @param setUpstream Set the branches upstream.
 	 * @param mode The mode of the push.
+	 * @param noVerify Is `--no-verify` enabled.
 	 * @returns The ErrorInfo from the executed command.
 	 */
-	public pushBranch(repo: string, branchName: string, remote: string, setUpstream: boolean, mode: GitPushBranchMode) {
+	public pushBranch(repo: string, branchName: string, remote: string, setUpstream: boolean, mode: GitPushBranchMode, noVerify: boolean) {
 		let args = ['push'];
 		args.push(remote, branchName);
 		if (setUpstream) args.push('--set-upstream');
 		if (mode !== GitPushBranchMode.Normal) args.push('--' + mode);
+		if (noVerify) args.push('--no-verify');
 
 		return this.runGitCommand(args, repo);
 	}
@@ -964,16 +1027,17 @@ export class DataSource extends Disposable {
 	 * @param remotes The remotes to push the branch to.
 	 * @param setUpstream Set the branches upstream.
 	 * @param mode The mode of the push.
+	 * @param noVerify Is `--no-verify` enabled.
 	 * @returns The ErrorInfo's from the executed commands.
 	 */
-	public async pushBranchToMultipleRemotes(repo: string, branchName: string, remotes: string[], setUpstream: boolean, mode: GitPushBranchMode): Promise<ErrorInfo[]> {
+	public async pushBranchToMultipleRemotes(repo: string, branchName: string, remotes: string[], setUpstream: boolean, mode: GitPushBranchMode, noVerify: boolean): Promise<ErrorInfo[]> {
 		if (remotes.length === 0) {
 			return ['No remote(s) were specified to push the branch ' + branchName + ' to.'];
 		}
 
 		const results: ErrorInfo[] = [];
 		for (let i = 0; i < remotes.length; i++) {
-			const result = await this.pushBranch(repo, branchName, remotes[i], setUpstream, mode);
+			const result = await this.pushBranch(repo, branchName, remotes[i], setUpstream, mode, noVerify);
 			results.push(result);
 			if (result !== null) break;
 		}
@@ -1108,9 +1172,10 @@ export class DataSource extends Disposable {
 	 * @param remote The name of the remote containing the remote branch.
 	 * @param createNewCommit Is `--no-ff` enabled if a merge is required.
 	 * @param squash Is `--squash` enabled if a merge is required.
+	 * @param noVerify Is `--no-verify` enabled when committing the squashed changes.
 	 * @returns The ErrorInfo from the executed command.
 	 */
-	public pullBranch(repo: string, branchName: string, remote: string, createNewCommit: boolean, squash: boolean) {
+	public pullBranch(repo: string, branchName: string, remote: string, createNewCommit: boolean, squash: boolean, noVerify: boolean) {
 		const args = ['pull', remote, branchName],
 			config = getConfig();
 		if (squash) {
@@ -1123,7 +1188,7 @@ export class DataSource extends Disposable {
 		}
 		return this.runGitCommand(args, repo).then((pullStatus) => {
 			return pullStatus === null && squash
-				? this.commitSquashIfStagedChangesExist(repo, remote + '/' + branchName, MergeActionOn.Branch, config.squashPullMessageFormat, config.signCommits)
+				? this.commitSquashIfStagedChangesExist(repo, remote + '/' + branchName, MergeActionOn.Branch, config.squashPullMessageFormat, config.signCommits, noVerify)
 				: pullStatus;
 		});
 	}
@@ -1147,11 +1212,13 @@ export class DataSource extends Disposable {
 	 * @param obj The object to be merged into the current branch.
 	 * @param actionOn Is the merge on a branch, remote-tracking branch or commit.
 	 * @param createNewCommit Is `--no-ff` enabled.
+	 * @param allowUnrelatedHistories Is `--allow-unrelated-histories` enabled.
 	 * @param squash Is `--squash` enabled.
+	 * @param noVerify Is `--no-verify` enabled when committing the squashed changes.
 	 * @param noCommit Is `--no-commit` enabled.
 	 * @returns The ErrorInfo from the executed command.
 	 */
-	public merge(repo: string, obj: string, actionOn: MergeActionOn, createNewCommit: boolean, squash: boolean, noCommit: boolean) {
+	public merge(repo: string, obj: string, actionOn: MergeActionOn, createNewCommit: boolean, allowUnrelatedHistories: boolean, squash: boolean, noVerify: boolean, noCommit: boolean) {
 		const args = ['merge', obj],
 			config = getConfig();
 		if (squash) {
@@ -1165,8 +1232,11 @@ export class DataSource extends Disposable {
 		if (config.signCommits) {
 			args.push('-S');
 		}
+		if (allowUnrelatedHistories) {
+			args.push('--allow-unrelated-histories');
+		}
 		return this.runGitCommand(args, repo).then((mergeStatus) => {
-			return mergeStatus === null && squash && !noCommit ? this.commitSquashIfStagedChangesExist(repo, obj, actionOn, config.squashMergeMessageFormat, config.signCommits) : mergeStatus;
+			return mergeStatus === null && squash && !noCommit ? this.commitSquashIfStagedChangesExist(repo, obj, actionOn, config.squashMergeMessageFormat, config.signCommits, noVerify) : mergeStatus;
 		});
 	}
 
@@ -1177,13 +1247,14 @@ export class DataSource extends Disposable {
 	 * @param actionOn Is the rebase on a branch or commit.
 	 * @param ignoreDate Is `--ignore-date` enabled.
 	 * @param interactive Should the rebase be performed interactively.
+	 * @param autosquash Is `--autosquash` enabled (only applicable to an interactive rebase).
 	 * @returns The ErrorInfo from the executed command.
 	 */
-	public rebase(repo: string, obj: string, actionOn: RebaseActionOn, ignoreDate: boolean, interactive: boolean) {
+	public rebase(repo: string, obj: string, actionOn: RebaseActionOn, ignoreDate: boolean, interactive: boolean, autosquash: boolean) {
 		if (interactive) {
 			return this.openGitTerminal(
 				repo,
-				'rebase --interactive ' + (getConfig().signCommits ? '-S ' : '') + (actionOn === RebaseActionOn.Branch ? obj.replace(/'/g, '"\'"') : obj),
+				'rebase --interactive ' + (autosquash ? '--autosquash ' : '') + (getConfig().signCommits ? '-S ' : '') + (actionOn === RebaseActionOn.Branch ? obj.replace(/'/g, '"\'"') : obj),
 				'Rebase on "' + (actionOn === RebaseActionOn.Branch ? obj : abbrevCommit(obj)) + '"'
 			);
 		} else {
@@ -1195,6 +1266,92 @@ export class DataSource extends Disposable {
 				args.push('-S');
 			}
 			return this.runGitCommand(args, repo);
+		}
+	}
+
+	/**
+	 * Get the todo list of an interactive rebase of the current branch on a branch or commit, so it can be edited in the Git Graph View.
+	 * @param repo The path of the repository.
+	 * @param obj The object the current branch will be rebased onto.
+	 * @param autosquash Is `--autosquash` enabled (moving each "fixup!" / "squash!" commit after the commit it targets).
+	 * @returns The todo list entries (ordered from oldest to newest).
+	 */
+	public async getRebaseTodoList(repo: string, obj: string, autosquash: boolean): Promise<GitRebaseTodoListData> {
+		const data = await this.getRebaseCommits(repo, obj);
+		if (data.commits === null) {
+			return { entries: null, error: data.error };
+		}
+		const entries = data.commits.map((commit) => ({ hash: commit.hash, action: RebaseTodoAction.Pick, message: commit.message }));
+		return { entries: autosquash ? rearrangeAutosquashEntries(entries) : entries, error: null };
+	}
+
+	/**
+	 * Rebase the current branch on a branch or commit, using a todo list edited in the Git Graph View. The interactive rebase is run without
+	 * a terminal: the todo list generated by Git is replaced with the edited one, and the commit message editor is never opened (squashed
+	 * commits are applied as fixups, and the message of a reworded or squashed commit is set by amending it with an "exec" entry).
+	 * @param repo The path of the repository.
+	 * @param obj The object the current branch will be rebased onto.
+	 * @param entries The edited todo list entries, in the order they will be applied.
+	 * @returns The ErrorInfo from the executed command.
+	 */
+	public async rebaseWithTodo(repo: string, obj: string, entries: ReadonlyArray<RebaseTodoEntry>): Promise<ErrorInfo> {
+		const data = await this.getRebaseCommits(repo, obj);
+		if (data.commits === null) return data.error;
+
+		// Check that the todo list contains each commit being rebased exactly once, so no commit is lost (e.g. if the branch changed after the todo list was loaded)
+		const hashes = new Set(entries.map((entry) => entry.hash));
+		if (entries.length !== data.commits.length || hashes.size !== entries.length || data.commits.some((commit) => !hashes.has(commit.hash))) {
+			return 'The commits being rebased have changed since the todo list was loaded.';
+		}
+
+		const signCommits = getConfig().signCommits;
+		const todo: string[] = [];
+		let groupMessages: string[] | null = null,
+			amendGroup = false;
+		try {
+			for (const entry of entries) {
+				switch (entry.action) {
+					case RebaseTodoAction.Pick:
+					case RebaseTodoAction.Reword:
+					case RebaseTodoAction.Edit:
+						if (entry.action === RebaseTodoAction.Reword && entry.message.trim() === '') {
+							return 'The message of reworded commit ' + abbrevCommit(entry.hash) + ' is empty.';
+						}
+						if (amendGroup) todo.push(await this.getRebaseTodoAmendEntry(repo, groupMessages!, signCommits));
+						todo.push((entry.action === RebaseTodoAction.Edit ? 'edit ' : 'pick ') + entry.hash);
+						groupMessages = [entry.message.trim()];
+						amendGroup = entry.action === RebaseTodoAction.Reword;
+						break;
+					case RebaseTodoAction.Squash:
+					case RebaseTodoAction.Fixup:
+						if (groupMessages === null) {
+							return 'Commit ' + abbrevCommit(entry.hash) + " can't be squashed, as no commit is picked before it.";
+						}
+						todo.push('fixup ' + entry.hash);
+						if (entry.action === RebaseTodoAction.Squash) {
+							groupMessages.push(entry.message.trim());
+							amendGroup = true;
+						}
+						break;
+					case RebaseTodoAction.Drop:
+						todo.push('drop ' + entry.hash);
+						break;
+					default:
+						return 'Unknown rebase todo action "' + entry.action + '".';
+				}
+			}
+			if (amendGroup) todo.push(await this.getRebaseTodoAmendEntry(repo, groupMessages!, signCommits));
+			if (todo.length === 0) todo.push('noop'); // An empty todo list would abort the rebase
+
+			// Git runs the sequence editor with the path of its todo list appended, so this replaces it with the edited todo list
+			const args = ['-c', 'sequence.editor=git cat-file blob ' + (await this.writeBlob(repo, todo.join('\n') + '\n')) + ' >', 'rebase', '--interactive'];
+			if (signCommits) {
+				args.push('-S');
+			}
+			args.push(obj);
+			return await this.runGitCommand(args, repo);
+		} catch (errorMessage) {
+			return <ErrorInfo>errorMessage;
 		}
 	}
 
@@ -1267,6 +1424,22 @@ export class DataSource extends Disposable {
 	}
 
 	/**
+	 * Drop multiple commits in a repository, using a single interactive rebase.
+	 * @param repo The path of the repository.
+	 * @param commitHashes The hashes of the commits to drop (ordered from newest to oldest).
+	 * @returns The ErrorInfo from the executed command.
+	 */
+	public dropCommits(repo: string, commitHashes: ReadonlyArray<string>) {
+		// List the full hash of each commit in the todo list, so that the entries of the commits being dropped can be marked as "drop"
+		const args = ['-c', 'rebase.instructionFormat=%H', '-c', 'sequence.editor=sed -i.bak' + commitHashes.map((hash) => ' -e "/ ' + hash + '/s/^[a-z]* /drop /"').join(''), 'rebase', '--interactive'];
+		if (getConfig().signCommits) {
+			args.push('-S');
+		}
+		args.push(commitHashes[commitHashes.length - 1] + '^');
+		return this.runGitCommand(args, repo);
+	}
+
+	/**
 	 * Start editing a commit in a repository. An interactive rebase is started that stops at the commit, and the commit is
 	 * undone so that its changes are staged. Committing (or running `git rebase --continue`) then replaces the commit, reusing
 	 * its message & author, and replays the commits on top of it.
@@ -1320,6 +1493,20 @@ export class DataSource extends Disposable {
 	}
 
 	/**
+	 * Commit the staged changes as a fixup of a commit (to be squashed into it by `git rebase --autosquash`).
+	 * @param repo The path of the repository.
+	 * @param commitHash The hash of the commit to fixup.
+	 * @returns The ErrorInfo from the executed command.
+	 */
+	public fixupCommit(repo: string, commitHash: string) {
+		const args = ['commit', '--fixup=' + commitHash];
+		if (getConfig().signCommits) {
+			args.push('-S');
+		}
+		return this.runGitCommand(args, repo);
+	}
+
+	/**
 	 * Reset the current branch to a specified commit.
 	 * @param repo The path of the repository.
 	 * @param commit The hash of the commit that the current branch should be reset to.
@@ -1347,6 +1534,74 @@ export class DataSource extends Disposable {
 		}
 		args.push(commitHash);
 		return this.runGitCommand(args, repo);
+	}
+
+	/**
+	 * Squash multiple consecutive commits in a repository into a single commit. An interactive rebase is started that stops at the
+	 * newest commit, the commits are replaced by a single commit containing all of their changes, and then the rebase is continued
+	 * to reapply the commits on top of it.
+	 * @param repo The path of the repository.
+	 * @param commitHashes The hashes of the commits to squash (ordered from newest to oldest).
+	 * @param message The message of the squashed commit.
+	 * @param noVerify Is `--no-verify` enabled when committing the squashed commit.
+	 * @returns The ErrorInfo from the executed command.
+	 */
+	public async squashCommits(repo: string, commitHashes: ReadonlyArray<string>, message: string, noVerify: boolean) {
+		const newestHash = commitHashes[0],
+			base = commitHashes[commitHashes.length - 1] + '^',
+			signCommits = getConfig().signCommits;
+
+		// Check that no other commits are between the commits (e.g. commits that are hidden from the Git Graph View)
+		let count: number;
+		try {
+			count = await this.spawnGit(['rev-list', '--count', base + '..' + newestHash], repo, (stdout) => parseInt(stdout));
+		} catch (errorMessage) {
+			return <ErrorInfo>errorMessage;
+		}
+		if (count !== commitHashes.length) {
+			return "The commits can't be squashed, as there are other commits between them.";
+		}
+
+		// List the full hash of each commit in the todo list, so that the entry of the newest commit can be marked as "edit"
+		const args = ['-c', 'rebase.instructionFormat=%H', '-c', 'sequence.editor=sed -i.bak -e "/ ' + newestHash + '/s/^[a-z]* /edit /"', 'rebase', '--interactive'];
+		if (signCommits) {
+			args.push('-S');
+		}
+		args.push(base);
+
+		const rebaseStatus = await this.runGitCommand(args, repo);
+		if (rebaseStatus !== null) return rebaseStatus;
+
+		// Git creates this file when it stops at an "edit" entry
+		let amendFilePath: string;
+		try {
+			amendFilePath = path.resolve(repo, await this.spawnGit(['rev-parse', '--git-path', 'rebase-merge/amend'], repo, (stdout) => stdout.trim()));
+		} catch (errorMessage) {
+			return <ErrorInfo>errorMessage;
+		}
+		if (!fs.existsSync(amendFilePath)) {
+			return "Git didn't stop the rebase at commit " + abbrevCommit(newestHash) + '.';
+		}
+
+		// Replace the commits with a single commit containing all of their changes
+		const commitArgs = ['commit', '-m', message];
+		if (signCommits) {
+			commitArgs.push('-S');
+		}
+		if (noVerify) {
+			commitArgs.push('--no-verify');
+		}
+		let squashStatus = await this.runGitCommand(['reset', '--soft', base], repo);
+		if (squashStatus === null) {
+			squashStatus = await this.runGitCommand(commitArgs, repo);
+		}
+		if (squashStatus !== null) {
+			// Restore the commits to how they were before the rebase was started
+			await this.runGitCommand(['rebase', '--abort'], repo);
+			return squashStatus;
+		}
+
+		return this.runGitCommand(['rebase', '--continue'], repo);
 	}
 
 	/* Git Action Methods - Config */
@@ -1680,6 +1935,52 @@ export class DataSource extends Disposable {
 	/* Private Data Providers */
 
 	/**
+	 * Get the commits that an interactive rebase of the current branch on a branch or commit would rebase (i.e. the commits in its todo list).
+	 * @param repo The path of the repository.
+	 * @param obj The object the current branch will be rebased onto.
+	 * @returns The commits (ordered from oldest to newest).
+	 */
+	private async getRebaseCommits(repo: string, obj: string): Promise<GitRebaseCommitData> {
+		try {
+			const inProgressFilePaths = await this.spawnGit(
+				['rev-parse', '--git-path', 'rebase-merge', '--git-path', 'rebase-apply', '--git-path', 'MERGE_HEAD', '--git-path', 'CHERRY_PICK_HEAD', '--git-path', 'REVERT_HEAD'],
+				repo,
+				(stdout) => stdout.split(EOL_REGEX).slice(0, 5)
+			);
+			const inProgressOperations = ['A rebase', 'A rebase', 'A merge', 'A cherry pick', 'A revert'];
+			const inProgressIndex = inProgressFilePaths.findIndex((filePath) => fs.existsSync(path.resolve(repo, filePath)));
+			if (inProgressIndex > -1) {
+				return { commits: null, error: inProgressOperations[inProgressIndex] + ' is in progress. Continue or abort it before starting a rebase.' };
+			}
+
+			// The same commits that Git lists in the todo list: those not on obj, excluding commits that have already been cherry picked onto obj
+			const commits = await this.spawnGit(
+				['-c', 'log.showSignature=false', 'log', '--reverse', '--topo-order', '--cherry-pick', '--right-only', '-z', '--format=' + ['%H', '%P', '%B'].join(GIT_LOG_SEPARATOR), obj + '...HEAD', '--'],
+				repo,
+				(stdout) =>
+					stdout
+						.split('\0')
+						.filter((record) => record !== '')
+						.map((record) => {
+							const data = record.split(GIT_LOG_SEPARATOR);
+							return {
+								hash: data[0],
+								isMerge: data[1].includes(' '),
+								message: removeTrailingBlankLines(data.slice(2).join(GIT_LOG_SEPARATOR).split(EOL_REGEX)).join('\n')
+							};
+						})
+			);
+			const mergeCommit = commits.find((commit) => commit.isMerge);
+			if (mergeCommit !== undefined) {
+				return { commits: null, error: 'Merge commit ' + abbrevCommit(mergeCommit.hash) + " would be rebased, which isn't supported by the Todo Editor (an interactive rebase drops merge commits)." };
+			}
+			return { commits: commits, error: null };
+		} catch (errorMessage) {
+			return { commits: null, error: <ErrorInfo>errorMessage };
+		}
+	}
+
+	/**
 	 * Get the branches in a repository.
 	 * @param repo The path of the repository.
 	 * @param showRemoteBranches Are remote branches shown.
@@ -1732,13 +2033,7 @@ export class DataSource extends Disposable {
 				committer: commitInfo[5],
 				committerEmail: commitInfo[6],
 				committerDate: parseInt(commitInfo[7]),
-				signature: ['G', 'U', 'X', 'Y', 'R', 'E', 'B'].includes(commitInfo[8])
-					? {
-							key: commitInfo[10].trim(),
-							signer: commitInfo[9].trim(),
-							status: <GitSignatureStatus>commitInfo[8]
-						}
-					: null,
+				signature: parseSignature(commitInfo[8], commitInfo[9], commitInfo[10]),
 				body: removeTrailingBlankLines(commitInfo.slice(11).join(GIT_LOG_SEPARATOR).split(EOL_REGEX)).join('\n'),
 				fileChanges: []
 			};
@@ -1855,6 +2150,10 @@ export class DataSource extends Disposable {
 	 * @param remotes An array of the known remotes.
 	 * @param hideRemotes An array of hidden remotes.
 	 * @param stashes An array of all stashes in the repository.
+	 * @param simplifyByDecoration Only return commits that are referenced by a branch or tag.
+	 * @param paths Only return commits that modified these paths (all commits are returned if empty).
+	 * @param simplifyMerges Also return the merge commits needed to connect the commits that modified the paths, and rewrite the parents of the commits to their nearest returned ancestors.
+	 * @param showSignatures Include the signature status of each commit.
 	 * @returns An array of commits.
 	 */
 	private getLog(
@@ -1868,9 +2167,21 @@ export class DataSource extends Disposable {
 		order: CommitOrdering,
 		remotes: ReadonlyArray<string>,
 		hideRemotes: ReadonlyArray<string>,
-		stashes: ReadonlyArray<GitStash>
+		stashes: ReadonlyArray<GitStash>,
+		simplifyByDecoration: boolean,
+		paths: ReadonlyArray<string>,
+		simplifyMerges: boolean,
+		showSignatures: boolean
 	) {
-		const args = ['-c', 'log.showSignature=false', 'log', '--max-count=' + num, '--format=' + this.gitFormatLog, '--' + order + '-order'];
+		const includeSignatures = showSignatures && this.gitExecutableSupportsGpgInfo;
+		const format = includeSignatures ? [this.gitFormatLog, '%G?', '%GS', '%GK'].join(GIT_LOG_SEPARATOR) : this.gitFormatLog;
+		const args = ['-c', 'log.showSignature=false', 'log', '--max-count=' + num, '--format=' + format, '--' + order + '-order'];
+		if (simplifyByDecoration) {
+			args.push('--simplify-by-decoration');
+		}
+		if (simplifyMerges) {
+			args.push('--full-history', '--simplify-merges');
+		}
 		if (onlyFollowFirstParent) {
 			args.push('--first-parent');
 		}
@@ -1882,6 +2193,7 @@ export class DataSource extends Disposable {
 			// Show All
 			args.push('--branches');
 			if (includeTags) args.push('--tags');
+			else if (simplifyByDecoration) args.push('--decorate-refs-exclude=refs/tags/'); // Commits only referenced by hidden tags aren't shown
 			if (includeCommitsMentionedByReflogs) args.push('--reflog');
 			if (includeRemotes) {
 				if (hideRemotes.length === 0) {
@@ -1901,17 +2213,62 @@ export class DataSource extends Disposable {
 
 			args.push('HEAD');
 		}
-		args.push('--');
+		args.push('--', ...paths);
 
 		return this.spawnGit(args, repo, (stdout) => {
 			let lines = stdout.split(EOL_REGEX);
 			let commits: GitCommitRecord[] = [];
 			for (let i = 0; i < lines.length - 1; i++) {
 				let line = lines[i].split(GIT_LOG_SEPARATOR);
-				if (line.length !== 6) break;
-				commits.push({ hash: line[0], parents: line[1] !== '' ? line[1].split(' ') : [], author: line[2], email: line[3], date: parseInt(line[4]), message: line[5] });
+				if (line.length !== (includeSignatures ? 9 : 6)) break;
+				commits.push({
+					hash: line[0],
+					parents: line[1] !== '' ? line[1].split(' ') : [],
+					author: line[2],
+					email: line[3],
+					date: parseInt(line[4]),
+					message: line[5],
+					signature: includeSignatures ? parseSignature(line[6], line[7], line[8]) : null
+				});
 			}
 			return commits;
+		});
+	}
+
+	/**
+	 * Get the nearest ancestor of each of the specified commits that is in a set of commits.
+	 * @param repo The path of the repository.
+	 * @param hashes The commits to find the nearest ancestors of.
+	 * @param commitLookup The set of commits.
+	 * @param oldestDate The date of the oldest commit in the set (older commits aren't searched).
+	 * @returns A mapping from each commit to its nearest ancestor (commits without an ancestor in the set are not included).
+	 */
+	private getNearestAncestorsInSet(repo: string, hashes: ReadonlyArray<string>, commitLookup: { [hash: string]: number }, oldestDate: number) {
+		return this.spawnGit(['rev-list', '--topo-order', '--parents', '--max-age=' + oldestDate, ...hashes, '--'], repo, (stdout) => {
+			const ancestors: { [hash: string]: string } = {};
+			const reachableFrom: { [hash: string]: string[] } = {}; // The commits in "hashes" that each commit is reachable from, before reaching a commit in the set
+			hashes.forEach((hash) => (reachableFrom[hash] = [hash]));
+
+			// Topological order ensures all children of a commit are processed before the commit
+			const lines = stdout.split(EOL_REGEX);
+			for (let i = 0; i < lines.length - 1; i++) {
+				const line = lines[i].split(' '),
+					from = reachableFrom[line[0]];
+				if (typeof from === 'undefined') continue;
+				if (typeof commitLookup[line[0]] === 'number') {
+					from.forEach((hash) => {
+						if (typeof ancestors[hash] === 'undefined') ancestors[hash] = line[0];
+					});
+				} else {
+					for (let j = 1; j < line.length; j++) {
+						const parentFrom = reachableFrom[line[j]] || (reachableFrom[line[j]] = []);
+						from.forEach((hash) => {
+							if (!parentFrom.includes(hash)) parentFrom.push(hash);
+						});
+					}
+				}
+			}
+			return ancestors;
 		});
 	}
 
@@ -2124,14 +2481,18 @@ export class DataSource extends Disposable {
 	 * @param obj The object being squash merged into the current branch.
 	 * @param actionOn Is the merge on a branch, remote-tracking branch or commit.
 	 * @param squashMessageFormat The format to be used in the commit message of the squash.
+	 * @param noVerify Is `--no-verify` enabled.
 	 * @returns The ErrorInfo from the executed command.
 	 */
-	private commitSquashIfStagedChangesExist(repo: string, obj: string, actionOn: MergeActionOn, squashMessageFormat: SquashMessageFormat, signCommits: boolean): Promise<ErrorInfo> {
+	private commitSquashIfStagedChangesExist(repo: string, obj: string, actionOn: MergeActionOn, squashMessageFormat: SquashMessageFormat, signCommits: boolean, noVerify: boolean): Promise<ErrorInfo> {
 		return this.areStagedChanges(repo).then((changes) => {
 			if (changes) {
 				const args = ['commit'];
 				if (signCommits) {
 					args.push('-S');
+				}
+				if (noVerify) {
+					args.push('--no-verify');
 				}
 				if (squashMessageFormat === SquashMessageFormat.Default) {
 					args.push('-m', 'Merge ' + actionOn.toLowerCase() + " '" + obj + "'");
@@ -2171,6 +2532,19 @@ export class DataSource extends Disposable {
 	}
 
 	/**
+	 * Get the todo list entry that amends the current commit of an interactive rebase, setting its message.
+	 * @param repo The path of the repository.
+	 * @param messages The messages to join into the commit message.
+	 * @param signCommits Should the amended commit be signed.
+	 * @returns The todo list entry.
+	 */
+	private async getRebaseTodoAmendEntry(repo: string, messages: ReadonlyArray<string>, signCommits: boolean) {
+		// The message is read from a blob, so that it's never interpreted by the shell that runs the "exec" entry
+		const messageBlob = await this.writeBlob(repo, messages.filter((message) => message !== '').join('\n\n'));
+		return 'exec git cat-file blob ' + messageBlob + ' | git commit --amend --allow-empty --no-verify ' + (signCommits ? '-S ' : '') + '-F -';
+	}
+
+	/**
 	 * Run a Git command (typically for a Git Graph View action).
 	 * @param args The arguments to pass to Git.
 	 * @param repo The repository to run the command in.
@@ -2196,19 +2570,25 @@ export class DataSource extends Disposable {
 	 * @param repo The repository to run the command in.
 	 * @param resolveValue A callback invoked to resolve the data from `stdout` and `stderr`.
 	 * @param ignoreExitCode Ignore the exit code returned by Git (default: `FALSE`).
+	 * @param stdin The data to write to Git's `stdin` (default: `NULL`, nothing is written).
 	 */
-	private _spawnGit<T>(args: string[], repo: string, resolveValue: { (stdout: Buffer, stderr: string): T }, ignoreExitCode: boolean = false) {
+	private _spawnGit<T>(args: string[], repo: string, resolveValue: { (stdout: Buffer, stderr: string): T }, ignoreExitCode: boolean = false, stdin: string | null = null) {
 		return new Promise<T>((resolve, reject) => {
 			if (this.gitExecutable === null) {
 				return reject(UNABLE_TO_FIND_GIT_MSG);
 			}
 
-			resolveSpawnOutput(
-				cp.spawn(this.gitExecutable.path, args, {
-					cwd: repo,
-					env: Object.assign({}, process.env, this.askpassEnv)
-				})
-			).then((values) => {
+			const env: NodeJS.ProcessEnv = Object.assign({}, process.env, this.askpassEnv);
+			// GIT_SEQUENCE_EDITOR takes precedence over the sequence.editor config used by the interactive rebases Git Graph runs
+			delete env.GIT_SEQUENCE_EDITOR;
+			const gitProcess = cp.spawn(this.gitExecutable.path, args, {
+				cwd: repo,
+				env: env
+			});
+			if (stdin !== null) {
+				gitProcess.stdin.end(stdin);
+			}
+			resolveSpawnOutput(gitProcess).then((values) => {
 				const status = values[0],
 					stdout = values[1],
 					stderr = values[2];
@@ -2221,6 +2601,16 @@ export class DataSource extends Disposable {
 
 			this.logger.logCmd('git', args);
 		});
+	}
+
+	/**
+	 * Write a blob to the object database of a repository.
+	 * @param repo The path of the repository.
+	 * @param content The content of the blob.
+	 * @returns The hash of the blob.
+	 */
+	private writeBlob(repo: string, content: string) {
+		return this._spawnGit(['hash-object', '-w', '--stdin'], repo, (stdout) => stdout.toString().trim(), false, content);
 	}
 }
 
@@ -2376,6 +2766,51 @@ function isFile(filePath: string) {
 }
 
 /**
+ * Parse the signature of a commit, from the output of the `%G?`, `%GS` & `%GK` format placeholders.
+ * @param status The signature status.
+ * @param signer The signer of the signature.
+ * @param key The key used to make the signature.
+ * @returns The signature, or NULL if the commit isn't signed.
+ */
+function parseSignature(status: string, signer: string, key: string): GitSignature | null {
+	return ['G', 'U', 'X', 'Y', 'R', 'E', 'B'].includes(status) ? { key: key.trim(), signer: signer.trim(), status: <GitSignatureStatus>status } : null;
+}
+
+/**
+ * Rearrange the entries of a rebase todo list in the same way as `git rebase --autosquash`: each "fixup!" / "squash!" commit is moved
+ * after the commit it targets (and any commits already targeting it), with its action changed to fixup / squash.
+ * @param entries The todo list entries (ordered from oldest to newest).
+ * @returns The rearranged todo list entries.
+ */
+function rearrangeAutosquashEntries(entries: ReadonlyArray<RebaseTodoEntry>) {
+	const groups: RebaseTodoEntry[][] = [],
+		groupLookup = new Map<string, RebaseTodoEntry[]>();
+	for (const entry of entries) {
+		const subject = entry.message.split(EOL_REGEX)[0];
+		const match = subject.match(AUTOSQUASH_SUBJECT_REGEXP);
+		if (match !== null) {
+			// The target is identified by its subject, by its (abbreviated) hash, or by the start of its subject (in that order of precedence)
+			let target = subject;
+			while (AUTOSQUASH_SUBJECT_REGEXP.test(target)) {
+				target = target.replace(AUTOSQUASH_SUBJECT_REGEXP, '');
+			}
+			const group =
+				groupLookup.get(target) ||
+				groups.find((group) => /^[0-9a-f]{4,}$/.test(target) && group[0].hash.startsWith(target)) ||
+				groups.find((group) => target !== '' && group[0].message.startsWith(target));
+			if (group !== undefined) {
+				group.push({ hash: entry.hash, action: match[1] === 'fixup' ? RebaseTodoAction.Fixup : RebaseTodoAction.Squash, message: entry.message });
+				continue;
+			}
+		}
+		const group = [entry];
+		groups.push(group);
+		if (!groupLookup.has(subject)) groupLookup.set(subject, group);
+	}
+	return groups.flat();
+}
+
+/**
  * Remove trailing blank lines from an array of lines.
  * @param lines The array of lines.
  * @returns The same array.
@@ -2425,6 +2860,7 @@ interface GitCommitRecord {
 	email: string;
 	date: number;
 	message: string;
+	signature: GitSignature | null;
 }
 
 interface GitCommitData {
@@ -2461,6 +2897,16 @@ interface GitRefData {
 	heads: GitRef[];
 	tags: GitRefTag[];
 	remotes: GitRef[];
+}
+
+interface GitRebaseCommitData {
+	commits: { hash: string; isMerge: boolean; message: string }[] | null;
+	error: ErrorInfo;
+}
+
+export interface GitRebaseTodoListData {
+	entries: RebaseTodoEntry[] | null;
+	error: ErrorInfo;
 }
 
 interface GitRepoInfo extends GitBranchData {

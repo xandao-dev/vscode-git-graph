@@ -1199,11 +1199,13 @@ describe('RepoManager', () => {
 				onlyFollowFirstParent: BooleanOverride.Default,
 				onRepoLoadShowCheckedOutBranch: BooleanOverride.Default,
 				onRepoLoadShowSpecificBranches: null,
+				pathFilter: null,
 				pullRequestConfig: null,
 				showRemoteBranches: true,
 				showRemoteBranchesV2: BooleanOverride.Default,
 				showStashes: BooleanOverride.Default,
 				showTags: BooleanOverride.Default,
+				simplifyByDecoration: BooleanOverride.Default,
 				workspaceFolderIndex: 0
 			};
 
@@ -1871,11 +1873,13 @@ describe('RepoManager', () => {
 							onlyFollowFirstParent: BooleanOverride.Default,
 							onRepoLoadShowCheckedOutBranch: BooleanOverride.Default,
 							onRepoLoadShowSpecificBranches: null,
+							pathFilter: null,
 							pullRequestConfig: null,
 							showRemoteBranches: true,
 							showRemoteBranchesV2: BooleanOverride.Default,
 							showStashes: BooleanOverride.Default,
 							showTags: BooleanOverride.Default,
+							simplifyByDecoration: BooleanOverride.Default,
 							workspaceFolderIndex: 0
 						}
 					};
@@ -2458,11 +2462,13 @@ describe('RepoManager', () => {
 					onlyFollowFirstParent: BooleanOverride.Default,
 					onRepoLoadShowCheckedOutBranch: BooleanOverride.Default,
 					onRepoLoadShowSpecificBranches: null,
+					pathFilter: null,
 					pullRequestConfig: null,
 					showRemoteBranches: true,
 					showRemoteBranchesV2: BooleanOverride.Default,
 					showStashes: BooleanOverride.Default,
 					showTags: BooleanOverride.Default,
+					simplifyByDecoration: BooleanOverride.Default,
 					workspaceFolderIndex: 0
 				}
 			});
@@ -2540,11 +2546,13 @@ describe('RepoManager', () => {
 					onlyFollowFirstParent: BooleanOverride.Default,
 					onRepoLoadShowCheckedOutBranch: BooleanOverride.Default,
 					onRepoLoadShowSpecificBranches: null,
+					pathFilter: null,
 					pullRequestConfig: null,
 					showRemoteBranches: true,
 					showRemoteBranchesV2: BooleanOverride.Default,
 					showStashes: BooleanOverride.Default,
 					showTags: BooleanOverride.Default,
+					simplifyByDecoration: BooleanOverride.Default,
 					workspaceFolderIndex: 0
 				}
 			});

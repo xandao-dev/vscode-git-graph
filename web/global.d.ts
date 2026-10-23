@@ -27,6 +27,7 @@ declare global {
 		index: number;
 		commitHash: string;
 		commitElem: HTMLElement | null;
+		parentIndex: number;
 		compareWithHash: string | null;
 		compareWithElem: HTMLElement | null;
 		commitDetails: GG.GitCommitDetails | null;
@@ -64,6 +65,7 @@ declare global {
 		readonly maxCommits: number;
 		readonly onlyFollowFirstParent: boolean;
 		readonly expandedCommit: ExpandedCommit | null;
+		readonly selectedCommits: string[];
 		readonly scrollTop: number;
 		readonly findWidget: FindWidgetState;
 		readonly settingsWidget: SettingsWidgetState;

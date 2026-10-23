@@ -653,7 +653,9 @@ describe('insertWorktreeUncommittedChanges', () => {
 		heads: [],
 		tags: [],
 		remotes: [],
-		stash: null
+		stash: null,
+		isPathFilterMatch: true,
+		signature: null
 	});
 	const worktree = (path: string, head: string | null, uncommittedChanges: number, isCurrent: boolean = false) => ({
 		path: path,
@@ -694,7 +696,9 @@ describe('insertWorktreeUncommittedChanges', () => {
 				heads: [],
 				tags: [],
 				remotes: [],
-				stash: null
+				stash: null,
+				isPathFilterMatch: true,
+				signature: null
 			},
 			commits[2]
 		]);

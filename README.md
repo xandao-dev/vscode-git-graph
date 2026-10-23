@@ -19,6 +19,7 @@ View a Git Graph of your repository, and easily perform Git actions from the gra
         * Apply, Create Branch From, Drop & Pop Stashes
         * View annotated tag details (name, email, date and message)
         * Copy commit hashes, and branch, stash & tag names to the clipboard
+        * Interactively rebase the current branch, editing the rebase todo list in Git Graph: reorder commits by dragging them, and pick, reword, edit, squash, fixup or drop each commit
     * View commit details and file changes by clicking on a commit. On the Commit Details View you can:
         * View the Visual Studio Code Diff of any file change by clicking on it.
         * Open the current version of any file that was affected in the commit.
@@ -28,6 +29,7 @@ View a Git Graph of your repository, and easily perform Git actions from the gra
         * View the Visual Studio Code Diff of any file change between the selected commits by clicking on it.
         * Open the current version of any file that was affected between the selected commits.
         * Copy the path of any file that was affected between the selected commits to the clipboard.
+    * Select multiple commits by CTRL/CMD clicking on them, or a range of commits by SHIFT clicking on a commit. Right clicking on a selected commit allows the selected commits to be squashed into a single commit, or dropped.
     * Code Review - Keep track of which files you have reviewed in the Commit Details & Comparison Views.
         * Code Review's can be performed on any commit, or between any two commits (not on Uncommitted Changes).
         * When a Code Review is started, all files needing to be reviewed are bolded. When you view the diff / open a file, it will then be un-bolded.
@@ -40,6 +42,7 @@ View a Git Graph of your repository, and easily perform Git actions from the gra
         * Show All branches
         * Select one or more branches to be viewed
         * Select from a user predefined array of custom glob patterns (by setting `git-graph.customBranchGlobPatterns`)
+    * Filter the commits shown in Git Graph to those that modified specific files or folders, using the 'Paths' dropdown menu (type one or more comma separated paths into its filter and press Enter), or by right clicking a file or folder in the Explorer and selecting "Filter in Git Graph".
     * Fetch from Remote(s) _(available on the top control bar)_
     * Find Widget allows you to quickly find one or more commits containing a specific phrase (in the commit message / date / author / hash, branch or tag names).
     * Repository Settings Widget:
@@ -60,7 +63,7 @@ View a Git Graph of your repository, and easily perform Git actions from the gra
             * `CTRL/CMD + Up` / `CTRL/CMD + Down`: The Commit Details View will be opened on its child or parent commit on the same branch.
                 * If the Shift Key is also pressed (i.e. `CTRL/CMD + SHIFT + Up` / `CTRL/CMD + SHIFT + Down`), when branches or merges are encountered the alternative branch is followed.
         * `Enter`: If a dialog is open, pressing enter submits the dialog, taking the primary (left) action.
-        * `Escape`: Closes the active dialog, context menu or the Commit Details View.
+        * `Escape`: Closes the active dialog, context menu or the Commit Details View (and clears the selected commits).
     * Resize the width of each column, and show/hide the Date, Author & Commit columns.
     * Common Emoji Shortcodes are automatically replaced with the corresponding emoji in commit messages (including all [gitmoji](https://gitmoji.carloscuesta.me/)). Custom Emoji Shortcode mappings can be defined in `git-graph.customEmojiShortcodeMappings`.
 * A broad range of configurable settings (e.g. graph style, branch colours, and more...). See the 'Extension Settings' section below for more information.
@@ -74,6 +77,7 @@ Detailed information of all Git Graph settings is available [here](https://githu
 A summary of the Git Graph extension settings are:
 * **Commit Details View**:
     * **Auto Center**: Automatically center the Commit Details View when it is opened.
+    * **Auto Scroll**: Automatically scroll the Git Graph View to show the Commit Details View when it is opened.
     * **File View**:
         * **File Tree**:
             * **Compact Folders**: Render the File Tree in the Commit Details View in a compacted form, such that folders with a single child folder are compressed into a single combined folder element.
@@ -86,7 +90,7 @@ A summary of the Git Graph extension settings are:
 * **Date**:
     * **Format**: Specifies the date format to be used in the "Date" column on the Git Graph View.
     * **Type**: Specifies the date type to be displayed in the "Date" column on the Git Graph View, either the author or commit date.
-* **Default Column Visibility**: An object specifying the default visibility of the Date, Author & Commit columns. Example: `{"Date": true, "Author": true, "Commit": true}`
+* **Default Column Visibility**: An object specifying the default visibility of the Date, Author, Commit & Signature columns. Example: `{"Date": true, "Author": true, "Commit": true, "Signature": false}`
 * **Dialog > \***: Set the default options on the following dialogs: Add Tag, Apply Stash, Cherry Pick, Create Branch, Delete Branch, Fetch into Local Branch, Fetch Remote, Merge, Pop Stash, Pull Branch, Rebase, Reset, and Stash Uncommitted Changes
 * **Enhanced Accessibility**: Visual file change A|M|D|R|U indicators in the Commit Details View for users with colour blindness. In the future, this setting will enable any additional accessibility related features of Git Graph that aren't enabled by default.
 * **File Encoding**: The character set encoding used when retrieving a specific version of repository files (e.g. in the Diff View). A list of all supported encodings can be found [here](https://github.com/ashtuchkin/iconv-lite/wiki/Supported-Encodings).
@@ -132,11 +136,14 @@ A summary of the Git Graph extension settings are:
     * **Sign**:
         * **Commits**: Enables commit signing with GPG or X.509.
         * **Tags**: Enables tag signing with GPG or X.509.
+    * **Simplify By Decoration**: Only show commits that are referenced by a branch or tag in Git Graph by default.
     * **Use Mailmap**: Respect [.mailmap](https://git-scm.com/docs/git-check-mailmap#_mapping_authors) files when displaying author & committer names and email addresses.
 * **Repository Dropdown Order**: Specifies the order that repositories are sorted in the repository dropdown on the Git Graph View (only visible when more than one repository exists in the current Visual Studio Code Workspace).
 * **Retain Context When Hidden**: Specifies if the Git Graph view Visual Studio Code context is kept when the panel is no longer visible (e.g. moved to background tab). Enabling this setting will make Git Graph load significantly faster when switching back to the Git Graph tab, however has a higher memory overhead.
+* **Show Path Filter**: Show the Paths dropdown on the Git Graph View's Control Bar, to only show the commits that modified specific files or folders. When disabled, any path filter previously applied to a repository is ignored.
 * **Show Status Bar Item**: Show a Status Bar Item that opens the Git Graph View when clicked.
 * **Source Code Provider Integration Location**: Specifies where the "View Git Graph" action appears on the title of SCM Providers.
+* **Sticky Header**: Keep the Control Bar and the column headers of the Git Graph View visible while the view is scrolled.
 * **Tab Icon Colour Theme**: Specifies the colour theme of the icon displayed on the Git Graph tab.
 
 This extension consumes the following settings:

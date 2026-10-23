@@ -89,7 +89,7 @@ describe('CommandManager', () => {
 
 	it('Should construct a CommandManager, and be disposed', () => {
 		// Assert
-		expect(commandManager['disposables']).toHaveLength(11);
+		expect(commandManager['disposables']).toHaveLength(12);
 		expect(commandManager['gitExecutable']).toStrictEqual({
 			path: '/path/to/git',
 			version: '2.25.0'
@@ -1321,6 +1321,72 @@ describe('CommandManager', () => {
 			expect(spyOnLog).toHaveBeenCalledWith('Command Invoked: git-graph.openFile');
 			expect(spyOnOpenFile).toHaveBeenCalledWith('/path/to/repo', 'subfolder/modified.txt', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b', dataSource, vscode.ViewColumn.Active);
 			expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('Unable to Open File: Error Message');
+		});
+	});
+
+	describe('git-graph.openWithPathFilter', () => {
+		let spyOnGetRepoContainingFile: MockInstance;
+		beforeAll(() => {
+			spyOnGetRepoContainingFile = vi.spyOn(repoManager, 'getRepoContainingFile');
+		});
+
+		it('Should open the Git Graph View to the repository containing the file, filtered by the path of the file', async () => {
+			// Setup
+			spyOnGetRepos.mockReturnValueOnce({ '/path/to/repo': mockRepoState() });
+			spyOnGetRepoContainingFile.mockReturnValueOnce('/path/to/repo');
+
+			// Run
+			await vscode.commands.executeCommand('git-graph.openWithPathFilter', vscode.Uri.file('/path/to/repo/subfolder/file.txt'));
+
+			// Assert
+			expect(spyOnLog).toHaveBeenCalledWith('Command Invoked: git-graph.openWithPathFilter');
+			expect(spyOnGetRepoContainingFile).toHaveBeenCalledWith('/path/to/repo/subfolder/file.txt');
+			expect(spyOnGitGraphViewCreateOrShow).toHaveBeenCalledWith('/path/to/extension', dataSource, extensionState, avatarManager, repoManager, logger, {
+				repo: '/path/to/repo',
+				pathFilter: 'subfolder/file.txt'
+			});
+		});
+
+		it('Should open the Git Graph View to the repository without a path filter, when the root folder of the repository is selected', async () => {
+			// Setup
+			spyOnGetRepos.mockReturnValueOnce({ '/path/to/repo': mockRepoState() });
+
+			// Run
+			await vscode.commands.executeCommand('git-graph.openWithPathFilter', vscode.Uri.file('/path/to/repo'));
+
+			// Assert
+			expect(spyOnLog).toHaveBeenCalledWith('Command Invoked: git-graph.openWithPathFilter');
+			expect(spyOnGetRepoContainingFile).not.toHaveBeenCalled();
+			expect(spyOnGitGraphViewCreateOrShow).toHaveBeenCalledWith('/path/to/extension', dataSource, extensionState, avatarManager, repoManager, logger, {
+				repo: '/path/to/repo',
+				pathFilter: null
+			});
+		});
+
+		it('Should display an error message when the file is not in a known repository', async () => {
+			// Setup
+			spyOnGetRepos.mockReturnValueOnce({ '/path/to/repo': mockRepoState() });
+			spyOnGetRepoContainingFile.mockReturnValueOnce(null);
+			vscode.window.showErrorMessage.mockResolvedValueOnce(null);
+
+			// Run
+			await vscode.commands.executeCommand('git-graph.openWithPathFilter', vscode.Uri.file('/path/to/other/file.txt'));
+
+			// Assert
+			expect(spyOnGitGraphViewCreateOrShow).not.toHaveBeenCalled();
+			expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('Unable to Filter in Git Graph: "/path/to/other/file.txt" is not in a repository known to Git Graph.');
+		});
+
+		it('Should display an error message when no URI is provided', async () => {
+			// Setup
+			vscode.window.showErrorMessage.mockResolvedValueOnce(null);
+
+			// Run
+			await vscode.commands.executeCommand('git-graph.openWithPathFilter');
+
+			// Assert
+			expect(spyOnGitGraphViewCreateOrShow).not.toHaveBeenCalled();
+			expect(vscode.window.showErrorMessage).toHaveBeenCalledWith('Unable to Filter in Git Graph: The command was not called with the required arguments.');
 		});
 	});
 });

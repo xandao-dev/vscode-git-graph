@@ -96,6 +96,11 @@
 				"title": "Open File",
 				"icon": "$(go-to-file)",
 				"enablement": "isInDiffEditor && resourceScheme == git-graph"
+			},
+			{
+				"category": "Git Graph",
+				"command": "git-graph.openWithPathFilter",
+				"title": "Filter in Git Graph"
 			}
 		],
 		"configuration": {
@@ -106,6 +111,11 @@
 					"type": "boolean",
 					"default": true,
 					"description": "Automatically center the Commit Details View when it is opened."
+				},
+				"git-graph.commitDetailsView.autoScroll": {
+					"type": "boolean",
+					"default": true,
+					"description": "Automatically scroll the Git Graph View to show the Commit Details View when it is opened. When disabled, the \"Auto Center\" setting has no effect."
 				},
 				"git-graph.commitDetailsView.fileView.fileTree.compactFolders": {
 					"type": "boolean",
@@ -225,6 +235,18 @@
 								"edit": {
 									"type": "boolean",
 									"title": "Edit..."
+								},
+								"fixup": {
+									"type": "boolean",
+									"title": "Fixup this Commit"
+								},
+								"squashSelected": {
+									"type": "boolean",
+									"title": "Squash Selected Commits..."
+								},
+								"dropSelected": {
+									"type": "boolean",
+									"title": "Drop Selected Commits..."
 								},
 								"merge": {
 									"type": "boolean",
@@ -537,14 +559,19 @@
 						"Commit": {
 							"type": "boolean",
 							"title": "Visibility of the Commit column"
+						},
+						"Signature": {
+							"type": "boolean",
+							"title": "Visibility of the Signature column"
 						}
 					},
 					"default": {
 						"Date": true,
 						"Author": true,
-						"Commit": true
+						"Commit": true,
+						"Signature": false
 					},
-					"description": "An object specifying the default visibility of the Date, Author & Commit columns. Example: {\"Date\": true, \"Author\": true, \"Commit\": true}"
+					"description": "An object specifying the default visibility of the Date, Author, Commit & Signature columns. Example: {\"Date\": true, \"Author\": true, \"Commit\": true, \"Signature\": false}. Showing the Signature column requires Git to check the signature of every loaded commit, which can be slow in large repositories. Requires Git (>= 2.4.0) & GPG (or equivalent) to be installed on the same machine that is running Visual Studio Code."
 				},
 				"git-graph.dialog.addTag.pushToRemote": {
 					"type": "boolean",
@@ -615,6 +642,11 @@
 					"default": "None",
 					"description": "Specifies a substitution that is automatically performed when space characters are entered or pasted into reference inputs on dialogs (e.g. Create Branch, Add Tag, etc.)."
 				},
+				"git-graph.dialog.merge.allowUnrelatedHistories": {
+					"type": "boolean",
+					"default": false,
+					"description": "Default state of the \"Allow unrelated histories\" checkbox."
+				},
 				"git-graph.dialog.merge.noCommit": {
 					"type": "boolean",
 					"default": false,
@@ -671,6 +703,11 @@
 					"default": "Default",
 					"description": "Specifies the message format used for the squashed commit (when the \"Squash Commits\" option is selected)."
 				},
+				"git-graph.dialog.rebase.autosquash": {
+					"type": "boolean",
+					"default": false,
+					"description": "Default state of the \"Auto-squash (interactive rebase only)\" checkbox."
+				},
 				"git-graph.dialog.rebase.ignoreDate": {
 					"type": "boolean",
 					"default": true,
@@ -679,7 +716,7 @@
 				"git-graph.dialog.rebase.launchInteractiveRebase": {
 					"type": "boolean",
 					"default": false,
-					"description": "Default state of the \"Launch Interactive Rebase in new Terminal\" checkbox."
+					"description": "Select the \"Interactive Rebase (New Terminal)\" mode by default on the Rebase dialog (instead of \"Rebase\")."
 				},
 				"git-graph.dialog.resetCurrentBranchToCommit.mode": {
 					"type": "string",
@@ -1116,6 +1153,11 @@
 					"default": false,
 					"description": "Enables tag signing with GPG or X.509."
 				},
+				"git-graph.repository.simplifyByDecoration": {
+					"type": "boolean",
+					"default": false,
+					"markdownDescription": "Only show commits that are referenced by a branch or tag in Git Graph by default (see [--simplify-by-decoration](https://git-scm.com/docs/git-log#Documentation/git-log.txt---simplify-by-decoration)). This can be overridden per repository from the Git Graph View's Control Bar."
+				},
 				"git-graph.repository.useMailmap": {
 					"type": "boolean",
 					"default": false,
@@ -1141,6 +1183,11 @@
 					"default": true,
 					"description": "Specifies if the Git Graph View's Visual Studio Code context is kept when the panel is no longer visible (e.g. moved to background tab). Enabling this setting will make Git Graph load significantly faster when switching back to the Git Graph tab, however has a higher memory overhead."
 				},
+				"git-graph.showPathFilter": {
+					"type": "boolean",
+					"default": true,
+					"description": "Show the Paths dropdown on the Git Graph View's Control Bar, to only show the commits that modified specific files or folders. When disabled, any path filter previously applied to a repository is ignored."
+				},
 				"git-graph.showStatusBarItem": {
 					"type": "boolean",
 					"default": true,
@@ -1158,6 +1205,11 @@
 					],
 					"default": "Inline",
 					"description": "Specifies where the \"View Git Graph\" action appears on the title of SCM Providers."
+				},
+				"git-graph.stickyHeader": {
+					"type": "boolean",
+					"default": true,
+					"description": "Keep the Control Bar and the column headers of the Git Graph View visible while the view is scrolled."
 				},
 				"git-graph.tabIconColourTheme": {
 					"type": "string",
@@ -1492,6 +1544,10 @@
 				{
 					"command": "git-graph.openFile",
 					"when": "isInDiffEditor && resourceScheme == git-graph"
+				},
+				{
+					"command": "git-graph.openWithPathFilter",
+					"when": "false"
 				}
 			],
 			"editor/title": [
@@ -1499,6 +1555,13 @@
 					"command": "git-graph.openFile",
 					"group": "navigation",
 					"when": "isInDiffEditor && resourceScheme == git-graph"
+				}
+			],
+			"explorer/context": [
+				{
+					"command": "git-graph.openWithPathFilter",
+					"group": "4_search",
+					"when": "config.git-graph.showPathFilter"
 				}
 			],
 			"scm/title": [
