@@ -372,6 +372,8 @@ export interface ContextMenuActionsVisibility {
 		readonly drop: boolean;
 		readonly edit: boolean;
 		readonly fixup: boolean;
+		readonly squashSelected: boolean;
+		readonly dropSelected: boolean;
 		readonly merge: boolean;
 		readonly rebase: boolean;
 		readonly reset: boolean;
@@ -840,6 +842,14 @@ export interface ResponseDropCommit extends ResponseWithErrorInfo {
 	readonly command: 'dropCommit';
 }
 
+export interface RequestDropCommits extends RepoRequest {
+	readonly command: 'dropCommits';
+	readonly commitHashes: ReadonlyArray<string>; // Ordered from newest to oldest
+}
+export interface ResponseDropCommits extends ResponseWithErrorInfo {
+	readonly command: 'dropCommits';
+}
+
 export interface RequestDropStash extends RepoRequest {
 	readonly command: 'dropStash';
 	readonly selector: string;
@@ -1217,6 +1227,16 @@ export interface RequestShowErrorDialog extends BaseMessage {
 	readonly message: string;
 }
 
+export interface RequestSquashCommits extends RepoRequest {
+	readonly command: 'squashCommits';
+	readonly commitHashes: ReadonlyArray<string>; // Ordered from newest to oldest
+	readonly message: string;
+	readonly noVerify: boolean;
+}
+export interface ResponseSquashCommits extends ResponseWithErrorInfo {
+	readonly command: 'squashCommits';
+}
+
 export interface RequestStartCodeReview extends RepoRequest {
 	readonly command: 'startCodeReview';
 	readonly id: string;
@@ -1315,6 +1335,7 @@ export type RequestMessage =
 	| RequestDeleteTag
 	| RequestDeleteUserDetails
 	| RequestDropCommit
+	| RequestDropCommits
 	| RequestDropStash
 	| RequestEditCommit
 	| RequestEditRemote
@@ -1351,6 +1372,7 @@ export type RequestMessage =
 	| RequestSetRepoState
 	| RequestSetWorkspaceViewState
 	| RequestShowErrorDialog
+	| RequestSquashCommits
 	| RequestStartCodeReview
 	| RequestTagDetails
 	| RequestUpdateCodeReview
@@ -1382,6 +1404,7 @@ export type ResponseMessage =
 	| ResponseDeleteTag
 	| ResponseDeleteUserDetails
 	| ResponseDropCommit
+	| ResponseDropCommits
 	| ResponseDropStash
 	| ResponseEditCommit
 	| ResponseEditRemote
@@ -1415,6 +1438,7 @@ export type ResponseMessage =
 	| ResponseRevertCommit
 	| ResponseSetGlobalViewState
 	| ResponseSetWorkspaceViewState
+	| ResponseSquashCommits
 	| ResponseStartCodeReview
 	| ResponseTagDetails
 	| ResponseUpdateCodeReview

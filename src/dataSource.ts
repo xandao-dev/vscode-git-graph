@@ -1279,6 +1279,22 @@ export class DataSource extends Disposable {
 	}
 
 	/**
+	 * Drop multiple commits in a repository, using a single interactive rebase.
+	 * @param repo The path of the repository.
+	 * @param commitHashes The hashes of the commits to drop (ordered from newest to oldest).
+	 * @returns The ErrorInfo from the executed command.
+	 */
+	public dropCommits(repo: string, commitHashes: ReadonlyArray<string>) {
+		// List the full hash of each commit in the todo list, so that the entries of the commits being dropped can be marked as "drop"
+		const args = ['-c', 'rebase.instructionFormat=%H', '-c', 'sequence.editor=sed -i.bak' + commitHashes.map((hash) => ' -e "/ ' + hash + '/s/^[a-z]* /drop /"').join(''), 'rebase', '--interactive'];
+		if (getConfig().signCommits) {
+			args.push('-S');
+		}
+		args.push(commitHashes[commitHashes.length - 1] + '^');
+		return this.runGitCommand(args, repo);
+	}
+
+	/**
 	 * Start editing a commit in a repository. An interactive rebase is started that stops at the commit, and the commit is
 	 * undone so that its changes are staged. Committing (or running `git rebase --continue`) then replaces the commit, reusing
 	 * its message & author, and replays the commits on top of it.
@@ -1373,6 +1389,74 @@ export class DataSource extends Disposable {
 		}
 		args.push(commitHash);
 		return this.runGitCommand(args, repo);
+	}
+
+	/**
+	 * Squash multiple consecutive commits in a repository into a single commit. An interactive rebase is started that stops at the
+	 * newest commit, the commits are replaced by a single commit containing all of their changes, and then the rebase is continued
+	 * to reapply the commits on top of it.
+	 * @param repo The path of the repository.
+	 * @param commitHashes The hashes of the commits to squash (ordered from newest to oldest).
+	 * @param message The message of the squashed commit.
+	 * @param noVerify Is `--no-verify` enabled when committing the squashed commit.
+	 * @returns The ErrorInfo from the executed command.
+	 */
+	public async squashCommits(repo: string, commitHashes: ReadonlyArray<string>, message: string, noVerify: boolean) {
+		const newestHash = commitHashes[0],
+			base = commitHashes[commitHashes.length - 1] + '^',
+			signCommits = getConfig().signCommits;
+
+		// Check that no other commits are between the commits (e.g. commits that are hidden from the Git Graph View)
+		let count: number;
+		try {
+			count = await this.spawnGit(['rev-list', '--count', base + '..' + newestHash], repo, (stdout) => parseInt(stdout));
+		} catch (errorMessage) {
+			return <ErrorInfo>errorMessage;
+		}
+		if (count !== commitHashes.length) {
+			return "The commits can't be squashed, as there are other commits between them.";
+		}
+
+		// List the full hash of each commit in the todo list, so that the entry of the newest commit can be marked as "edit"
+		const args = ['-c', 'rebase.instructionFormat=%H', '-c', 'sequence.editor=sed -i.bak -e "/ ' + newestHash + '/s/^[a-z]* /edit /"', 'rebase', '--interactive'];
+		if (signCommits) {
+			args.push('-S');
+		}
+		args.push(base);
+
+		const rebaseStatus = await this.runGitCommand(args, repo);
+		if (rebaseStatus !== null) return rebaseStatus;
+
+		// Git creates this file when it stops at an "edit" entry
+		let amendFilePath: string;
+		try {
+			amendFilePath = path.resolve(repo, await this.spawnGit(['rev-parse', '--git-path', 'rebase-merge/amend'], repo, (stdout) => stdout.trim()));
+		} catch (errorMessage) {
+			return <ErrorInfo>errorMessage;
+		}
+		if (!fs.existsSync(amendFilePath)) {
+			return "Git didn't stop the rebase at commit " + abbrevCommit(newestHash) + '.';
+		}
+
+		// Replace the commits with a single commit containing all of their changes
+		const commitArgs = ['commit', '-m', message];
+		if (signCommits) {
+			commitArgs.push('-S');
+		}
+		if (noVerify) {
+			commitArgs.push('--no-verify');
+		}
+		let squashStatus = await this.runGitCommand(['reset', '--soft', base], repo);
+		if (squashStatus === null) {
+			squashStatus = await this.runGitCommand(commitArgs, repo);
+		}
+		if (squashStatus !== null) {
+			// Restore the commits to how they were before the rebase was started
+			await this.runGitCommand(['rebase', '--abort'], repo);
+			return squashStatus;
+		}
+
+		return this.runGitCommand(['rebase', '--continue'], repo);
 	}
 
 	/* Git Action Methods - Config */

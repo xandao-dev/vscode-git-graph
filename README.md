@@ -28,6 +28,7 @@ View a Git Graph of your repository, and easily perform Git actions from the gra
         * View the Visual Studio Code Diff of any file change between the selected commits by clicking on it.
         * Open the current version of any file that was affected between the selected commits.
         * Copy the path of any file that was affected between the selected commits to the clipboard.
+    * Select multiple commits by CTRL/CMD clicking on them, or a range of commits by SHIFT clicking on a commit. Right clicking on a selected commit allows the selected commits to be squashed into a single commit, or dropped.
     * Code Review - Keep track of which files you have reviewed in the Commit Details & Comparison Views.
         * Code Review's can be performed on any commit, or between any two commits (not on Uncommitted Changes).
         * When a Code Review is started, all files needing to be reviewed are bolded. When you view the diff / open a file, it will then be un-bolded.
@@ -61,7 +62,7 @@ View a Git Graph of your repository, and easily perform Git actions from the gra
             * `CTRL/CMD + Up` / `CTRL/CMD + Down`: The Commit Details View will be opened on its child or parent commit on the same branch.
                 * If the Shift Key is also pressed (i.e. `CTRL/CMD + SHIFT + Up` / `CTRL/CMD + SHIFT + Down`), when branches or merges are encountered the alternative branch is followed.
         * `Enter`: If a dialog is open, pressing enter submits the dialog, taking the primary (left) action.
-        * `Escape`: Closes the active dialog, context menu or the Commit Details View.
+        * `Escape`: Closes the active dialog, context menu or the Commit Details View (and clears the selected commits).
     * Resize the width of each column, and show/hide the Date, Author & Commit columns.
     * Common Emoji Shortcodes are automatically replaced with the corresponding emoji in commit messages (including all [gitmoji](https://gitmoji.carloscuesta.me/)). Custom Emoji Shortcode mappings can be defined in `git-graph.customEmojiShortcodeMappings`.
 * A broad range of configurable settings (e.g. graph style, branch colours, and more...). See the 'Extension Settings' section below for more information.

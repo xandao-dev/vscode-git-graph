@@ -104,6 +104,8 @@ class Config {
 				drop: true,
 				edit: true,
 				fixup: true,
+				squashSelected: true,
+				dropSelected: true,
 				merge: true,
 				rebase: true,
 				reset: true,

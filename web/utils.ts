@@ -104,6 +104,7 @@ export const COLUMN_LEFT_RIGHT_PADDING = 24;
 export const CLASS_ACTIVE = 'active';
 export const CLASS_BRANCH_LABELS_ALIGNED_TO_GRAPH = 'branchLabelsAlignedToGraph';
 export const CLASS_COMMIT_DETAILS_OPEN = 'commitDetailsOpen';
+export const CLASS_COMMIT_SELECTED = 'commitSelected';
 export const CLASS_DISABLED = 'disabled';
 export const CLASS_ENABLED = 'enabled';
 export const CLASS_FETCH_SUPPORTED = 'fetchSupported';

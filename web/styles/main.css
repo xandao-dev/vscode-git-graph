@@ -655,10 +655,10 @@ svg.openFolderIcon, svg.closedFolderIcon, svg.fileIcon{
 #commitTable tr.commit:hover, #commitTable tr.commit.contextMenuActive, #commitTable tr.commit.findCurrentCommit:hover, #commitTable tr.commit.graphVertexActive, #commitTable tr.commit.dialogActive{
 	background-color:rgba(128,128,128,0.15);
 }
-#commitTable tr.commit.commitDetailsOpen{
+#commitTable tr.commit.commitDetailsOpen, #commitTable tr.commit.commitSelected{
 	background-color:rgba(128,128,128,0.25);
 }
-#commitTable tr.commit.commitDetailsOpen:hover, #commitTable tr.commit.commitDetailsOpen.contextMenuActive, #commitTable tr.commit.commitDetailsOpen.dialogActive, #commitTable tr.commit.commitDetailsOpen.graphVertexActive{
+#commitTable tr.commit.commitDetailsOpen:hover, #commitTable tr.commit.commitDetailsOpen.contextMenuActive, #commitTable tr.commit.commitDetailsOpen.dialogActive, #commitTable tr.commit.commitDetailsOpen.graphVertexActive, #commitTable tr.commit.commitSelected:hover, #commitTable tr.commit.commitSelected.contextMenuActive, #commitTable tr.commit.commitSelected.dialogActive, #commitTable tr.commit.commitSelected.graphVertexActive{
 	background-color:rgba(128,128,128,0.35);
 }
 
@@ -673,6 +673,8 @@ body.vscode-high-contrast #commitTable tr.commit.findCurrentCommit{
 
 #commitTable tr.commit.mute.commitDetailsOpen td.text,
 #commitTable tr.commit.mute.commitDetailsOpen span.description .text,
+#commitTable tr.commit.mute.commitSelected td.text,
+#commitTable tr.commit.mute.commitSelected span.description .text,
 #commitTable tr.commit.mute.findCurrentCommit td.text,
 #commitTable tr.commit.mute.findCurrentCommit span.description .text{
 	opacity:1;
@@ -733,7 +735,7 @@ body.vscode-high-contrast #commitTable tr.commit.findCurrentCommit{
 	font-style:italic;
 }
 
-#commitTable tr.commit.commitDetailsOpen:hover .gitRef, #commitTable tr.commit.commitDetailsOpen.contextMenuActive .gitRef, #commitTable tr.commit.commitDetailsOpen.dialogActive .gitRef, #commitTable tr.commit.commitDetailsOpen.graphVertexActive .gitRef{
+#commitTable tr.commit.commitDetailsOpen:hover .gitRef, #commitTable tr.commit.commitDetailsOpen.contextMenuActive .gitRef, #commitTable tr.commit.commitDetailsOpen.dialogActive .gitRef, #commitTable tr.commit.commitDetailsOpen.graphVertexActive .gitRef, #commitTable tr.commit.commitSelected:hover .gitRef, #commitTable tr.commit.commitSelected.contextMenuActive .gitRef, #commitTable tr.commit.commitSelected.dialogActive .gitRef, #commitTable tr.commit.commitSelected.graphVertexActive .gitRef{
 	background-color:rgba(128,128,128,0.05);
 }
 

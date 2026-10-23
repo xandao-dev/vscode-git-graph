@@ -64,6 +64,7 @@ declare global {
 		readonly maxCommits: number;
 		readonly onlyFollowFirstParent: boolean;
 		readonly expandedCommit: ExpandedCommit | null;
+		readonly selectedCommits: string[];
 		readonly scrollTop: number;
 		readonly findWidget: FindWidgetState;
 		readonly settingsWidget: SettingsWidgetState;

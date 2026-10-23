@@ -408,6 +408,12 @@ export class GitGraphView extends Disposable {
 					error: await this.dataSource.dropCommit(msg.repo, msg.commitHash)
 				});
 				break;
+			case 'dropCommits':
+				this.sendMessage({
+					command: 'dropCommits',
+					error: await this.dataSource.dropCommits(msg.repo, msg.commitHashes)
+				});
+				break;
 			case 'dropStash':
 				this.sendMessage({
 					command: 'dropStash',
@@ -663,6 +669,12 @@ export class GitGraphView extends Disposable {
 				break;
 			case 'showErrorMessage':
 				showErrorMessage(msg.message);
+				break;
+			case 'squashCommits':
+				this.sendMessage({
+					command: 'squashCommits',
+					error: await this.dataSource.squashCommits(msg.repo, msg.commitHashes, msg.message, msg.noVerify)
+				});
 				break;
 			case 'startCodeReview':
 				this.sendMessage({

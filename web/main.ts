@@ -26,6 +26,7 @@ import {
 	CLASS_ACTIVE,
 	CLASS_BRANCH_LABELS_ALIGNED_TO_GRAPH,
 	CLASS_COMMIT_DETAILS_OPEN,
+	CLASS_COMMIT_SELECTED,
 	CLASS_DISABLED,
 	CLASS_ENABLED,
 	CLASS_FETCH_SUPPORTED,
@@ -114,6 +115,7 @@ export class GitGraphView {
 
 	private moreCommitsAvailable: boolean = false;
 	private expandedCommit: ExpandedCommit | null = null;
+	private selectedCommits: string[] = [];
 	private maxCommits: number;
 	private scrollTop = 0;
 	private renderedGitBranchHead: string | null = null;
@@ -223,6 +225,7 @@ export class GitGraphView {
 			this.currentBranches = prevState.currentBranches;
 			this.maxCommits = prevState.maxCommits;
 			this.expandedCommit = prevState.expandedCommit;
+			this.selectedCommits = prevState.selectedCommits || [];
 			this.avatars = prevState.avatars;
 			this.gitConfig = prevState.gitConfig;
 			this.loadRepoInfo(prevState.gitBranches, prevState.gitBranchHead, prevState.gitRemotes, prevState.gitStashes, true);
@@ -335,6 +338,7 @@ export class GitGraphView {
 		this.currentBranches = null;
 		this.renderFetchButton();
 		this.closeCommitDetails(false);
+		this.selectedCommits = [];
 		this.settingsWidget.close();
 		this.saveState();
 		this.refresh(true);
@@ -500,6 +504,7 @@ export class GitGraphView {
 		if (this.expandedCommit !== null && (!expandedCommitVisible || (this.expandedCommit.compareWithHash !== null && !expandedCompareWithCommitVisible))) {
 			this.closeCommitDetails(false);
 		}
+		this.selectedCommits = this.selectedCommits.filter((hash) => typeof this.commitLookup[hash] === 'number');
 
 		this.saveState();
 
@@ -861,6 +866,7 @@ export class GitGraphView {
 			maxCommits: this.maxCommits,
 			onlyFollowFirstParent: this.onlyFollowFirstParent,
 			expandedCommit: expandedCommit,
+			selectedCommits: this.selectedCommits,
 			scrollTop: this.scrollTop,
 			findWidget: this.findWidget.getState(),
 			settingsWidget: this.settingsWidget.getState()
@@ -1082,6 +1088,7 @@ export class GitGraphView {
 				'<tr class="commit' +
 				(commit.hash === currentHash ? ' current' : '') +
 				(mutedCommits[i] || !commit.isPathFilterMatch ? ' mute' : '') +
+				(this.selectedCommits.includes(commit.hash) ? ' ' + CLASS_COMMIT_SELECTED : '') +
 				'"' +
 				(commit.hash !== UNCOMMITTED ? '' : ' id="uncommittedChanges"') +
 				' data-id="' +
@@ -1843,6 +1850,59 @@ export class GitGraphView {
 					visible: visibility.copyName,
 					onClick: () => {
 						sendMessage({ command: 'copyToClipboard', type: 'Branch Name', data: refName });
+					}
+				}
+			]
+		];
+	}
+
+	private getSelectedCommitsContextMenuActions(target: DialogTarget & CommitTarget): ContextMenuActions {
+		const visibility = this.config.contextMenuActionsVisibility.commit;
+		const hashes = this.selectedCommits.slice().sort((a, b) => this.commitLookup[a] - this.commitLookup[b]); // Ordered from newest to oldest
+		const rebasePossible = hashes.every((hash) => this.graph.dropCommitPossible(this.commitLookup[hash]));
+		const consecutive = hashes.every((hash, i) => i === 0 || this.commits[this.commitLookup[hashes[i - 1]]].parents[0] === hash);
+		const onlyFollowFirstParentNote = this.onlyFollowFirstParent
+			? '<br/><i>Note: By enabling "Only follow the first parent of commits", some commits may have been hidden from the Git Graph View that could affect the outcome of performing this action.</i>'
+			: '';
+		return [
+			[
+				{
+					title: 'Squash Selected Commits' + ELLIPSIS,
+					visible: visibility.squashSelected && rebasePossible && consecutive,
+					onClick: () => {
+						dialog.showForm(
+							'Are you sure you want to squash the ' +
+								hashes.length +
+								' selected commits (<b><i>' +
+								abbrevCommit(hashes[hashes.length - 1]) +
+								'</i></b> to <b><i>' +
+								abbrevCommit(hashes[0]) +
+								'</i></b>) into a single commit?' +
+								onlyFollowFirstParentNote,
+							[
+								{ type: DialogInputType.TextArea, name: 'Message', default: this.commits[this.commitLookup[hashes[0]]].message, info: 'The message of the squashed commit.' },
+								{ type: DialogInputType.Checkbox, name: 'No Verify', value: false, info: 'Skip the pre-commit and commit-msg hooks when committing the squashed commit.' }
+							],
+							'Yes, squash',
+							(values) => {
+								runAction({ command: 'squashCommits', repo: this.currentRepo, commitHashes: hashes, message: (<string>values[0]).trim(), noVerify: <boolean>values[1] }, 'Squashing Commits');
+							},
+							target
+						);
+					}
+				},
+				{
+					title: 'Drop Selected Commits' + ELLIPSIS,
+					visible: visibility.dropSelected && rebasePossible,
+					onClick: () => {
+						dialog.showConfirmation(
+							'Are you sure you want to permanently drop the ' + hashes.length + ' selected commits?' + onlyFollowFirstParentNote,
+							'Yes, drop',
+							() => {
+								runAction({ command: 'dropCommits', repo: this.currentRepo, commitHashes: hashes }, 'Dropping Commits');
+							},
+							target
+						);
 					}
 				}
 			]
@@ -2849,7 +2909,10 @@ export class GitGraphView {
 				if (newHashIndex > -1) {
 					handledEvent(e);
 					const elem = findCommitElemWithId(getCommitElems(), newHashIndex);
-					if (elem !== null) this.loadCommitDetails(elem);
+					if (elem !== null) {
+						this.setSelectedCommits([]);
+						this.loadCommitDetails(elem);
+					}
 				}
 			} else if (e.key && (e.ctrlKey || e.metaKey)) {
 				const key = e.key.toLowerCase(),
@@ -2882,8 +2945,9 @@ export class GitGraphView {
 				} else if (this.findWidget.isVisible()) {
 					this.findWidget.close();
 					handledEvent(e);
-				} else if (this.expandedCommit !== null) {
+				} else if (this.expandedCommit !== null || this.selectedCommits.length > 0) {
 					this.closeCommitDetails(true);
+					this.setSelectedCommits([]);
 					handledEvent(e);
 				}
 			}
@@ -3003,24 +3067,33 @@ export class GitGraphView {
 				}
 			} else if ((eventElem = eventTarget.closest('.commit')) !== null) {
 				// .commit was clicked
-				if (this.expandedCommit !== null) {
+				if (e.ctrlKey || e.metaKey || e.shiftKey) {
 					const commit = this.getCommitOfElem(eventElem);
 					if (commit === null) return;
 
+					this.selectCommit(commit.hash, e.shiftKey);
+				} else if (this.expandedCommit !== null) {
+					const commit = this.getCommitOfElem(eventElem);
+					if (commit === null) return;
+
+					this.setSelectedCommits([]);
 					if (this.expandedCommit.commitHash === commit.hash) {
 						this.closeCommitDetails(true);
-					} else if ((<MouseEvent>e).ctrlKey || (<MouseEvent>e).metaKey) {
-						if (this.expandedCommit.compareWithHash === commit.hash) {
-							this.closeCommitComparison(true);
-						} else if (this.expandedCommit.commitElem !== null) {
-							this.loadCommitComparison(this.expandedCommit.commitElem, eventElem);
-						}
 					} else {
 						this.loadCommitDetails(eventElem);
 					}
 				} else {
+					this.setSelectedCommits([]);
 					this.loadCommitDetails(eventElem);
 				}
+			}
+		});
+
+		// Register Mouse Down Event Handler
+		this.tableElem.addEventListener('mousedown', (e: MouseEvent) => {
+			if (e.shiftKey && e.target !== null && (<Element>e.target).closest('.commit') !== null) {
+				// Prevent Shift + Click from selecting the text between the commits, as it's used to select a range of commits
+				e.preventDefault();
 			}
 		});
 
@@ -3126,6 +3199,8 @@ export class GitGraphView {
 				} else if (commit.stash !== null) {
 					target.ref = commit.stash.selector;
 					actions = this.getStashContextMenuActions(<RefTarget>target);
+				} else if (this.selectedCommits.length > 1 && this.selectedCommits.includes(commit.hash)) {
+					actions = this.getSelectedCommitsContextMenuActions(target);
 				} else {
 					actions = this.getCommitContextMenuActions(target);
 				}
@@ -3133,6 +3208,68 @@ export class GitGraphView {
 				contextMenu.show(actions, false, target, <MouseEvent>e, this.viewElem);
 			}
 		});
+	}
+
+	/* Commit Selection */
+
+	/**
+	 * Update the selected commits after a commit was clicked while holding Ctrl / Cmd or Shift, and update the Commit Details View
+	 * to match them: the details of one selected commit are shown, two selected commits are compared, and otherwise it's closed.
+	 * @param hash The hash of the commit that was clicked.
+	 * @param selectRange TRUE => Select the range of commits from the first selected commit to the clicked commit, FALSE => Toggle whether the clicked commit is selected.
+	 */
+	private selectCommit(hash: string, selectRange: boolean) {
+		let selectedCommits = this.selectedCommits.slice();
+		if (selectedCommits.length === 0 && this.expandedCommit !== null) {
+			// Start the selection with the commit(s) shown in the Commit Details View
+			selectedCommits.push(this.expandedCommit.commitHash);
+			if (this.expandedCommit.compareWithHash !== null) selectedCommits.push(this.expandedCommit.compareWithHash);
+		}
+
+		if (selectRange && selectedCommits.length > 0) {
+			const anchorIndex = this.commitLookup[selectedCommits[0]],
+				index = this.commitLookup[hash],
+				step = index < anchorIndex ? -1 : 1;
+			selectedCommits = [];
+			for (let i = anchorIndex; i !== index + step; i += step) {
+				selectedCommits.push(this.commits[i].hash);
+			}
+		} else if (selectedCommits.includes(hash)) {
+			selectedCommits = selectedCommits.filter((selectedHash) => selectedHash !== hash);
+		} else {
+			selectedCommits.push(hash);
+		}
+		this.setSelectedCommits(selectedCommits);
+
+		const commitElems = getCommitElems();
+		const commitElem = selectedCommits.length > 0 ? findCommitElemWithId(commitElems, this.getCommitId(selectedCommits[0])) : null;
+		const compareWithElem = selectedCommits.length === 2 ? findCommitElemWithId(commitElems, this.getCommitId(selectedCommits[1])) : null;
+		if (selectedCommits.length === 1 && commitElem !== null) {
+			if (this.expandedCommit !== null && this.expandedCommit.commitHash === selectedCommits[0]) {
+				this.closeCommitComparison(true);
+			} else {
+				this.loadCommitDetails(commitElem);
+			}
+		} else if (commitElem !== null && compareWithElem !== null) {
+			this.loadCommitComparison(commitElem, compareWithElem);
+		} else {
+			this.closeCommitDetails(true);
+		}
+	}
+
+	/**
+	 * Set the selected commits, and update which commits are highlighted as selected.
+	 * @param selectedCommits The hashes of the selected commits.
+	 */
+	private setSelectedCommits(selectedCommits: string[]) {
+		if (this.selectedCommits.length === 0 && selectedCommits.length === 0) return;
+
+		this.selectedCommits = selectedCommits;
+		const commitElems = getCommitElems();
+		for (let i = 0; i < commitElems.length; i++) {
+			alterClass(commitElems[i], CLASS_COMMIT_SELECTED, selectedCommits.includes(this.commits[parseInt(commitElems[i].dataset.id!)].hash));
+		}
+		this.saveState();
 	}
 
 	/* Commit Details View */
@@ -4211,6 +4348,9 @@ window.addEventListener('load', () => {
 			case 'dropCommit':
 				refreshOrDisplayError(msg.error, 'Unable to Drop Commit');
 				break;
+			case 'dropCommits':
+				refreshOrDisplayError(msg.error, 'Unable to Drop Commits');
+				break;
 			case 'dropStash':
 				refreshOrDisplayError(msg.error, 'Unable to Drop Stash');
 				break;
@@ -4323,6 +4463,9 @@ window.addEventListener('load', () => {
 				break;
 			case 'setWorkspaceViewState':
 				finishOrDisplayError(msg.error, 'Unable to save the Workspace View State');
+				break;
+			case 'squashCommits':
+				refreshOrDisplayError(msg.error, 'Unable to Squash Commits');
 				break;
 			case 'startCodeReview':
 				if (msg.error === null) {

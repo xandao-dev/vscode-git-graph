@@ -240,6 +240,14 @@
 									"type": "boolean",
 									"title": "Fixup this Commit"
 								},
+								"squashSelected": {
+									"type": "boolean",
+									"title": "Squash Selected Commits..."
+								},
+								"dropSelected": {
+									"type": "boolean",
+									"title": "Drop Selected Commits..."
+								},
 								"merge": {
 									"type": "boolean",
 									"title": "Merge into current branch..."

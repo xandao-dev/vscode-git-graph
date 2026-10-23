@@ -7557,6 +7557,71 @@ describe('DataSource', () => {
 		});
 	});
 
+	describe('dropCommits', () => {
+		it('Should drop multiple commits', async () => {
+			// Setup
+			mockGitSuccessOnce();
+			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
+
+			// Run
+			const result = await dataSource.dropCommits('/path/to/repo', ['2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b']);
+
+			// Assert
+			expect(result).toBe(null);
+			expect(spyOnSpawn).toBeCalledWith(
+				'/path/to/git',
+				[
+					'-c',
+					'rebase.instructionFormat=%H',
+					'-c',
+					'sequence.editor=sed -i.bak -e "/ 2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c/s/^[a-z]* /drop /" -e "/ 1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b/s/^[a-z]* /drop /"',
+					'rebase',
+					'--interactive',
+					'1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b^'
+				],
+				expect.objectContaining({ cwd: '/path/to/repo' })
+			);
+		});
+
+		it('Should drop multiple commits (signing any new commits)', async () => {
+			// Setup
+			mockGitSuccessOnce();
+			vscode.mockExtensionSettingReturnValue('repository.sign.commits', true);
+
+			// Run
+			const result = await dataSource.dropCommits('/path/to/repo', ['2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b']);
+
+			// Assert
+			expect(result).toBe(null);
+			expect(spyOnSpawn).toBeCalledWith(
+				'/path/to/git',
+				[
+					'-c',
+					'rebase.instructionFormat=%H',
+					'-c',
+					'sequence.editor=sed -i.bak -e "/ 2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c/s/^[a-z]* /drop /" -e "/ 1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b/s/^[a-z]* /drop /"',
+					'rebase',
+					'--interactive',
+					'-S',
+					'1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b^'
+				],
+				expect.objectContaining({ cwd: '/path/to/repo' })
+			);
+		});
+
+		it('Should return an error message thrown by git', async () => {
+			// Setup
+			mockGitThrowingErrorOnce();
+			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
+
+			// Run
+			const result = await dataSource.dropCommits('/path/to/repo', ['2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b']);
+
+			// Assert
+			expect(result).toBe('error message');
+		});
+	});
+
 	describe('editCommit', () => {
 		let spyOnExistsSync: MockInstance, spyOnUnlinkSync: MockInstance;
 		beforeAll(() => {
@@ -7891,6 +7956,195 @@ describe('DataSource', () => {
 
 			// Assert
 			expect(result).toBe('error message');
+		});
+	});
+
+	describe('squashCommits', () => {
+		let spyOnExistsSync: MockInstance;
+		beforeAll(() => {
+			spyOnExistsSync = vi.spyOn(fs, 'existsSync');
+		});
+		afterAll(() => {
+			spyOnExistsSync.mockRestore();
+		});
+
+		const mockSquashCommitsStoppedAtEdit = (signCommits: boolean) => {
+			mockGitSuccessOnce('2\n');
+			mockGitSuccessOnce();
+			mockGitSuccessOnce('.git/rebase-merge/amend\n');
+			spyOnExistsSync.mockReturnValueOnce(true);
+			vscode.mockExtensionSettingReturnValue('repository.sign.commits', signCommits);
+		};
+
+		it('Should squash multiple commits', async () => {
+			// Setup
+			mockSquashCommitsStoppedAtEdit(false);
+			mockGitSuccessOnce();
+			mockGitSuccessOnce();
+			mockGitSuccessOnce();
+
+			// Run
+			const result = await dataSource.squashCommits('/path/to/repo', ['2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b'], 'Squashed subject', false);
+
+			// Assert
+			expect(result).toBe(null);
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(
+				1,
+				'/path/to/git',
+				['rev-list', '--count', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b^..2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c'],
+				expect.objectContaining({ cwd: '/path/to/repo' })
+			);
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(
+				2,
+				'/path/to/git',
+				[
+					'-c',
+					'rebase.instructionFormat=%H',
+					'-c',
+					'sequence.editor=sed -i.bak -e "/ 2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c/s/^[a-z]* /edit /"',
+					'rebase',
+					'--interactive',
+					'1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b^'
+				],
+				expect.objectContaining({ cwd: '/path/to/repo' })
+			);
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(3, '/path/to/git', ['rev-parse', '--git-path', 'rebase-merge/amend'], expect.objectContaining({ cwd: '/path/to/repo' }));
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(4, '/path/to/git', ['reset', '--soft', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b^'], expect.objectContaining({ cwd: '/path/to/repo' }));
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(5, '/path/to/git', ['commit', '-m', 'Squashed subject'], expect.objectContaining({ cwd: '/path/to/repo' }));
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(6, '/path/to/git', ['rebase', '--continue'], expect.objectContaining({ cwd: '/path/to/repo' }));
+			expect(utils.getPathFromStr(spyOnExistsSync.mock.calls[0][0])).toBe('/path/to/repo/.git/rebase-merge/amend');
+		});
+
+		it('Should squash multiple commits (signing any new commits, and skipping the commit hooks)', async () => {
+			// Setup
+			mockSquashCommitsStoppedAtEdit(true);
+			mockGitSuccessOnce();
+			mockGitSuccessOnce();
+			mockGitSuccessOnce();
+
+			// Run
+			const result = await dataSource.squashCommits('/path/to/repo', ['2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b'], 'Squashed subject', true);
+
+			// Assert
+			expect(result).toBe(null);
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(
+				2,
+				'/path/to/git',
+				[
+					'-c',
+					'rebase.instructionFormat=%H',
+					'-c',
+					'sequence.editor=sed -i.bak -e "/ 2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c/s/^[a-z]* /edit /"',
+					'rebase',
+					'--interactive',
+					'-S',
+					'1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b^'
+				],
+				expect.objectContaining({ cwd: '/path/to/repo' })
+			);
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(5, '/path/to/git', ['commit', '-m', 'Squashed subject', '-S', '--no-verify'], expect.objectContaining({ cwd: '/path/to/repo' }));
+		});
+
+		it('Should return an error message thrown by git when counting the commits', async () => {
+			// Setup
+			mockGitThrowingErrorOnce();
+			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
+
+			// Run
+			const result = await dataSource.squashCommits('/path/to/repo', ['2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b'], 'Squashed subject', false);
+
+			// Assert
+			expect(result).toBe('error message');
+			expect(spyOnSpawn).toHaveBeenCalledTimes(1);
+		});
+
+		it('Should return an error message when other commits are between the commits', async () => {
+			// Setup
+			mockGitSuccessOnce('3\n');
+			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
+
+			// Run
+			const result = await dataSource.squashCommits('/path/to/repo', ['2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b'], 'Squashed subject', false);
+
+			// Assert
+			expect(result).toBe("The commits can't be squashed, as there are other commits between them.");
+			expect(spyOnSpawn).toHaveBeenCalledTimes(1);
+		});
+
+		it('Should return an error message thrown by git when starting the rebase', async () => {
+			// Setup
+			mockGitSuccessOnce('2\n');
+			mockGitThrowingErrorOnce();
+			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
+
+			// Run
+			const result = await dataSource.squashCommits('/path/to/repo', ['2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b'], 'Squashed subject', false);
+
+			// Assert
+			expect(result).toBe('error message');
+			expect(spyOnSpawn).toHaveBeenCalledTimes(2);
+		});
+
+		it("Should return an error message when the rebase didn't stop at the newest commit", async () => {
+			// Setup
+			mockGitSuccessOnce('2\n');
+			mockGitSuccessOnce();
+			mockGitSuccessOnce('.git/rebase-merge/amend\n');
+			spyOnExistsSync.mockReturnValueOnce(false);
+			vscode.mockExtensionSettingReturnValue('repository.sign.commits', false);
+
+			// Run
+			const result = await dataSource.squashCommits('/path/to/repo', ['2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b'], 'Squashed subject', false);
+
+			// Assert
+			expect(result).toBe("Git didn't stop the rebase at commit 2b3c4d5e.");
+			expect(spyOnSpawn).toHaveBeenCalledTimes(3);
+		});
+
+		it('Should abort the rebase when the squashed commit could not be committed', async () => {
+			// Setup
+			mockSquashCommitsStoppedAtEdit(false);
+			mockGitSuccessOnce();
+			mockGitThrowingErrorOnce();
+			mockGitSuccessOnce();
+
+			// Run
+			const result = await dataSource.squashCommits('/path/to/repo', ['2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b'], 'Squashed subject', false);
+
+			// Assert
+			expect(result).toBe('error message');
+			expect(spyOnSpawn).toHaveBeenCalledTimes(6);
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(6, '/path/to/git', ['rebase', '--abort'], expect.objectContaining({ cwd: '/path/to/repo' }));
+		});
+
+		it('Should abort the rebase when the commits could not be undone', async () => {
+			// Setup
+			mockSquashCommitsStoppedAtEdit(false);
+			mockGitThrowingErrorOnce();
+			mockGitSuccessOnce();
+
+			// Run
+			const result = await dataSource.squashCommits('/path/to/repo', ['2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b'], 'Squashed subject', false);
+
+			// Assert
+			expect(result).toBe('error message');
+			expect(spyOnSpawn).toHaveBeenCalledTimes(5);
+			expect(spyOnSpawn).toHaveBeenNthCalledWith(5, '/path/to/git', ['rebase', '--abort'], expect.objectContaining({ cwd: '/path/to/repo' }));
+		});
+
+		it('Should return an error message thrown by git when continuing the rebase', async () => {
+			// Setup
+			mockSquashCommitsStoppedAtEdit(false);
+			mockGitSuccessOnce();
+			mockGitSuccessOnce();
+			mockGitThrowingErrorOnce();
+
+			// Run
+			const result = await dataSource.squashCommits('/path/to/repo', ['2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b'], 'Squashed subject', false);
+
+			// Assert
+			expect(result).toBe('error message');
+			expect(spyOnSpawn).toHaveBeenCalledTimes(6);
 		});
 	});
 

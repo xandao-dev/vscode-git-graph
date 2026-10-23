@@ -1821,6 +1821,33 @@ describe('GitGraphView', () => {
 			});
 		});
 
+		describe('dropCommits', () => {
+			it('Should drop multiple commits', async () => {
+				// Setup
+				const dropCommitsResolvedValue = null;
+				const spyOnDropCommits = vi.spyOn(dataSource, 'dropCommits');
+				spyOnDropCommits.mockResolvedValueOnce(dropCommitsResolvedValue);
+
+				// Run
+				onDidReceiveMessage({
+					command: 'dropCommits',
+					repo: '/path/to/repo',
+					commitHashes: ['2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b']
+				});
+
+				// Assert
+				await waitForExpect(() => {
+					expect(spyOnDropCommits).toHaveBeenCalledWith('/path/to/repo', ['2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b']);
+					expect(messages).toStrictEqual([
+						{
+							command: 'dropCommits',
+							error: dropCommitsResolvedValue
+						}
+					]);
+				});
+			});
+		});
+
 		describe('editCommit', () => {
 			it('Should edit a commit', async () => {
 				// Setup
@@ -3561,6 +3588,35 @@ describe('GitGraphView', () => {
 				await waitForExpect(() => {
 					expect(spyOnShowErrorMessage).toHaveBeenCalledWith('error message');
 					expect(messages).toHaveLength(0);
+				});
+			});
+		});
+
+		describe('squashCommits', () => {
+			it('Should squash multiple commits', async () => {
+				// Setup
+				const squashCommitsResolvedValue = null;
+				const spyOnSquashCommits = vi.spyOn(dataSource, 'squashCommits');
+				spyOnSquashCommits.mockResolvedValueOnce(squashCommitsResolvedValue);
+
+				// Run
+				onDidReceiveMessage({
+					command: 'squashCommits',
+					repo: '/path/to/repo',
+					commitHashes: ['2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b'],
+					message: 'Squashed subject',
+					noVerify: true
+				});
+
+				// Assert
+				await waitForExpect(() => {
+					expect(spyOnSquashCommits).toHaveBeenCalledWith('/path/to/repo', ['2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c', '1a2b3c4d5e6f1a2b3c4d5e6f1a2b3c4d5e6f1a2b'], 'Squashed subject', true);
+					expect(messages).toStrictEqual([
+						{
+							command: 'squashCommits',
+							error: squashCommitsResolvedValue
+						}
+					]);
 				});
 			});
 		});
